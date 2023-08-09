@@ -8,7 +8,7 @@ class Episode():
         self.show_name = self.title.split('-')[0]
         self.data_dict = data_dict
 
-        self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
+        self.scenes = ''.join(self.transcript).split('[SCENE_BREAK]')
 
     def print_recap(self):
         for summ in self.summaries:
