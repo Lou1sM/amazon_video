@@ -120,6 +120,7 @@ def extract_all_frames(video_root_dir, save_dir, fps, num_frames,
     raw_video_info = load_tsv_to_mem(video_info_tsv)
     videoFiles = []
     for _, line_item in enumerate(raw_video_info):
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         input_file = line_item[0]
         input_file = input_file.replace('datasets','_datasets')
         if os.path.isfile(input_file):
@@ -151,7 +152,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--video_root_dir", type=str, help="video root dir")
-    parser.add_argument("--save_dir", type=str, help="save frame dir ")
+    parser.add_argument("--save_dir", type=str, default='tmp', help="save frame dir ")
     parser.add_argument("--fps", type=str, default="1")
     parser.add_argument("--num_frames", type=int, default=-1)
     parser.add_argument("--num_workers", type=int, default=8)

@@ -1,5 +1,4 @@
 import torch
-from src.utils.logger import LOGGER as logger
 from src.modeling.video_swin.swin_transformer import SwinTransformer3D
 from src.modeling.video_swin.config import Config
 
@@ -16,9 +15,6 @@ def get_swin_model(args):
         config_path = 'src/modeling/video_swin/swin_base_patch244_window877_kinetics400_22k.py'
         model_path = './models/swin_transformer/swin_base_patch4_window7_224_22k.pth'
 
-    logger.info(f'video swin (config path): {config_path}')
-    if args.pretrained_checkpoint == '':
-        logger.info(f'video swin (model path): {model_path}')
     cfg = Config.fromfile(config_path)
     pretrained_path = model_path if args.pretrained_2d else None
     backbone = SwinTransformer3D(
@@ -61,10 +57,6 @@ def reload_pretrained_swin(video_swin, args):
 
     checkpoint_3d = torch.load(model_path, map_location='cpu')
     missing, unexpected = video_swin.load_state_dict(checkpoint_3d['state_dict'], strict=False)
-    logger.info(f"re-loaded video_swin_transformer from {model_path}")
-
-    logger.info(f"Missing keys in loaded video_swin_transformerr: {missing}")
-    logger.info(f"Unexpected keys in loaded video_swin_transformer: {unexpected}")
     return video_swin
 
 class myVideoSwin(torch.nn.Module):

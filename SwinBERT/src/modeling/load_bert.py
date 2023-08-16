@@ -1,5 +1,4 @@
 from src.layers.bert import BertTokenizer, BertConfig, BertForImageCaptioning
-from src.utils.logger import LOGGER as logger
 
 def get_bert_model(args):
     # Load pretrained bert and tokenizer based on training configs
@@ -26,7 +25,6 @@ def get_bert_model(args):
         # bert-base-uncased do not have img_feature_dim
         config_param = getattr(config, param) if hasattr(config, param) else -1
         if arg_param > 0 and arg_param != config_param:
-            logger.info(f"Update config parameter {param}: {config_param} -> {arg_param}")
             setattr(config, param, arg_param)
             model_structure_changed[idx] = True
     if any(model_structure_changed):
@@ -37,15 +35,11 @@ def get_bert_model(args):
                 "when any of ({}) is changed.".format(', '.join(update_params[2:]))
             model = model_class.from_pretrained(args.model_name_or_path,
                 from_tf=bool('.ckpt' in args.model_name_or_path), config=config)
-            logger.info("Load partial weights for bert layers.")
         else:
             model = model_class(config=config) # init from scratch
-            logger.info("Init model from scratch.")
     else:
         model = model_class.from_pretrained(args.model_name_or_path,
             from_tf=bool('.ckpt' in args.model_name_or_path), config=config)
-        logger.info(f"Load pretrained model: {args.model_name_or_path}")
 
     total_params = sum(p.numel() for p in model.parameters())
-    logger.info(f'Model total parameters: {total_params}')
     return model, config, tokenizer

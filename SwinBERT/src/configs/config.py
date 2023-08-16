@@ -9,7 +9,6 @@ import torch
 
 from easydict import EasyDict as edict
 from src.utils.miscellaneous import str_to_bool, check_yaml_file
-from src.utils.logger import LOGGER
 from os import path as op
 from packaging import version
 
@@ -107,17 +106,17 @@ class SharedConfigs(object):
         parser.add_argument("--max_masked_tokens", type=int, default=3,
                             help="The max number of masked tokens per sentence.")
         parser.add_argument("--attn_mask_type", type=str, default='seq2seq',
-                           choices=['seq2seq', 'bidirectional', 'learn_vid_mask'], 
+                           choices=['seq2seq', 'bidirectional', 'learn_vid_mask'],
                             help="Attention mask type, support seq2seq, bidirectional")
         parser.add_argument("--text_mask_type", type=str, default='random',
-                           choices=['random', 'pos_tag', 'bert_attn', 'attn_on_the_fly'], 
+                           choices=['random', 'pos_tag', 'bert_attn', 'attn_on_the_fly'],
                             help="Attention mask type, support random, pos_tag, bert_attn (precomputed_bert_attn), attn_on_the_fly")
-        parser.add_argument("--tag_to_mask", default=["noun", "verb"], type=str, nargs="+", 
+        parser.add_argument("--tag_to_mask", default=["noun", "verb"], type=str, nargs="+",
                             choices=["noun", "verb", "adjective", "adverb", "number"],
                             help= "what tags to mask")
         parser.add_argument("--mask_tag_prob", default=0.8, type=float,
                             help= "Probability to mask input text tokens with included tags during training.")
-        parser.add_argument("--tagger_model_path", type=str, default='models/flair/en-pos-ontonotes-fast-v0.5.pt', 
+        parser.add_argument("--tagger_model_path", type=str, default='models/flair/en-pos-ontonotes-fast-v0.5.pt',
                             help="checkpoint path to tagger model")
         parser.add_argument("--random_mask_prob", default=0, type=float,
                             help= "Probability to mask input text tokens randomly when using other text_mask_type")
@@ -131,9 +130,9 @@ class SharedConfigs(object):
                             help="Batch size per GPU/CPU for training.")
         parser.add_argument("--num_workers", default=4, type=int,
                             help="Workers in dataloader.")
-        parser.add_argument('--limited_samples', type=int, default=-1, 
+        parser.add_argument('--limited_samples', type=int, default=-1,
                             help="Set # of samples per node. Data partition for cross-node training.")
-        
+
         # training configs
         parser.add_argument("--learning_rate", default=3e-5, type=float,
                             help="The initial lr.")
@@ -168,7 +167,7 @@ class SharedConfigs(object):
                             help="set mixed_precision_method, options: apex, deepspeed, fairscale",
                             choices=["apex", "deepspeed", "fairscale"])
         parser.add_argument('--zero_opt_stage', type=int,
-                            help="zero_opt_stage, only allowed in deepspeed", 
+                            help="zero_opt_stage, only allowed in deepspeed",
                             default=-1, choices=[0, 1, 2, 3])
         parser.add_argument('--amp_opt_level', default=0,
                             help="amp optimization level, can set for both deepspeed and apex",  type=int,
@@ -197,7 +196,7 @@ class SharedConfigs(object):
         # downstream finetuning args (not needed for pretraining)
         self.parser.add_argument("--eval_model_dir", type=str, default='',
                                  help="Model directory for evaluation.")
-        
+
         # training/validation/inference mode (only needed for captioning)
         self.parser.add_argument("--val_yaml", default='coco_caption/val.yaml',
                                  type=str, required=False,
@@ -263,16 +262,16 @@ class SharedConfigs(object):
                                  "(https://arxiv.org/abs/1909.05858)")
         self.parser.add_argument('--length_penalty', type=int, default=1,
                                  help="beam search length penalty")
-        
+
         if cbs:
             self.constraint_beam_search_args()
         if scst:
             self.self_critic_args()
 
         return
-    
+
     def constraint_beam_search_args(self):
-        
+
         # for Constrained Beam Search
         self.parser.add_argument('--use_cbs', type=str_to_bool, nargs='?', const=True, default=False,
                                  help='Use constrained beam search for decoding')
@@ -320,21 +319,17 @@ def basic_check_arguments(args):
 
     # can add some basic checks here
     if args.mixed_precision_method != "deepspeed":
-        LOGGER.info("Deepspeed is not enabled. We will disable the relevant args --zero_opt_stage and --deepspeed_fp16.")
         args.zero_opt_stage = -1
         args.deepspeed_fp16 = False
-    
+
     if args.mixed_precision_method != "fairscale":
-        LOGGER.info("Fairscale is not enabled. We will disable the relevant args --fairscale_fp16.")
         args.zero_opt_stage = -1
         args.fairscale_fp16 = False
-    
+
     if args.mixed_precision_method != "apex":
-        LOGGER.info("Disable restorer for deepspeed or fairscale")
         args.restore_ratio = -1
-    
+
     if args.text_mask_type != "pos_tag":
-        LOGGER.info("Disable --mask_tag_prob")
         args.mask_tag_prob = -1
 
     if hasattr(args, 'do_train') and args.do_train:
@@ -392,8 +387,6 @@ def restore_training_settings(args):
                 max_od_labels_len = train_args.max_seq_length - train_args.max_seq_a_length
             max_seq_length = args.max_gen_length + max_od_labels_len
             args.max_seq_length = max_seq_length
-            LOGGER.warning('Override max_seq_length to {} = max_gen_length:{} + od_labels_len:{}'.format(
-                    max_seq_length, args.max_gen_length, max_od_labels_len))
 
     override_params = ['do_lower_case', 'add_od_labels',
             'img_feature_dim', 'no_sort_by_conf','num_hidden_layers']
@@ -402,8 +395,6 @@ def restore_training_settings(args):
             train_v = getattr(train_args, param)
             test_v = getattr(args, param)
             if train_v != test_v:
-                LOGGER.warning('Override {} with train args: {} -> {}'.format(param,
-                    test_v, train_v))
                 setattr(args, param, train_v)
 
     if hasattr(args, 'scst') and args.scst==True:

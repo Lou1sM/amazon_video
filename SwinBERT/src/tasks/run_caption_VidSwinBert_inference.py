@@ -13,15 +13,13 @@ import time
 import torch
 import torch.distributed as dist
 from apex import amp
-import deepspeed
+#import deepspeed
 from src.configs.config import (basic_check_arguments, shared_configs)
 from src.datasets.data_utils.video_ops import extract_frames_from_video_path
 from src.datasets.data_utils.video_transforms import Compose, Resize, Normalize, CenterCrop
 from src.datasets.data_utils.volume_transforms import ClipToTensor
 from src.datasets.caption_tensorizer import build_tensorizer
-from src.utils.deepspeed import fp32_to_fp16
-from src.utils.logger import LOGGER as logger
-from src.utils.logger import (TB_LOGGER, RunningMeter, add_log_to_file)
+#from src.utils.deepspeed import fp32_to_fp16
 from src.utils.comm import (is_main_process,
                             get_rank, get_world_size, dist_init)
 from src.utils.miscellaneous import (mkdir, set_seed, str_to_bool)
@@ -43,7 +41,7 @@ def _transforms(args, frames):
         CenterCrop((args.img_res,args.img_res)),
         ClipToTensor(channel_nb=3),
         Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
-    ]            
+    ]
     raw_video_prcoess = Compose(raw_video_crop_list)
 
     frames = frames.numpy()
@@ -58,7 +56,7 @@ def _transforms(args, frames):
     crop_frames = raw_video_prcoess(frame_list)
     # (C x T x H x W) --> (T x C x H x W)
     crop_frames = crop_frames.permute(1, 0, 2, 3)
-    return crop_frames 
+    return crop_frames
 
 def inference(args, video_path, model, tokenizer, tensorizer):
     cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = \
@@ -105,33 +103,28 @@ def inference(args, video_path, model, tokenizer, tensorizer):
         for caps, confs in zip(all_caps, all_confs):
             for cap, conf in zip(caps, confs):
                 cap = tokenizer.decode(cap.tolist(), skip_special_tokens=True)
-                logger.info(f"Prediction: {cap}")
-                logger.info(f"Conf: {conf.item()}")
-
-    logger.info(f"Inference model computing time: {time_meter} seconds")
 
 def check_arguments(args):
     # shared basic checks
     basic_check_arguments(args)
     # additional sanity check:
     args.max_img_seq_length = int((args.max_num_frames/2)*(int(args.img_res)/32)*(int(args.img_res)/32))
-    
+
     if args.freeze_backbone or args.backbone_coef_lr == 0:
         args.backbone_coef_lr = 0
         args.freeze_backbone = True
-    
+
     if 'reload_pretrained_swin' not in args.keys():
         args.reload_pretrained_swin = False
 
     if not len(args.pretrained_checkpoint) and args.reload_pretrained_swin:
-        logger.info("No pretrained_checkpoint to be loaded, disable --reload_pretrained_swin")
         args.reload_pretrained_swin = False
 
-    if args.learn_mask_enabled==True: 
+    if args.learn_mask_enabled==True:
         args.attn_mask_type = 'learn_vid_att'
 
 def update_existing_config_for_inference(args):
-    ''' load swinbert args for evaluation and inference 
+    ''' load swinbert args for evaluation and inference
     '''
     assert args.do_test or args.do_eval
     checkpoint = args.eval_model_dir
@@ -189,30 +182,16 @@ def main(args):
     check_arguments(args)
     set_seed(args.seed, args.num_gpus)
     fp16_trainning = None
-    logger.info(
-        "device: {}, n_gpu: {}, rank: {}, "
-        "16-bits training: {}".format(
-            args.device, args.num_gpus, get_rank(), fp16_trainning))
 
-    if not is_main_process():
-        logger.disabled = True
-
-    logger.info(f"Pytorch version is: {torch.__version__}")
-    logger.info(f"Cuda version is: {torch.version.cuda}")
-    logger.info(f"cuDNN version is : {torch.backends.cudnn.version()}" )
-
-     # Get Video Swin model 
+     # Get Video Swin model
     swin_model = get_swin_model(args)
-    # Get BERT and tokenizer 
+    # Get BERT and tokenizer
     bert_model, config, tokenizer = get_bert_model(args)
     # build SwinBERT based on training configs
-    vl_transformer = VideoTransformer(args, config, swin_model, bert_model) 
+    vl_transformer = VideoTransformer(args, config, swin_model, bert_model)
     vl_transformer.freeze_backbone(freeze=args.freeze_backbone)
 
-    # load weights for inference
-    logger.info(f"Loading state dict from checkpoint {args.resume_checkpoint}")
-    cpu_device = torch.device('cpu')
-    pretrained_model = torch.load(args.resume_checkpoint, map_location=cpu_device)
+    pretrained_model = torch.load(args.resume_checkpoint, map_location=torch.device('cpu'))
 
     if isinstance(pretrained_model, dict):
         vl_transformer.load_state_dict(pretrained_model, strict=False)

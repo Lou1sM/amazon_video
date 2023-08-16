@@ -1,7 +1,6 @@
 import torch
 import random
 import os.path as op
-from src.utils.logger import LOGGER
 import re, html
 
 FLAIR_TAG = {
@@ -13,7 +12,7 @@ FLAIR_TAG = {
 
 
 class CaptionTensorizer(object):
-    def __init__(self, tokenizer, max_img_seq_length=50, max_seq_length=70, 
+    def __init__(self, tokenizer, max_img_seq_length=50, max_seq_length=70,
             max_seq_a_length=40, mask_prob=0.15, max_masked_tokens=3,
             attn_mask_type='seq2seq', is_train=True, mask_b=False,
             text_mask_type='random', tag_to_mask=None,
@@ -56,13 +55,13 @@ class CaptionTensorizer(object):
                 self.random_mask_prob = random_mask_prob
         else:
             assert attn_mask_type in ('seq2seq', 'learn_vid_att')
-        
-        self._triangle_mask = torch.tril(torch.ones((self.max_seq_len, 
+
+        self._triangle_mask = torch.tril(torch.ones((self.max_seq_len,
             self.max_seq_len), dtype=torch.long))
-    
+
     def get_pos_tag_mask_idx(self, seq_a_len, text_meta):
-        
-        ''' The rest   
+
+        ''' The rest
         ADD	Email
         AFX	Affix
         CC	Coordinating conjunction
@@ -84,7 +83,7 @@ class CaptionTensorizer(object):
         XX
         '''
         # process loaded pos_tags
-        pos_tags =  text_meta["bert_pos_tag"] 
+        pos_tags =  text_meta["bert_pos_tag"]
         if len(pos_tags) > seq_a_len - 2:
             pos_tags = pos_tags[:seq_a_len-2]
         pos_tags = [None] + pos_tags + [None]
@@ -100,10 +99,10 @@ class CaptionTensorizer(object):
                 continue
             allow_masked_ids.add(bert_idx)
         return pos_tags, allow_masked_ids
-    
+
     def get_bert_attn_mask_idx(self, seq_a_len, text_meta, num_masked):
         # process loaded bert attention weights (assuming max_len = 50)
-        attn_weights =  text_meta["bert_attn"] 
+        attn_weights =  text_meta["bert_attn"]
         if len(attn_weights) > seq_a_len:
             attn_weights = attn_weights[:seq_a_len]
         elif len(attn_weights) < seq_a_len:
@@ -112,7 +111,7 @@ class CaptionTensorizer(object):
             attn_weights = [0.0] * padding_len
         mask_idx = torch.multinomial(torch.tensor(attn_weights), num_masked).tolist()
         return mask_idx
-    
+
     def get_attn_masks(self, seq_a_len, seq_len):
         # image features
         img_len = self.max_img_seq_len
@@ -151,8 +150,8 @@ class CaptionTensorizer(object):
         elif self.attn_mask_type in ('learn_vid_att'):
             # prepare attention mask:
             # note that there is no attention from caption to image
-            # because otherwise it will violate the triangle attention 
-            # for caption as caption will have full attention on image. 
+            # because otherwise it will violate the triangle attention
+            # for caption as caption will have full attention on image.
             attention_mask = torch.zeros((max_len, max_len), dtype=torch.long)
             # triangle mask for caption to caption
             attention_mask[c_start : c_end, c_start : c_end].copy_(
@@ -160,14 +159,14 @@ class CaptionTensorizer(object):
             )
             # full attention for C-L, C-R
             attention_mask[c_start : c_end, l_start : l_end] = 1
-            attention_mask[c_start : c_end, r_start : r_end] = 1 
+            attention_mask[c_start : c_end, r_start : r_end] = 1
             # full attention for video tokens:
             attention_mask[l_start : r_end, l_start : r_end] = 1
         else:
             # prepare attention mask:
             # note that there is no attention from caption to image
-            # because otherwise it will violate the triangle attention 
-            # for caption as caption will have full attention on image. 
+            # because otherwise it will violate the triangle attention
+            # for caption as caption will have full attention on image.
             attention_mask = torch.zeros((max_len, max_len), dtype=torch.long)
             # triangle mask for caption to caption
             attention_mask[c_start : c_end, c_start : c_end].copy_(
@@ -183,7 +182,7 @@ class CaptionTensorizer(object):
             attention_mask[l_start : l_end, r_start : r_end] = 1
             attention_mask[r_start : r_end, l_start : l_end] = 1
         return attention_mask
-    
+
     def get_text_mask_idx(self, seq_a_len, seq_len, text_meta=None):
         # randomly mask words for prediction, ignore [CLS], [PAD]
         # it is important to mask [SEP] for image captioning as it means [EOS].
@@ -216,7 +215,7 @@ class CaptionTensorizer(object):
                 max(1, int(num_masked*self.mask_tag_prob)), len(pos_tag_candidate))
             random.shuffle(pos_tag_candidate)
             masked_idx = pos_tag_candidate[:num_pos_tag_masked]
-            
+
             num_left_overs = num_masked - num_pos_tag_masked
             if num_left_overs > 0:
                 random.shuffle(left_over_candidate)
@@ -232,7 +231,7 @@ class CaptionTensorizer(object):
             masked_idx = candidate_masked_idx[:num_masked]
         masked_idx = sorted(masked_idx)
         return masked_idx
-    
+
     def mask_text_inputs(self, tokens, seq_a_len, seq_len, text_meta=None):
         if self.is_train:
             if self.text_mask_type == "attn_on_the_fly" and random.random() > self.random_mask_prob and len(tokens)> 2:
@@ -264,7 +263,7 @@ class CaptionTensorizer(object):
 
                 masked_pos = torch.zeros(self.max_seq_len, dtype=torch.int)
                 masked_pos[masked_idx] = 1
-                
+
                 # get the actual number of masked tokens
                 num_masked = len(masked_token)
                 mlm_targets = self.tokenizer.convert_tokens_to_ids(masked_token)
@@ -274,9 +273,9 @@ class CaptionTensorizer(object):
         elif not self.is_train:
             masked_pos = torch.ones(self.max_seq_len, dtype=torch.int)
             mlm_targets = None
-        
+
         return tokens, masked_pos, mlm_targets
-    
+
     def prepro_raw_txt(self, text):
         # in case there are html special characters
         text = html.unescape(text)
@@ -289,7 +288,7 @@ class CaptionTensorizer(object):
                             "]+", flags=re.UNICODE)
         text = emoji_pattern.sub(r'', text)
         return text
-    
+
     def tokenize_text_inputs(
             self, text_a, text_b=None, cls_token_segment_id=0,
             pad_token_segment_id=0, sequence_a_segment_id=0,
@@ -302,7 +301,7 @@ class CaptionTensorizer(object):
                 assert len(text_meta['bert_pos_tag']) == len(tokens_a)
             elif self.text_mask_type == "bert_attn":
                 assert text_meta is not None and 'bert_attn' in text_meta
-                assert (len(text_meta['bert_attn']) == len(tokens_a) + 2 or 
+                assert (len(text_meta['bert_attn']) == len(tokens_a) + 2 or
                         len(text_meta['bert_attn']) == self.max_seq_a_len)
         else:
             # fake tokens to generate masks
@@ -337,7 +336,7 @@ class CaptionTensorizer(object):
         tokens, segment_ids, seq_a_len, seq_len = self.tokenize_text_inputs(
             text_a, text_b, cls_token_segment_id, pad_token_segment_id,
             sequence_a_segment_id, sequence_b_segment_id, text_meta)
-        
+
         # masking the tokens
         tokens_after_masking, masked_pos, mlm_targets = self.mask_text_inputs(
             tokens, seq_a_len, seq_len, text_meta)
@@ -366,14 +365,7 @@ def build_tensorizer(args, tokenizer, is_train=True):
         mask_b = False
     if is_train:
         if  args.text_mask_type == "pos_tag":
-            # if op.exists(args.tagger_model_path):
-            #     tagger = SequenceTagger.load(args.tagger_model_path)
-            # else:
-            #     LOGGER.info(f'{args.tagger_model_path} does not exists, download on the fly...')
-            #     tagger = SequenceTagger.load('pos-fast')
             tag_to_mask = set(args.tag_to_mask)
-        # elif args.text_mask_type == "bert_attn":
-        #     bert = 
         else:
             tagger = None
             tag_to_mask = None

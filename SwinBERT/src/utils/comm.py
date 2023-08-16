@@ -4,7 +4,6 @@ This is useful when doing distributed training.
 """
 
 import pickle
-from .logger import LOGGER
 import torch
 import torch.distributed as dist
 import os
@@ -12,7 +11,7 @@ import os
 
 def dist_init(args):
     if 'OMPI_COMM_WORLD_SIZE' in os.environ:
-        
+
         master_addr = os.environ.get("MASTER_ADDR", 'localhost')
         master_port = os.environ.get("MASTER_PORT", 12345)
         master_uri = f"tcp://{master_addr}:{master_port}" #if master_addr else 'localhost'
@@ -24,7 +23,6 @@ def dist_init(args):
         args.distributed = args.num_gpus > 1
         args.local_rank = local_rank
         if args.distributed:
-            LOGGER.info(f"OMPI Init distributed training on local rank {args.local_rank}, global rank {world_rank}, with local_size {local_size}, world_size {world_size}")
             torch.cuda.set_device(args.local_rank)
             dist.init_process_group(
                 backend='nccl',
@@ -40,10 +38,9 @@ def dist_init(args):
 
         world_rank = int(os.environ['RANK'])
         if args.distributed:
-            LOGGER.info(f"Torch Init distributed training on local rank {args.local_rank}, global rank {world_rank}")
             torch.cuda.set_device(args.local_rank)
             torch.distributed.init_process_group(
-                backend='nccl', 
+                backend='nccl',
                 init_method='env://'
             )
             synchronize()

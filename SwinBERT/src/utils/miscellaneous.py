@@ -13,7 +13,6 @@ import yaml
 import json
 from .basic_utils import save_json
 from easydict import EasyDict as edict
-from .logger import LOGGER as logger
 from pprint import pformat
 
 
@@ -171,23 +170,20 @@ def freeze_weights(model, regexp):
     """Freeze weights based on regular expression."""
     for weight_name, weight in get_matching_parameters(model, regexp).items():
         weight.requires_grad = False
-        logger.info("Disabled training of {}".format(weight_name))
 
 
 def unfreeze_weights(model, regexp, backbone_freeze_at=-1,
         is_distributed=False):
     """
-    WARNING: This is not fully tested and may have issues. Now it is not used 
-    during training but keep it here for future reference. 
+    WARNING: This is not fully tested and may have issues. Now it is not used
+    during training but keep it here for future reference.
     Unfreeze weights based on regular expression.
     This is helpful during training to unfreeze freezed weights after
     other unfreezed weights have been trained for some iterations.
     """
     for weight_name, weight in get_matching_parameters(model, regexp).items():
         weight.requires_grad = True
-        logger.info("Enabled training of {}".format(weight_name))
     if backbone_freeze_at >= 0:
-        logger.info("Freeze backbone at stage: {}".format(backbone_freeze_at))
         if is_distributed:
             model.module.backbone.body._freeze_backbone(backbone_freeze_at)
         else:
