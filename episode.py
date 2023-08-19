@@ -1,8 +1,9 @@
 
 
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
-    def __init__(self,transcript_data,summary_data):
+    def __init__(self,ep_fname,transcript_data,summary_data):
         self.transcript = transcript_data['Transcript']
+        self.ep_fname = ep_fname
         #recap_summ = transcript_data['Recap'][0]
         #trans_summ = transcript_data['Episode Summary'][0]
         #self.summaries = dict(summary_data,recap=recap_summ,trans_summ=trans_summ)

@@ -1,4 +1,8 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from time import time
+import re
+import torch
+from math import ceil
 import pandas as pd
 import os
 from os.path import join
@@ -6,7 +10,71 @@ import json
 from episode import Episode
 #from torchmetrics.text.rouge import ROUGEScore
 from rouge_score import rouge_scorer
+import numpy as np
 
+
+class SoapSummer():
+    def __init__(self):
+        self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
+        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
+
+        self.tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn")
+
+        self.bs = 8
+        self.dbs = 8
+
+    def pad_batch(self,batch):
+        N=max([len(c) for c in batch])
+        return torch.tensor([b+[self.dtokenizer.eos_token_id]*(N-len(b)) for b in batch])
+
+    def summarize(self,ep):
+        start_time = time()
+        chunks = sum([self.chunkify(s,level='dialogue') for s in ep.scenes],[])
+        sort_idxs = np.argsort([len(x) for x in chunks])
+        reversed_sort_idxs = np.argsort(sort_idxs)
+        sorted_chunks = [chunks[i] for i in sort_idxs]
+        if not all([sorted_chunks[reversed_sort_idxs[i]]==c for i,c in enumerate(chunks)]):
+            breakpoint()
+
+        #padded_batch = self.pad_batch(chunks)
+        N = ceil(len(chunks)/self.dbs)
+        chunk_summs = []
+        for i in range(N):
+            padded = self.pad_batch(sorted_chunks[i*self.dbs:(i+1)*self.dbs])
+            print(padded.shape)
+            max_len = min(padded.shape[1],50)
+            min_len = max(10,max_len-20)
+            summ_tokens = self.dmodel.generate(padded,min_length=min_len,max_length=max_len)
+            summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True,clean_up_tokenization_spaces=True)
+            #summ = [re.match(r'.*\<s\>(.*)\<\/s\>',s).groups()[0] for s in summ]
+            chunk_summs += summ
+        print(f'Scene summ time: {time()-start_time:.2f}')
+        desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
+        concatted_scene_summs = '\n'.join(desorted_chunk_summs)
+        chunks = self.chunkify(concatted_scene_summs,level='meta')
+        assert len(chunks) < self.bs
+        mean_gt_summ_len = sum([len(s.split()) for s in ep.summaries.values()])/len(ep.summaries) # soap_central v long, kinda skewing it
+        #max_len = min(mean_gt_summ_len/len(chunks),50) # so just hard-code for now
+        max_len = 300
+        min_len = max(10,max_len-20)
+        meta_chunk_summs = self.model.generate(self.pad_batch(chunks),min_length=min_len,max_length=max_len)
+        final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
+        print(f'Total summ time: {time()-start_time:.2f}')
+        return final_summ
+
+    def chunkify(self,text,level='dialogue'):
+        if level == 'dialogue':
+            tokenizer = self.dtokenizer
+        else:
+            assert level=='meta'
+            tokenizer = self.tokenizer
+        tokenized_text = tokenizer(text)['input_ids']
+        if len(tokenized_text) < tokenizer.model_max_length:
+            return [tokenized_text]
+        else:
+            first_chunk, second_chunk = split_text_by_lines(text)
+            return self.chunkify(first_chunk,level) + self.chunkify(second_chunk,level)
 
 def split_text_by_lines(text):
     lines = text.split('\n')
@@ -20,7 +88,7 @@ def split_text_by_lines(text):
     second_chunk = '\n'.join(lines[i+1:])
     return first_chunk, second_chunk
 
-def summarize_scene(text):
+def summarize_scenes(scene_texts):
     text = text.replace('@@ ','').replace(' ,',',')
     max_len = min(len(text.split()),50)
     min_len = max(10,max_len-20)
@@ -50,17 +118,20 @@ def get_summ_of_summs(concatted_summs,gt_len):
     return summ_of_summs
 
 def harmonic_avg(args):
+    if any([a==0 for a in args]):
+        print(args)
+        return 0
     return len(args)/sum([1/x for x in args])
 
 if __name__ == '__main__':
     import openai
     openai.api_key = "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"
-
-    dpipe = pipeline("summarization", model="kabita-choudhary/finetuned-bart-for-conversation-summary")
-    pipe = pipeline("summarization", model="facebook/bart-large-cnn")
+    #dpipe = pipeline("summarization", model="kabita-choudhary/finetuned-bart-for-conversation-summary")
+    #pipe = pipeline("summarization", model="facebook/bart-large-cnn")
 
     all_our_bests = {}
     all_gpt_bests = {}
+    ss = SoapSummer()
     for ep_fname in os.listdir('SummScreen/transcripts'):
 
         with open(join('SummScreen/transcripts',ep_fname)) as f:
@@ -69,13 +140,13 @@ if __name__ == '__main__':
         with open(join('SummScreen/summaries',ep_fname)) as f:
             summary_data = json.load(f)
 
-        ep = Episode(transcript_data,summary_data)
+        ep = Episode(ep_fname,transcript_data,summary_data)
 
-        concatted_scene_summs = '\n'.join([summarize_scene(x) for x in ep.scenes])
+        #concatted_scene_summs = '\n'.join([summarize_scene(x) for x in ep.scenes])
         print('Concatted scene summaries:')
-        print(len(concatted_scene_summs.split()))
-        gt_len = sum([len(x.split()) for x in ep.summaries.values()])/len(ep.summaries)
-        summ_of_summs = get_summ_of_summs(concatted_scene_summs,gt_len)
+        #gt_len = sum([len(x.split()) for x in ep.summaries.values()])/len(ep.summaries)
+        #summ_of_summs = get_summ_of_summs(concatted_scene_summs,gt_len)
+        summ_of_summs = ss.summarize(ep)
         gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
         our_best = 0
         gpt_best = 0
