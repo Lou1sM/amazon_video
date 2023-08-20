@@ -10,7 +10,7 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.summaries = summary_data
         self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
         self.title = transcript_data['Show Title'].lower().replace(' ','_')
-        self.show_name = self.title.split('-')[0]
+        self.show_name = ep_fname.split('.')[0]
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 
