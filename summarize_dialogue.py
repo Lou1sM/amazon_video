@@ -125,14 +125,23 @@ def harmonic_avg(args):
 
 if __name__ == '__main__':
     import openai
+    import argparse
+
     openai.api_key = "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"
-    #dpipe = pipeline("summarization", model="kabita-choudhary/finetuned-bart-for-conversation-summary")
-    #pipe = pipeline("summarization", model="facebook/bart-large-cnn")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--n_dpoints','-n',type=int,default=2)
+    parser.add_argument('--do_shuffle',action='store_true')
+    parser.add_argument('--do_check_gpt',action='store_true')
+    ARGS = parser.parse_args()
+
 
     all_our_bests = {}
     all_gpt_bests = {}
     ss = SoapSummer()
-    for ep_fname in os.listdir('SummScreen/transcripts'):
+    all_ep_fnames = os.listdir('SummScreen/transcripts')
+    if ARGS.do_shuffle:
+        np.random.shuffle(all_ep_fnames)
+    for ep_fname in all_ep_fnames:
 
         with open(join('SummScreen/transcripts',ep_fname)) as f:
             transcript_data = json.load(f)
@@ -148,8 +157,8 @@ if __name__ == '__main__':
         #summ_of_summs = get_summ_of_summs(concatted_scene_summs,gt_len)
         summ_of_summs = ss.summarize(ep)
         gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
-        our_best = 0
-        gpt_best = 0
+        our_best = -1
+        gpt_best = -1
         for summ_name, gt_summ in ep.summaries.items():
             print('\n'+summ_name)
             print('Summary of summaries:')
@@ -159,13 +168,14 @@ if __name__ == '__main__':
             if our_scores['r2fmeasure'] > our_best:
                 our_best_scores = our_scores
                 our_best = our_scores['r2fmeasure']
-            print('GPT:')
-            gpt_scores = get_rouges(gpt_summ,gt_summ)
-            gpt_avg = harmonic_avg([v for k,v in gpt_scores.items() if 'fmeasure' in k])
-            if gpt_scores['r2fmeasure'] > gpt_best:
-                gpt_best_scores = gpt_scores
-                gpt_best = gpt_scores['r2fmeasure']
-            print(gpt_scores)
+            if ARGS.do_check_gpt:
+                print('GPT:')
+                gpt_scores = get_rouges(gpt_summ,gt_summ)
+                gpt_avg = harmonic_avg([v for k,v in gpt_scores.items() if 'fmeasure' in k])
+                if gpt_scores['r2fmeasure'] > gpt_best:
+                    gpt_best_scores = gpt_scores
+                    gpt_best = gpt_scores['r2fmeasure']
+                print(gpt_scores)
 
         print(f'\nBest ours: {our_best_scores}\nBest GPT: {gpt_best_scores}')
         all_our_bests[ep.title] = our_best_scores
