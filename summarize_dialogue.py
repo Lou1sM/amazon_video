@@ -14,19 +14,21 @@ import numpy as np
 
 
 class SoapSummer():
-    def __init__(self):
+    def __init__(self,device):
+        self.device = device
         self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
-        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
+        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary").to(self.device)
 
         self.tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
-        self.model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn").to(self.device)
 
         self.bs = 8
         self.dbs = 8
 
     def pad_batch(self,batch):
         N=max([len(c) for c in batch])
-        return torch.tensor([b+[self.dtokenizer.eos_token_id]*(N-len(b)) for b in batch])
+        padded = [b+[self.dtokenizer.eos_token_id]*(N-len(b)) for b in batch]
+        return torch.tensor(padded).to(self.device)
 
     def summarize(self,ep):
         start_time = time()
@@ -137,7 +139,8 @@ if __name__ == '__main__':
 
     all_our_bests = {}
     all_gpt_bests = {}
-    ss = SoapSummer()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    ss = SoapSummer(device)
     all_ep_fnames = os.listdir('SummScreen/transcripts')
     if ARGS.do_shuffle:
         np.random.shuffle(all_ep_fnames)
@@ -177,11 +180,14 @@ if __name__ == '__main__':
                     gpt_best = gpt_scores['r2fmeasure']
                 print(gpt_scores)
 
-        print(f'\nBest ours: {our_best_scores}\nBest GPT: {gpt_best_scores}')
+        print(f'\nBest ours: {our_best_scores}')
         all_our_bests[ep.title] = our_best_scores
-        all_gpt_bests[ep.title] = gpt_best_scores
-        if len(all_gpt_bests) == 2: break
+        if ARGS.do_check_gpt:
+            print(f'Best GPT: {gpt_best_scores}')
+            all_gpt_bests[ep.title] = gpt_best_scores
+        if len(all_our_bests) == ARGS.n_dpoints: break
     our_df = pd.DataFrame(all_our_bests).T
-    gpt_df = pd.DataFrame(all_gpt_bests).T
     our_df.to_csv('our_rouge_scores.csv')
-    gpt_df.to_csv('gpt_rouge_scores.csv')
+    if ARGS.do_check_gpt:
+        gpt_df = pd.DataFrame(all_gpt_bests).T
+        gpt_df.to_csv('gpt_rouge_scores.csv')
