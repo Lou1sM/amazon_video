@@ -24,7 +24,7 @@ class VideoTransformer(torch.nn.Module):
         # learn soft attention mask
         self.learn_mask_enabled = getattr(args, 'learn_mask_enabled', False)
         self.sparse_mask_soft2hard = getattr(args, 'sparse_mask_soft2hard', False)
-        
+
         if self.learn_mask_enabled==True:
             self.learn_vid_att = torch.nn.Embedding(args.max_img_seq_length*args.max_img_seq_length,1)
             self.sigmoid = torch.nn.Sigmoid()
@@ -59,10 +59,10 @@ class VideoTransformer(torch.nn.Module):
             kwargs['attention_mask'][:, -vid_att_len::, -vid_att_len::] = learn_att
         outputs = self.trans_encoder(*args, **kwargs)
         if self.learn_mask_enabled:
-            loss_sparsity = self.get_loss_sparsity(video_attention)  
-            outputs = outputs + (loss_sparsity, )          
+            loss_sparsity = self.get_loss_sparsity(video_attention)
+            outputs = outputs + (loss_sparsity, )
         return outputs
-    
+
     def get_loss_sparsity(self, video_attention):
         sparsity_loss = 0
         sparsity_loss += (torch.mean(torch.abs(video_attention)))
@@ -76,13 +76,13 @@ class VideoTransformer(torch.nn.Module):
                                 pretrained_num_tokens,pretrained_num_tokens)
         zeros_mask = torch.zeros_like(pretrained_learn_att)
         scale_factor = self.max_img_seq_length/pretrained_num_tokens
-        
+
         vid_att_len = self.max_img_seq_length
         learn_att = self.learn_vid_att.weight.reshape(vid_att_len,vid_att_len)
         with torch.no_grad():
             for i in range(int(scale_factor)):
-                learn_att[pretrained_num_tokens*i:pretrained_num_tokens*(i+1), 
-                            pretrained_num_tokens*i:pretrained_num_tokens*(i+1)] = pretrained_learn_att 
+                learn_att[pretrained_num_tokens*i:pretrained_num_tokens*(i+1),
+                            pretrained_num_tokens*i:pretrained_num_tokens*(i+1)] = pretrained_learn_att
 
 
     def bilinear_init_attn_mask(self, pretrain_attn_mask):
@@ -104,7 +104,7 @@ class VideoTransformer(torch.nn.Module):
         self.learn_vid_att = torch.nn.Embedding(self.max_img_seq_length*self.max_img_seq_length,1)
 
 
-    def reload_attn_mask(self, pretrain_attn_mask): 
+    def reload_attn_mask(self, pretrain_attn_mask):
         import numpy
         pretrained_num_tokens = int(numpy.sqrt(pretrain_attn_mask.shape[0]))
 
@@ -115,11 +115,11 @@ class VideoTransformer(torch.nn.Module):
         learn_att = self.learn_vid_att.weight.reshape(vid_att_len,vid_att_len)
         with torch.no_grad():
             for i in range(int(scale_factor)):
-                learn_att[pretrained_num_tokens*i:pretrained_num_tokens*(i+1), 
-                            pretrained_num_tokens*i:pretrained_num_tokens*(i+1)] = pretrained_learn_att 
+                learn_att[pretrained_num_tokens*i:pretrained_num_tokens*(i+1),
+                            pretrained_num_tokens*i:pretrained_num_tokens*(i+1)] = pretrained_learn_att
 
     def freeze_backbone(self, freeze=True):
         for _, p in self.swin.named_parameters():
             p.requires_grad =  not freeze
 
- 
+

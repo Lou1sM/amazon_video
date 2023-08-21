@@ -67,16 +67,25 @@ def extract_frames_from_video_path(
         multi_thread_decode=False, sampling_strategy="rand",
         safeguard_duration=False, start=None, end=None):
     in_mem_bytes_io = video_path
-    try:
-        frames, video_max_pts = extract_frames_from_video_binary(
-            in_mem_bytes_io, target_fps=target_fps, num_frames=num_frames,
-            multi_thread_decode=multi_thread_decode,
-            sampling_strategy=sampling_strategy,
-            safeguard_duration=safeguard_duration,
-            start=start, end=end)
-    except Exception as e:
-        print(f"Error processing video {video_path}, {e}")
-        return None, None
+    if video_path.endswith('.npz'):
+        frames = np.load(video_path)['arr_0']
+        frames = (frames - frames.min())/ (frames.max()-frames.min()) # normalize
+        frames = np.concatenate([frames,np.zeros([56,3,224,224])],axis=0)
+        frames = (frames*256).astype(np.uint8)
+        frames = torch.tensor(frames)
+        video_max_pts = 8 # think this means a num_frames you can stop early at, so can exclude
+    else:
+        try:
+            frames, video_max_pts = extract_frames_from_video_binary(
+                in_mem_bytes_io, target_fps=target_fps, num_frames=num_frames,
+                multi_thread_decode=multi_thread_decode,
+                sampling_strategy=sampling_strategy,
+                safeguard_duration=safeguard_duration,
+                start=start, end=end)
+        except Exception as e:
+            print(f"Error processing video {video_path}, {e}")
+            return None, None
+    assert frames.shape == (64,3,224,224)
     return frames, video_max_pts
 
 
@@ -142,7 +151,7 @@ def extract_frames_from_video_binary(
             container=video_container, num_frames=num_frames,
             target_fps=target_fps, num_clips=num_clips, clip_idx=clip_idx,
             sampling_strategy=sampling_strategy,
-            safeguard_duration=safeguard_duration, video_max_pts=video_max_pts, 
+            safeguard_duration=safeguard_duration, video_max_pts=video_max_pts,
             start=start, end=end)
         frames, video_max_pts = decoder.decode(**decoder_kwargs)
     except Exception as e:

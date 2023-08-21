@@ -517,7 +517,7 @@ class BertEncoder(nn.Module):
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
         self.layer = nn.ModuleList([BertLayer(config) for _ in range(config.num_hidden_layers)])
-    
+
     def set_output_attentions(self, flag):
         for idx in range(len(self.layer)):
             self.layer[idx].attention.self.output_attentions = flag
@@ -1956,7 +1956,7 @@ class BertForImageCaptioning(BertPreTrainedModel):
                     num_beams, use_hypo=use_hypo,
                     decoding_constraint_flag=decoding_constraint_flag,
                     bad_ending_ids=bad_ending_ids)
-    
+
             curr_ids, sum_logprobs = searcher.search(
                     input_ids,
                     None,

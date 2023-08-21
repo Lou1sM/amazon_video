@@ -306,8 +306,9 @@ class CaptionTensorizer(object):
         else:
             # fake tokens to generate masks
             tokens_a = [self.tokenizer.mask_token] * (self.max_seq_a_len - 2)
-        if len(tokens_a) > self.max_seq_a_len - 2:
-            tokens_a = tokens_a[:(self.max_seq_a_len - 2)]
+        assert len(tokens_a) == self.max_seq_a_len - 2
+        #if len(tokens_a) > self.max_seq_a_len - 2:
+            #tokens_a = tokens_a[:(self.max_seq_a_len - 2)]
 
         tokens = [self.tokenizer.cls_token] + tokens_a + [self.tokenizer.sep_token]
         segment_ids = [cls_token_segment_id] + [sequence_a_segment_id] * (len(tokens) - 1)
@@ -337,6 +338,8 @@ class CaptionTensorizer(object):
             text_a, text_b, cls_token_segment_id, pad_token_segment_id,
             sequence_a_segment_id, sequence_b_segment_id, text_meta)
 
+        assert seq_a_len == self.max_seq_a_len
+        assert seq_len == self.max_seq_a_len
         # masking the tokens
         tokens_after_masking, masked_pos, mlm_targets = self.mask_text_inputs(
             tokens, seq_a_len, seq_len, text_meta)

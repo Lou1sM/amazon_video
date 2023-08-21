@@ -49,7 +49,8 @@ def _transforms(args, frames):
     num_of_frames, height, width, channels = frames.shape
 
     frame_list = []
-    for i in range(args.max_num_frames):
+    N = min(args.max_num_frames,frames.shape[0])
+    for i in range(N):
         frame_list.append(Image.fromarray(frames[i]))
 
     # apply normalization, output tensor (C x T x H x W) in the range [0, 1.0]
@@ -100,9 +101,12 @@ def inference(args, video_path, model, tokenizer, tensorizer):
         all_caps = outputs[0]  # batch_size * num_keep_best * max_len
         all_confs = torch.exp(outputs[1])
 
-        for caps, confs in zip(all_caps, all_confs):
-            for cap, conf in zip(caps, confs):
-                cap = tokenizer.decode(cap.tolist(), skip_special_tokens=True)
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+        with open('output.txt','w') as f:
+            for caps, confs in zip(all_caps, all_confs):
+                for cap, conf in zip(caps, confs):
+                    cap = tokenizer.decode(cap.tolist(), skip_special_tokens=True)
+                    f.write(f'Prediction: {cap}')
 
 def check_arguments(args):
     # shared basic checks
