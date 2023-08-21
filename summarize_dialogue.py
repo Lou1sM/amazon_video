@@ -159,7 +159,8 @@ if __name__ == '__main__':
         #gt_len = sum([len(x.split()) for x in ep.summaries.values()])/len(ep.summaries)
         #summ_of_summs = get_summ_of_summs(concatted_scene_summs,gt_len)
         summ_of_summs = ss.summarize(ep)
-        gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
+        if ARGS.do_check_gpt:
+            gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
         our_best = -1
         gpt_best = -1
         for summ_name, gt_summ in ep.summaries.items():
@@ -187,7 +188,9 @@ if __name__ == '__main__':
             all_gpt_bests[ep.title] = gpt_best_scores
         if len(all_our_bests) == ARGS.n_dpoints: break
     our_df = pd.DataFrame(all_our_bests).T
+    our_df.loc['mean']=our_df.mean(axis=0)
     our_df.to_csv('our_rouge_scores.csv')
     if ARGS.do_check_gpt:
         gpt_df = pd.DataFrame(all_gpt_bests).T
+        gpt_df.loc['mean']=gpt_df.mean(axis=0)
         gpt_df.to_csv('gpt_rouge_scores.csv')
