@@ -67,8 +67,14 @@ def extract_frames_from_video_path(
         multi_thread_decode=False, sampling_strategy="rand",
         safeguard_duration=False, start=None, end=None):
     in_mem_bytes_io = video_path
-    if video_path.endswith('.npz'):
-        frames = np.load(video_path)['arr_0']
+    if video_path.endswith('.npz') or video_path.endswith('.npy'):
+        frames = np.load(video_path)
+        if video_path.endswith('.npz'):
+            frames = frames['arr_0']
+        if frames.shape[2] == 256:
+            frames = frames[:,:,16:-16,16:-16]
+        if not frames.shape == (8,3,224,224):
+            breakpoint()
         frames = (frames - frames.min())/ (frames.max()-frames.min()) # normalize
         frames = np.concatenate([frames,np.zeros([56,3,224,224])],axis=0)
         frames = (frames*256).astype(np.uint8)

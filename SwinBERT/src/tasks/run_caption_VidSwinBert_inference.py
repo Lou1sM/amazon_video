@@ -101,12 +101,10 @@ def inference(args, video_path, model, tokenizer, tensorizer):
         all_caps = outputs[0]  # batch_size * num_keep_best * max_len
         all_confs = torch.exp(outputs[1])
 
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
-        with open('output.txt','w') as f:
-            for caps, confs in zip(all_caps, all_confs):
-                for cap, conf in zip(caps, confs):
-                    cap = tokenizer.decode(cap.tolist(), skip_special_tokens=True)
-                    f.write(f'Prediction: {cap}')
+        assert all_caps.shape[:2] == (1,1)
+        assert all_confs.shape[:2] == (1,1)
+        cap = tokenizer.decode(all_caps[0,0].tolist(), skip_special_tokens=True)
+        return cap
 
 def check_arguments(args):
     # shared basic checks
@@ -128,8 +126,6 @@ def check_arguments(args):
         args.attn_mask_type = 'learn_vid_att'
 
 def update_existing_config_for_inference(args):
-    ''' load swinbert args for evaluation and inference
-    '''
     assert args.do_test or args.do_eval
     checkpoint = args.eval_model_dir
     try:
@@ -149,7 +145,7 @@ def update_existing_config_for_inference(args):
     train_args.do_eval = True
     train_args.do_test = True
     train_args.val_yaml = args.val_yaml
-    train_args.test_video_fname = args.test_video_fname
+    train_args.video_dir = args.video_dir
     return train_args
 
 def get_custom_args(base_config):
@@ -173,7 +169,7 @@ def get_custom_args(base_config):
     parser.add_argument('--att_mask_expansion', type=int, default=-1,
                         help="-1: random init, 0: random init and then diag-based copy, 1: interpolation")
     parser.add_argument('--resume_checkpoint', type=str, default='None')
-    parser.add_argument('--test_video_fname', type=str, default='None')
+    parser.add_argument('--video_dir', type=str, default='None')
     args = base_config.parse_args()
     return args
 
@@ -206,7 +202,16 @@ def main(args):
     vl_transformer.eval()
 
     tensorizer = build_tensorizer(args, tokenizer, is_train=False)
-    inference(args, args.test_video_fname, vl_transformer, tokenizer, tensorizer)
+    all_caps = {}
+    for fn in os.listdir(args.video_dir):
+        video_fpath = os.path.join(args.video_dir,fn)
+        cap = inference(args, video_fpath, vl_transformer, tokenizer, tensorizer)
+        fn_ = fn.split('.')[0]
+        all_caps[fn_] = cap
+        print(f'{fn_}: {cap}')
+
+    with open('all_vid_caps.json','w') as f:
+        json.dump(all_caps,f)
 
 if __name__ == "__main__":
     shared_configs.shared_video_captioning_config(cbs=True, scst=True)
