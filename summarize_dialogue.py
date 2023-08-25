@@ -134,13 +134,17 @@ if __name__ == '__main__':
     parser.add_argument('--n_dpoints','-n',type=int,default=2)
     parser.add_argument('--do_shuffle',action='store_true')
     parser.add_argument('--do_check_gpt',action='store_true')
+    parser.add_argument('--only_check_gpt',action='store_true')
     ARGS = parser.parse_args()
 
+    if ARGS.only_check_gpt:
+        ARGS.do_check_gpt = True
 
     all_our_bests = {}
     all_gpt_bests = {}
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ss = SoapSummer(device)
+    if not ARGS.only_check_gpt:
+        ss = SoapSummer(device)
     all_ep_fnames = os.listdir('SummScreen/transcripts')
     if ARGS.do_shuffle:
         np.random.shuffle(all_ep_fnames)
@@ -158,7 +162,8 @@ if __name__ == '__main__':
         print('Concatted scene summaries:')
         #gt_len = sum([len(x.split()) for x in ep.summaries.values()])/len(ep.summaries)
         #summ_of_summs = get_summ_of_summs(concatted_scene_summs,gt_len)
-        summ_of_summs = ss.summarize(ep)
+        if not ARGS.only_check_gpt:
+            summ_of_summs = ss.summarize(ep)
         if ARGS.do_check_gpt:
             gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
         our_best = -1
@@ -166,12 +171,13 @@ if __name__ == '__main__':
         for summ_name, gt_summ in ep.summaries.items():
             print('\n'+summ_name)
             print('Summary of summaries:')
-            our_scores = get_rouges(summ_of_summs,gt_summ)
-            print(our_scores)
-            our_avg = harmonic_avg([v for k,v in our_scores.items() if 'fmeasure' in k])
-            if our_scores['r2fmeasure'] > our_best:
-                our_best_scores = our_scores
-                our_best = our_scores['r2fmeasure']
+            if not ARGS.only_check_gpt:
+                our_scores = get_rouges(summ_of_summs,gt_summ)
+                our_avg = harmonic_avg([v for k,v in our_scores.items() if 'fmeasure' in k])
+                if our_scores['r2fmeasure'] > our_best:
+                    our_best_scores = our_scores
+                    our_best = our_scores['r2fmeasure']
+                print(our_scores)
             if ARGS.do_check_gpt:
                 print('GPT:')
                 gpt_scores = get_rouges(gpt_summ,gt_summ)
@@ -181,16 +187,20 @@ if __name__ == '__main__':
                     gpt_best = gpt_scores['r2fmeasure']
                 print(gpt_scores)
 
-        print(f'\nBest ours: {our_best_scores}')
-        all_our_bests[ep.show_name] = our_best_scores
+        if not ARGS.only_check_gpt:
+            print(f'\nBest ours: {our_best_scores}')
+            all_our_bests[ep.show_name] = our_best_scores
         if ARGS.do_check_gpt:
             print(f'Best GPT: {gpt_best_scores}')
             all_gpt_bests[ep.title] = gpt_best_scores
-        if len(all_our_bests) == ARGS.n_dpoints: break
-    our_df = pd.DataFrame(all_our_bests).T
-    our_df.loc['mean']=our_df.mean(axis=0)
-    our_df.to_csv('our_rouge_scores.csv')
+        if (len(all_our_bests)==ARGS.n_dpoints) or (len(all_gpt_bests)==ARGS.n_dpoints and ARGS.only_check_gpt): break
+    if not ARGS.only_check_gpt:
+        our_df = pd.DataFrame(all_our_bests).T
+        our_df.loc['mean']=our_df.mean(axis=0)
+        our_df.to_csv('our_rouge_scores.csv')
+        print(our_df.loc['mean'])
     if ARGS.do_check_gpt:
         gpt_df = pd.DataFrame(all_gpt_bests).T
         gpt_df.loc['mean']=gpt_df.mean(axis=0)
+        print(gpt_df.loc['mean'])
         gpt_df.to_csv('gpt_rouge_scores.csv')
