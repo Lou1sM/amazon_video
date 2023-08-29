@@ -192,7 +192,7 @@ if __name__ == '__main__':
             all_our_bests[ep.show_name] = our_best_scores
         if ARGS.do_check_gpt:
             print(f'Best GPT: {gpt_best_scores}')
-            all_gpt_bests[ep.title] = gpt_best_scores
+            all_gpt_bests[ep.show_name] = gpt_best_scores
         if (len(all_our_bests)==ARGS.n_dpoints) or (len(all_gpt_bests)==ARGS.n_dpoints and ARGS.only_check_gpt): break
     if not ARGS.only_check_gpt:
         our_df = pd.DataFrame(all_our_bests).T

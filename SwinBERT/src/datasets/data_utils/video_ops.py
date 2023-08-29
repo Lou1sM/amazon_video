@@ -80,6 +80,7 @@ def extract_frames_from_video_path(
         frames = (frames*256).astype(np.uint8)
         frames = torch.tensor(frames)
         video_max_pts = 8 # think this means a num_frames you can stop early at, so can exclude
+        assert frames.shape == (64,3,224,224)
     else:
         try:
             frames, video_max_pts = extract_frames_from_video_binary(
@@ -91,7 +92,6 @@ def extract_frames_from_video_path(
         except Exception as e:
             print(f"Error processing video {video_path}, {e}")
             return None, None
-    assert frames.shape == (64,3,224,224)
     return frames, video_max_pts
 
 
@@ -139,6 +139,7 @@ def extract_frames_from_video_binary(
     Returns:
         torch.uint8, (T, C, H, W)
     """
+    breakpoint()
     try:
         # Add `metadata_errors="ignore"` to ignore metadata decoding error.
         # When verified visually, it does not seem to affect the extracted frames.
