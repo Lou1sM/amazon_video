@@ -2,6 +2,8 @@ from scenedetect import open_video, SceneManager
 from scenedetect.detectors import ContentDetector
 import cv2
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
+from SwinBERT.src.tasks.run_caption_VidSwinBert_inference import inference_from_arr
+from SwinBERT.src.datasets.caption_tensorizer import build_tensorizer
 
 
 video_fpath = 'SummScreen/videos/atwt-01-01-04.mp4'

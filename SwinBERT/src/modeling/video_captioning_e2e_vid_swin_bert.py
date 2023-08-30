@@ -4,26 +4,26 @@ import random
 
 
 class VideoTransformer(torch.nn.Module):
-    def __init__(self, args, config, swin, transformer_encoder):
+    def __init__(self, grid_feat, config, swin, transformer_encoder):
         super(VideoTransformer, self).__init__()
         self.config = config
-        self.use_checkpoint = args.use_checkpoint and not args.freeze_backbone
+        self.use_checkpoint = False
         if self.use_checkpoint:
             self.swin = checkpoint_wrapper(swin, offload_to_cpu=True)
         else:
             self.swin = swin
         self.trans_encoder = transformer_encoder
-        self.img_feature_dim = int(args.img_feature_dim)
-        self.use_grid_feat = args.grid_feat
+        self.img_feature_dim = 512
+        self.use_grid_feat = grid_feat
         self.latent_feat_size = self.swin.backbone.norm.normalized_shape[0]
         self.fc = torch.nn.Linear(self.latent_feat_size, self.img_feature_dim)
         self.compute_mask_on_the_fly = False # deprecated
-        self.mask_prob = args.mask_prob
+        self.mask_prob = 0.15
         self.mask_token_id = -1
-        self.max_img_seq_length = args.max_img_seq_length
+        self.max_img_seq_length = 50
         # learn soft attention mask
-        self.learn_mask_enabled = getattr(args, 'learn_mask_enabled', False)
-        self.sparse_mask_soft2hard = getattr(args, 'sparse_mask_soft2hard', False)
+        self.learn_mask_enabled = False
+        self.sparse_mask_soft2hard = False
 
         if self.learn_mask_enabled==True:
             self.learn_vid_att = torch.nn.Embedding(args.max_img_seq_length*args.max_img_seq_length,1)

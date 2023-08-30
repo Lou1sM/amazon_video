@@ -2,24 +2,24 @@ import torch
 from src.modeling.video_swin.swin_transformer import SwinTransformer3D
 from src.modeling.video_swin.config import Config
 
-def get_swin_model(args):
-    if int(args.img_res) == 384:
-        assert args.vidswin_size == "large"
-        config_path = 'SwinBERT/src/modeling/video_swin/swin_%s_384_patch244_window81212_kinetics%s_22k.py'%(args.vidswin_size, args.kinetics)
-        model_path = './SwinBERT/models/video_swin_transformer/swin_%s_384_patch244_window81212_kinetics%s_22k.pth'%(args.vidswin_size, args.kinetics)
+def get_swin_model(img_res, vidswin_size, kinetics, pretrained_2d, use_grid_feat):
+    if int(img_res) == 384:
+        assert vidswin_size == "large"
+        config_path = 'SwinBERT/src/modeling/video_swin/swin_%s_384_patch244_window81212_kinetics%s_22k.py'%(vidswin_size, kinetics)
+        model_path = './SwinBERT/models/video_swin_transformer/swin_%s_384_patch244_window81212_kinetics%s_22k.pth'%(vidswin_size, kinetics)
     else:
-        # in the case that args.img_res == '224'
-        config_path = 'SwinBERT/src/modeling/video_swin/swin_%s_patch244_window877_kinetics%s_22k.py'%(args.vidswin_size, args.kinetics)
-        model_path = './SwinBERT/models/video_swin_transformer/swin_%s_patch244_window877_kinetics%s_22k.pth'%(args.vidswin_size, args.kinetics)
-    if args.pretrained_2d:
+        # in the case that img_res == '224'
+        config_path = 'SwinBERT/src/modeling/video_swin/swin_%s_patch244_window877_kinetics%s_22k.py'%(vidswin_size, kinetics)
+        model_path = './SwinBERT/models/video_swin_transformer/swin_%s_patch244_window877_kinetics%s_22k.pth'%(vidswin_size, kinetics)
+    if pretrained_2d:
         config_path = 'SwinBERT/src/modeling/video_swin/swin_base_patch244_window877_kinetics400_22k.py'
         model_path = './SwinBERT/models/swin_transformer/swin_base_patch4_window7_224_22k.pth'
 
     cfg = Config.fromfile(config_path)
-    pretrained_path = model_path if args.pretrained_2d else None
+    pretrained_path = model_path if pretrained_2d else None
     backbone = SwinTransformer3D(
                     pretrained=pretrained_path,
-                    pretrained2d=args.pretrained_2d,
+                    pretrained2d=pretrained_2d,
                     patch_size=cfg.model['backbone']['patch_size'],
                     in_chans=3,
                     embed_dim=cfg.model['backbone']['embed_dim'],
@@ -37,9 +37,9 @@ def get_swin_model(args):
                     frozen_stages=-1,
                     use_checkpoint=False)
 
-    video_swin = myVideoSwin(args=args, cfg=cfg, backbone=backbone)
+    video_swin = myVideoSwin(backbone=backbone, use_grid_feat=use_grid_feat)
 
-    if not args.pretrained_2d:
+    if not pretrained_2d:
         checkpoint_3d = torch.load(model_path, map_location='cpu')
         video_swin.load_state_dict(checkpoint_3d['state_dict'], strict=False)
     else:
@@ -60,10 +60,10 @@ def reload_pretrained_swin(video_swin, args):
     return video_swin
 
 class myVideoSwin(torch.nn.Module):
-    def __init__(self, args, cfg, backbone):
+    def __init__(self, backbone, use_grid_feat):
         super(myVideoSwin, self).__init__()
         self.backbone = backbone
-        self.use_grid_feature = args.grid_feat
+        self.use_grid_feature = grid_feat
 
     def forward(self, x):
         x = self.backbone(x)

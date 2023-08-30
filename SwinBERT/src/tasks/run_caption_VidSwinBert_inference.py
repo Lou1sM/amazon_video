@@ -9,22 +9,17 @@ import numpy as np
 from PIL import Image
 import os.path as op
 import json
-import time
 import torch
 import torch.distributed as dist
-from apex import amp
-#import deepspeed
-from src.configs.config import (basic_check_arguments, shared_configs)
+from src.configs.config import basic_check_arguments, shared_configs
 from src.datasets.data_utils.video_ops import extract_frames_from_video_path
 from src.datasets.data_utils.video_transforms import Compose, Resize, Normalize, CenterCrop
 from src.datasets.data_utils.volume_transforms import ClipToTensor
 from src.datasets.caption_tensorizer import build_tensorizer
-#from src.utils.deepspeed import fp32_to_fp16
-from src.utils.comm import (is_main_process,
-                            get_rank, get_world_size, dist_init)
-from src.utils.miscellaneous import (mkdir, set_seed, str_to_bool)
+from src.utils.comm import dist_init
+from src.utils.miscellaneous import (set_seed, str_to_bool)
 from src.modeling.video_captioning_e2e_vid_swin_bert import VideoTransformer
-from src.modeling.load_swin import get_swin_model, reload_pretrained_swin
+from src.modeling.load_swin import get_swin_model
 from src.modeling.load_bert import get_bert_model
 
 def _online_video_decode(args, video_path):
@@ -59,6 +54,49 @@ def _transforms(args, frames):
     crop_frames = crop_frames.permute(1, 0, 2, 3)
     return crop_frames
 
+def inference_from_arr(frames, model, tokenizer, tensorizer):
+    cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = \
+        tokenizer.convert_tokens_to_ids([tokenizer.cls_token, tokenizer.sep_token,
+        tokenizer.pad_token, tokenizer.mask_token, '.'])
+
+    model.float()
+    model.eval()
+    preproc_frames = _transforms(args, frames)
+    data_sample = tensorizer.tensorize_example_e2e('', preproc_frames)
+    data_sample = tuple(t.to(args.device) for t in data_sample)
+    with torch.no_grad():
+
+        inputs = {'is_decode': True,
+            'input_ids': data_sample[0][None,:], 'attention_mask': data_sample[1][None,:],
+            'token_type_ids': data_sample[2][None,:], 'img_feats': data_sample[3][None,:],
+            'masked_pos': data_sample[4][None,:],
+            'do_sample': False,
+            'bos_token_id': cls_token_id,
+            'pad_token_id': pad_token_id,
+            'eos_token_ids': [sep_token_id],
+            'mask_token_id': mask_token_id,
+            'add_od_labels': False, # object-detection labels
+            # hyperparameters of beam search
+            'max_length': 20,
+            'num_beams': 1,
+            "temperature": 1,
+            "top_k": 0,
+            "top_p": 1,
+            "repetition_penalty": 1,
+            "length_penalty": 1,
+            "num_return_sequences": 1,
+            "num_keep_best": 1,
+        }
+        outputs = model(**inputs)
+
+        all_caps = outputs[0]  # batch_size * num_keep_best * max_len
+        all_confs = torch.exp(outputs[1])
+
+        assert all_caps.shape[:2] == (1,1)
+        assert all_confs.shape[:2] == (1,1)
+        cap = tokenizer.decode(all_caps[0,0].tolist(), skip_special_tokens=True)
+        return cap
+
 def inference(args, video_path, model, tokenizer, tensorizer):
     cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = \
         tokenizer.convert_tokens_to_ids([tokenizer.cls_token, tokenizer.sep_token,
@@ -81,7 +119,6 @@ def inference(args, video_path, model, tokenizer, tensorizer):
             'pad_token_id': pad_token_id,
             'eos_token_ids': [sep_token_id],
             'mask_token_id': mask_token_id,
-            # for adding od labels
             'add_od_labels': args.add_od_labels, 'od_labels_start_posid': args.max_seq_a_length,
             # hyperparameters of beam search
             'max_length': args.max_gen_length,
@@ -94,10 +131,8 @@ def inference(args, video_path, model, tokenizer, tensorizer):
             "num_return_sequences": args.num_return_sequences,
             "num_keep_best": args.num_keep_best,
         }
-        tic = time.time()
         outputs = model(**inputs)
 
-        time_meter = time.time() - tic
         all_caps = outputs[0]  # batch_size * num_keep_best * max_len
         all_confs = torch.exp(outputs[1])
 
@@ -111,6 +146,8 @@ def check_arguments(args):
     basic_check_arguments(args)
     # additional sanity check:
     args.max_img_seq_length = int((args.max_num_frames/2)*(int(args.img_res)/32)*(int(args.img_res)/32))
+    breakpoint()
+    assert args.max_img_seq_length == 784
 
     if args.freeze_backbone or args.backbone_coef_lr == 0:
         args.backbone_coef_lr = 0
@@ -173,16 +210,14 @@ def get_custom_args(base_config):
 
 def main(args):
     args = update_existing_config_for_inference(args)
-    # global training_saver
     args.device = torch.device(args.device)
     # Setup CUDA, GPU & distributed training
     dist_init(args)
     check_arguments(args)
     set_seed(args.seed, args.num_gpus)
-    fp16_trainning = None
 
      # Get Video Swin model
-    swin_model = get_swin_model(args)
+    swin_model = get_swin_model(args.img_res, args.vidswin_size, args.kinetics, args.pretrained_2d, args.grid_feat)
     # Get BERT and tokenizer
     bert_model, config, tokenizer = get_bert_model(args)
     # build SwinBERT based on training configs
