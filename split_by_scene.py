@@ -4,7 +4,7 @@ import cv2
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 
 
-video_fpath = 'SwinBERT/test_mp4/atwt-01-01-04.mp4'
+video_fpath = 'SummScreen/videos/atwt-01-01-04.mp4'
 
 sm=SceneManager()
 sm.add_detector(ContentDetector(threshold=100))
@@ -19,7 +19,6 @@ down_sample_rate = 2
 np_scene_frames = []
 
 for i, scene in enumerate(scenes):
-    breakpoint()
     starttime = scene[0].frame_num/video.frame_rate
     endtime = scene[1].frame_num/video.frame_rate
-    ffmpeg_extract_subclip(video_fpath,starttime, endtime, targetname=f'scene{i}.mp4')
+    ffmpeg_extract_subclip(video_fpath,starttime, endtime, targetname=f'atwt1_scenes/scene{i}.mp4')

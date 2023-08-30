@@ -139,7 +139,6 @@ def extract_frames_from_video_binary(
     Returns:
         torch.uint8, (T, C, H, W)
     """
-    breakpoint()
     try:
         # Add `metadata_errors="ignore"` to ignore metadata decoding error.
         # When verified visually, it does not seem to affect the extracted frames.

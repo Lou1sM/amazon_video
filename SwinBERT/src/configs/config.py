@@ -194,7 +194,7 @@ class SharedConfigs(object):
 
     def add_downstream_args(self):
         # downstream finetuning args (not needed for pretraining)
-        self.parser.add_argument("--eval_model_dir", type=str, default='',
+        self.parser.add_argument("--eval_model_dir", type=str, default='SwinBERT/models/table1/vatex/best-checkpoint/',
                                  help="Model directory for evaluation.")
 
         # training/validation/inference mode (only needed for captioning)

@@ -150,25 +150,23 @@ def update_existing_config_for_inference(args):
 
 def get_custom_args(base_config):
     parser = base_config.parser
-    parser.add_argument('--max_num_frames', type=int, default=32)
-    parser.add_argument('--img_res', type=int, default=224)
-    parser.add_argument('--patch_size', type=int, default=32)
     parser.add_argument("--grid_feat", type=str_to_bool, nargs='?', const=True, default=True)
     parser.add_argument("--kinetics", type=str, default='400', help="400 or 600")
     parser.add_argument("--pretrained_2d", type=str_to_bool, nargs='?', const=True, default=False)
-    parser.add_argument("--vidswin_size", type=str, default='base')
-    parser.add_argument('--freeze_backbone', type=str_to_bool, nargs='?', const=True, default=False)
-    parser.add_argument('--use_checkpoint', type=str_to_bool, nargs='?', const=True, default=False)
-    parser.add_argument('--backbone_coef_lr', type=float, default=0.001)
     parser.add_argument("--reload_pretrained_swin", type=str_to_bool, nargs='?', const=True, default=False)
+    parser.add_argument("--vidswin_size", type=str, default='base')
+    parser.add_argument('--att_mask_expansion', type=int, default=-1, help="-1: random init, 0: random init and then diag-based copy, 1: interpolation")
+    parser.add_argument('--backbone_coef_lr', type=float, default=0.001)
+    parser.add_argument('--freeze_backbone', type=str_to_bool, nargs='?', const=True, default=False)
+    parser.add_argument('--img_res', type=int, default=224)
     parser.add_argument('--learn_mask_enabled', type=str_to_bool, nargs='?', const=True, default=False)
     parser.add_argument('--loss_sparse_w', type=float, default=0)
-    parser.add_argument('--sparse_mask_soft2hard', type=str_to_bool, nargs='?', const=True, default=False)
-    parser.add_argument('--transfer_method', type=int, default=-1,
-                        help="0: load all SwinBERT pre-trained weights, 1: load only pre-trained sparse mask")
-    parser.add_argument('--att_mask_expansion', type=int, default=-1,
-                        help="-1: random init, 0: random init and then diag-based copy, 1: interpolation")
+    parser.add_argument('--max_num_frames', type=int, default=32)
+    parser.add_argument('--patch_size', type=int, default=32)
     parser.add_argument('--resume_checkpoint', type=str, default='None')
+    parser.add_argument('--sparse_mask_soft2hard', type=str_to_bool, nargs='?', const=True, default=False)
+    parser.add_argument('--transfer_method', type=int, default=-1, help="0: load all SwinBERT pre-trained weights, 1: load only pre-trained sparse mask")
+    parser.add_argument('--use_checkpoint', type=str_to_bool, nargs='?', const=True, default=False)
     parser.add_argument('--video_dir', type=str, default='None')
     args = base_config.parse_args()
     return args
