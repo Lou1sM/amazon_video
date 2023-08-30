@@ -63,7 +63,7 @@ class myVideoSwin(torch.nn.Module):
     def __init__(self, backbone, use_grid_feat):
         super(myVideoSwin, self).__init__()
         self.backbone = backbone
-        self.use_grid_feature = grid_feat
+        self.use_grid_feature = use_grid_feat
 
     def forward(self, x):
         x = self.backbone(x)

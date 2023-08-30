@@ -25,9 +25,9 @@ class VideoTransformer(torch.nn.Module):
         self.learn_mask_enabled = False
         self.sparse_mask_soft2hard = False
 
-        if self.learn_mask_enabled==True:
-            self.learn_vid_att = torch.nn.Embedding(args.max_img_seq_length*args.max_img_seq_length,1)
-            self.sigmoid = torch.nn.Sigmoid()
+        #if self.learn_mask_enabled==True:
+        #    self.learn_vid_att = torch.nn.Embedding(args.max_img_seq_length*args.max_img_seq_length,1)
+        #    self.sigmoid = torch.nn.Sigmoid()
 
     def forward(self, *args, **kwargs):
         images = kwargs['img_feats']

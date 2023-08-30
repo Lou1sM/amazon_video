@@ -361,39 +361,30 @@ class CaptionTensorizer(object):
         return input_ids, attention_mask, segment_ids, img_feat, masked_pos
 
 
-def build_tensorizer(args, tokenizer, is_train=True):
-    if hasattr(args, 'mask_od_labels'):
-        mask_b = args.mask_od_labels
-    else:
-        mask_b = False
+def build_tensorizer(tokenizer, max_seq_len ,max_img_seq_len, max_gen_len, is_train=True):
     if is_train:
-        if  args.text_mask_type == "pos_tag":
-            tag_to_mask = set(args.tag_to_mask)
-        else:
-            tagger = None
-            tag_to_mask = None
         return CaptionTensorizer(
             tokenizer,
-            max_img_seq_length=args.max_img_seq_length,
-            max_seq_length=args.max_seq_length,
-            max_seq_a_length=args.max_seq_a_length,
-            mask_prob=args.mask_prob,
-            max_masked_tokens=args.max_masked_tokens,
-            attn_mask_type=args.attn_mask_type,
+            max_img_seq_length=max_img_seq_len,
+            max_seq_length=max_seq_len,
+            max_seq_a_length=50,
+            mask_prob=0.15,
+            max_masked_tokens=3,
+            attn_mask_type='seq2seq',
             is_train=True,
-            mask_b=mask_b,
-            text_mask_type=args.text_mask_type,
-            mask_tag_prob=args.mask_tag_prob,
-            tag_to_mask=tag_to_mask,
-            random_mask_prob=args.random_mask_prob,
-            # tagger=tagger,
+            mask_b=False,
+            text_mask_type='random',
+            mask_tag_prob=0.8,
+            tag_to_mask=None,
+            random_mask_prob=0,
         )
-    return CaptionTensorizer(
-            tokenizer,
-            max_img_seq_length=args.max_img_seq_length,
-            max_seq_length=args.max_seq_length if args.add_od_labels else args.max_gen_length,
-            max_seq_a_length=args.max_gen_length,
-            is_train=False,
-            attn_mask_type=args.attn_mask_type,
-    )
+    else:
+        return CaptionTensorizer(
+                tokenizer,
+                max_img_seq_length=max_img_seq_len,
+                max_seq_length=max_gen_len,
+                max_seq_a_length=max_gen_len,
+                is_train=False,
+                attn_mask_type='seq2seq',
+        )
 

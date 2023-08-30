@@ -22,18 +22,17 @@ from src.modeling.video_captioning_e2e_vid_swin_bert import VideoTransformer
 from src.modeling.load_swin import get_swin_model
 from src.modeling.load_bert import get_bert_model
 
-def _online_video_decode(args, video_path):
-    decoder_num_frames = getattr(args, 'max_num_frames', 2)
+def _online_video_decode(decoder_num_frames, video_path):
     frames, _ = extract_frames_from_video_path(
                 video_path, target_fps=3, num_frames=decoder_num_frames,
                 multi_thread_decode=False, sampling_strategy="uniform",
                 safeguard_duration=False, start=None, end=None)
     return frames
 
-def _transforms(args, frames):
+def _transforms(img_res, max_num_frames, frames):
     raw_video_crop_list = [
-        Resize(args.img_res),
-        CenterCrop((args.img_res,args.img_res)),
+        Resize(img_res),
+        CenterCrop((img_res,img_res)),
         ClipToTensor(channel_nb=3),
         Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
     ]
@@ -44,7 +43,7 @@ def _transforms(args, frames):
     num_of_frames, height, width, channels = frames.shape
 
     frame_list = []
-    N = min(args.max_num_frames,frames.shape[0])
+    N = min(max_num_frames,frames.shape[0])
     for i in range(N):
         frame_list.append(Image.fromarray(frames[i]))
 
@@ -54,16 +53,17 @@ def _transforms(args, frames):
     crop_frames = crop_frames.permute(1, 0, 2, 3)
     return crop_frames
 
-def inference_from_arr(frames, model, tokenizer, tensorizer):
+def inference(video_path,img_res,max_num_frames, model, tokenizer, tensorizer):
     cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = \
         tokenizer.convert_tokens_to_ids([tokenizer.cls_token, tokenizer.sep_token,
         tokenizer.pad_token, tokenizer.mask_token, '.'])
 
     model.float()
     model.eval()
-    preproc_frames = _transforms(args, frames)
+    frames = _online_video_decode(max_num_frames, video_path)
+    preproc_frames = _transforms(img_res, max_num_frames, frames)
     data_sample = tensorizer.tensorize_example_e2e('', preproc_frames)
-    data_sample = tuple(t.to(args.device) for t in data_sample)
+    data_sample = tuple(t.cuda() for t in data_sample)
     with torch.no_grad():
 
         inputs = {'is_decode': True,
@@ -76,6 +76,7 @@ def inference_from_arr(frames, model, tokenizer, tensorizer):
             'eos_token_ids': [sep_token_id],
             'mask_token_id': mask_token_id,
             'add_od_labels': False, # object-detection labels
+            #'od_labels_start_posid': args.max_seq_a_length,
             # hyperparameters of beam search
             'max_length': 20,
             'num_beams': 1,
@@ -87,50 +88,27 @@ def inference_from_arr(frames, model, tokenizer, tensorizer):
             "num_return_sequences": 1,
             "num_keep_best": 1,
         }
-        outputs = model(**inputs)
-
-        all_caps = outputs[0]  # batch_size * num_keep_best * max_len
-        all_confs = torch.exp(outputs[1])
-
-        assert all_caps.shape[:2] == (1,1)
-        assert all_confs.shape[:2] == (1,1)
-        cap = tokenizer.decode(all_caps[0,0].tolist(), skip_special_tokens=True)
-        return cap
-
-def inference(args, video_path, model, tokenizer, tensorizer):
-    cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = \
-        tokenizer.convert_tokens_to_ids([tokenizer.cls_token, tokenizer.sep_token,
-        tokenizer.pad_token, tokenizer.mask_token, '.'])
-
-    model.float()
-    model.eval()
-    frames = _online_video_decode(args, video_path)
-    preproc_frames = _transforms(args, frames)
-    data_sample = tensorizer.tensorize_example_e2e('', preproc_frames)
-    data_sample = tuple(t.to(args.device) for t in data_sample)
-    with torch.no_grad():
-
-        inputs = {'is_decode': True,
-            'input_ids': data_sample[0][None,:], 'attention_mask': data_sample[1][None,:],
-            'token_type_ids': data_sample[2][None,:], 'img_feats': data_sample[3][None,:],
-            'masked_pos': data_sample[4][None,:],
-            'do_sample': False,
-            'bos_token_id': cls_token_id,
-            'pad_token_id': pad_token_id,
-            'eos_token_ids': [sep_token_id],
-            'mask_token_id': mask_token_id,
-            'add_od_labels': args.add_od_labels, 'od_labels_start_posid': args.max_seq_a_length,
-            # hyperparameters of beam search
-            'max_length': args.max_gen_length,
-            'num_beams': args.num_beams,
-            "temperature": args.temperature,
-            "top_k": args.top_k,
-            "top_p": args.top_p,
-            "repetition_penalty": args.repetition_penalty,
-            "length_penalty": args.length_penalty,
-            "num_return_sequences": args.num_return_sequences,
-            "num_keep_best": args.num_keep_best,
-        }
+        #inputs = {'is_decode': True,
+        #    'input_ids': data_sample[0][None,:], 'attention_mask': data_sample[1][None,:],
+        #    'token_type_ids': data_sample[2][None,:], 'img_feats': data_sample[3][None,:],
+        #    'masked_pos': data_sample[4][None,:],
+        #    'do_sample': False,
+        #    'bos_token_id': cls_token_id,
+        #    'pad_token_id': pad_token_id,
+        #    'eos_token_ids': [sep_token_id],
+        #    'mask_token_id': mask_token_id,
+        #    'add_od_labels': args.add_od_labels, 'od_labels_start_posid': args.max_seq_a_length,
+        #    # hyperparameters of beam search
+        #    'max_length': args.max_gen_length,
+        #    'num_beams': args.num_beams,
+        #    "temperature": args.temperature,
+        #    "top_k": args.top_k,
+        #    "top_p": args.top_p,
+        #    "repetition_penalty": args.repetition_penalty,
+        #    "length_penalty": args.length_penalty,
+        #    "num_return_sequences": args.num_return_sequences,
+        #    "num_keep_best": args.num_keep_best,
+        #}
         outputs = model(**inputs)
 
         all_caps = outputs[0]  # batch_size * num_keep_best * max_len
@@ -146,8 +124,6 @@ def check_arguments(args):
     basic_check_arguments(args)
     # additional sanity check:
     args.max_img_seq_length = int((args.max_num_frames/2)*(int(args.img_res)/32)*(int(args.img_res)/32))
-    breakpoint()
-    assert args.max_img_seq_length == 784
 
     if args.freeze_backbone or args.backbone_coef_lr == 0:
         args.backbone_coef_lr = 0
@@ -161,7 +137,6 @@ def check_arguments(args):
 
     if args.learn_mask_enabled==True:
         args.attn_mask_type = 'learn_vid_att'
-
 def update_existing_config_for_inference(args):
     assert args.do_test or args.do_eval
     checkpoint = args.eval_model_dir
@@ -177,7 +152,7 @@ def update_existing_config_for_inference(args):
 
     train_args.eval_model_dir = args.eval_model_dir
     train_args.resume_checkpoint = args.eval_model_dir + 'model.bin'
-    train_args.model_name_or_path = 'models/captioning/bert-base-uncased/'
+    train_args.model_name_or_path = 'SwinBERT/models/captioning/bert-base-uncased/'
     train_args.do_train = False
     train_args.do_eval = True
     train_args.do_test = True
@@ -219,9 +194,9 @@ def main(args):
      # Get Video Swin model
     swin_model = get_swin_model(args.img_res, args.vidswin_size, args.kinetics, args.pretrained_2d, args.grid_feat)
     # Get BERT and tokenizer
-    bert_model, config, tokenizer = get_bert_model(args)
+    bert_model, config, tokenizer = get_bert_model(args.do_lower_case)
     # build SwinBERT based on training configs
-    vl_transformer = VideoTransformer(args, config, swin_model, bert_model)
+    vl_transformer = VideoTransformer(args.grid_feat, config, swin_model, bert_model)
     vl_transformer.freeze_backbone(freeze=args.freeze_backbone)
 
     pretrained_model = torch.load(args.resume_checkpoint, map_location=torch.device('cpu'))
@@ -234,11 +209,11 @@ def main(args):
     vl_transformer.to(args.device)
     vl_transformer.eval()
 
-    tensorizer = build_tensorizer(args, tokenizer, is_train=False)
+    tensorizer = build_tensorizer(tokenizer, args.max_seq_length, args.max_img_seq_length, args.max_gen_length, is_train=False)
     all_caps = {}
     for fn in os.listdir(args.video_dir):
         video_fpath = os.path.join(args.video_dir,fn)
-        cap = inference(args, video_fpath, vl_transformer, tokenizer, tensorizer)
+        cap = inference(video_fpath, args.img_res, args.max_num_frames, vl_transformer, tokenizer, tensorizer)
         fn_ = fn.split('.')[0]
         all_caps[fn_] = cap
         print(f'{fn_}: {cap}')

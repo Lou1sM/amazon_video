@@ -1867,8 +1867,8 @@ class BertForImageCaptioning(BertPreTrainedModel):
 
         self.add_od_labels = add_od_labels
         # avoid position_ids collision of caption and od labels
-        self.od_labels_start_posid = max(od_labels_start_posid, self.max_seq_len)
         if self.add_od_labels:
+            self.od_labels_start_posid = max(od_labels_start_posid, self.max_seq_len)
             # get od labels part from input_ids
             assert input_ids.shape[0] == batch_size
             od_label_ids = input_ids[:, self.max_seq_len:]
