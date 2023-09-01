@@ -46,6 +46,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-t','--is_test',action='store_true')
 parser.add_argument('--db_failed_scenes',action='store_true')
 parser.add_argument('--print_full_aligned',action='store_true')
+parser.add_argument('--print_tlines',action='store_true')
 parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
 ARGS = parser.parse_args()
 
@@ -97,11 +98,12 @@ for idx1, idx2 in zip(alignment.index1,alignment.index2):
     if idx1!=cur_idx or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment transcript lines
         timestamped_tline = f'{starttime} --> {endtime} {raw_transcript_lines[cur_idx]}'
         timestamped_lines.append(timestamped_tline)
-        print(timestamped_tline)
+        if ARGS.print_tlines:
+            print(timestamped_tline)
         if raw_transcript_lines[cur_idx] == '[SCENE_BREAK]' or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment scenes too
             outpath = f'SummScreen/video_scenes/{ARGS.ep_name}/{ARGS.ep_name}_scene{scene_num}.mp4'
             scene_endtime = min(new_starttime,endtime)
-            scene_endtime -= (scene_endtime - scene_starttime)/20 # cut last 5% to reduce overspill
+            scene_endtime -= 3 + (scene_endtime - scene_starttime)/8 # cut further reduce overspill
             print(f'SCENE{scene_num}: {scene_starttime}-{scene_endtime}')
             if scene_starttime >= scene_endtime and ARGS.db_failed_scenes:
                 breakpoint()
