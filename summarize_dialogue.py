@@ -145,18 +145,18 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if not ARGS.only_check_gpt:
         ss = SoapSummer(device)
-    all_ep_fnames = os.listdir('SummScreen/transcripts')
+    all_ep_names = os.listdir('SummScreen/transcripts')
     if ARGS.do_shuffle:
-        np.random.shuffle(all_ep_fnames)
-    for ep_fname in all_ep_fnames:
+        np.random.shuffle(all_ep_names)
+    for ep_name in all_ep_names:
 
-        with open(join('SummScreen/transcripts',ep_fname)) as f:
+        with open(join('SummScreen/transcripts',ep_name)) as f:
             transcript_data = json.load(f)
         if not '[SCENE_BREAK]' in transcript_data['Transcript']: continue
-        with open(join('SummScreen/summaries',ep_fname)) as f:
+        with open(join('SummScreen/summaries',ep_name)) as f:
             summary_data = json.load(f)
 
-        ep = Episode(ep_fname,transcript_data,summary_data)
+        ep = Episode(ep_name,transcript_data,summary_data)
 
         #concatted_scene_summs = '\n'.join([summarize_scene(x) for x in ep.scenes])
         print('Concatted scene summaries:')

@@ -78,7 +78,7 @@ def inference(video_path,img_res,max_num_frames, model, tokenizer, tensorizer):
             'add_od_labels': False, # object-detection labels
             #'od_labels_start_posid': args.max_seq_a_length,
             # hyperparameters of beam search
-            'max_length': 20,
+            'max_length': tensorizer.max_seq_len,
             'num_beams': 1,
             "temperature": 1,
             "top_k": 0,

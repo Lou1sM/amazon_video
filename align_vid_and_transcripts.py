@@ -46,16 +46,14 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-t','--is_test',action='store_true')
 parser.add_argument('--db_failed_scenes',action='store_true')
 parser.add_argument('--print_full_aligned',action='store_true')
+parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
 ARGS = parser.parse_args()
 
 
-ep_fname = 'oltl-10-18-10'
-#ep_fname = 'atwt-01-02-03'
-
-with open(f'SummScreen/transcripts/{ep_fname}.json') as f:
+with open(f'SummScreen/transcripts/{ARGS.ep_name}.json') as f:
     transcript_data = json.load(f)
 
-with open(f'SummScreen/closed_captions/{ep_fname}.json') as f:
+with open(f'SummScreen/closed_captions/{ARGS.ep_name}.json') as f:
     closed_captions = json.load(f)
 
 raw_transcript_lines = transcript_data['Transcript']
@@ -70,7 +68,7 @@ all_words, counts = np.unique(sum(cc_lines+transcript_lines,[]),return_counts=Tr
 word_to_count = dict(zip(all_words,counts))
 N = len(all_words)
 
-video_fpath = f'SummScreen/videos/{ep_fname}.mp4'
+video_fpath = f'SummScreen/videos/{ARGS.ep_name}.mp4'
 dist_mat = np.array([[dist_func(a,b) for a in cc_lines] for b in transcript_lines])
 dist_mat_ = []
 alignment = align(transcript_lines, cc_lines)
@@ -88,7 +86,7 @@ timestamped_lines = []
 starttime = 0
 endtime = 0
 cur_idx = 0
-check_dir(f'SummScreen/video_scenes/{ep_fname}')
+check_dir(f'SummScreen/video_scenes/{ARGS.ep_name}')
 scene_num = 0
 scene_starttime = 0
 scene_endtime = 0
@@ -101,8 +99,9 @@ for idx1, idx2 in zip(alignment.index1,alignment.index2):
         timestamped_lines.append(timestamped_tline)
         print(timestamped_tline)
         if raw_transcript_lines[cur_idx] == '[SCENE_BREAK]' or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment scenes too
-            outpath = f'SummScreen/video_scenes/{ep_fname}/{ep_fname}_scene{scene_num}.mp4'
+            outpath = f'SummScreen/video_scenes/{ARGS.ep_name}/{ARGS.ep_name}_scene{scene_num}.mp4'
             scene_endtime = min(new_starttime,endtime)
+            scene_endtime -= (scene_endtime - scene_starttime)/20 # cut last 5% to reduce overspill
             print(f'SCENE{scene_num}: {scene_starttime}-{scene_endtime}')
             if scene_starttime >= scene_endtime and ARGS.db_failed_scenes:
                 breakpoint()

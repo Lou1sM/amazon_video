@@ -1,16 +1,25 @@
+import json
+from os.path import join
 
+
+def episode_from_ep_name(ep_name):
+    with open(f'SummScreen/transcripts/{ep_name}.json') as f:
+        transcript_data = json.load(f)
+    with open(f'SummScreen/summaries/{ep_name}.json') as f:
+        summary_data = json.load(f)
+    return Episode(ep_name, transcript_data, summary_data)
 
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
-    def __init__(self,ep_fname,transcript_data,summary_data):
+    def __init__(self,ep_name,transcript_data,summary_data):
         self.transcript = transcript_data['Transcript']
-        self.ep_fname = ep_fname
+        self.ep_name = ep_name
         #recap_summ = transcript_data['Recap'][0]
         #trans_summ = transcript_data['Episode Summary'][0]
         #self.summaries = dict(summary_data,recap=recap_summ,trans_summ=trans_summ)
         self.summaries = summary_data
         self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
         self.title = transcript_data['Show Title'].lower().replace(' ','_')
-        self.show_name = ep_fname.split('.')[0]
+        self.show_name = ep_name.split('.')[0]
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 
