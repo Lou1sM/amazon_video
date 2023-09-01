@@ -96,12 +96,11 @@ for idx1, idx2 in zip(alignment.index1,alignment.index2):
     new_starttime, new_endtime = cc_timestamps[idx2].split(' --> ')
     new_starttime = secs_from_timestamp(new_starttime)
     new_endtime = secs_from_timestamp(new_endtime)
-    if idx1!=cur_idx: # increment transcript lines
-        assert idx1==cur_idx+1
+    if idx1!=cur_idx or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment transcript lines
         timestamped_tline = f'{starttime} --> {endtime} {raw_transcript_lines[cur_idx]}'
         timestamped_lines.append(timestamped_tline)
         print(timestamped_tline)
-        if raw_transcript_lines[cur_idx] == '[SCENE_BREAK]': # increment scenes too
+        if raw_transcript_lines[cur_idx] == '[SCENE_BREAK]' or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment scenes too
             outpath = f'SummScreen/video_scenes/{ep_fname}/{ep_fname}_scene{scene_num}.mp4'
             scene_endtime = min(new_starttime,endtime)
             print(f'SCENE{scene_num}: {scene_starttime}-{scene_endtime}')
