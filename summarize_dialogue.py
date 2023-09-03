@@ -1,4 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from datasets import load_dataset
 from time import time
 import re
 import torch
@@ -7,7 +8,7 @@ import pandas as pd
 import os
 from os.path import join
 import json
-from episode import Episode
+from episode import Episode, episode_from_ep_name
 #from torchmetrics.text.rouge import ROUGEScore
 from rouge_score import rouge_scorer
 import numpy as np
@@ -16,11 +17,12 @@ import numpy as np
 class SoapSummer():
     def __init__(self,device):
         self.device = device
-        self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
-        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary").to(self.device)
+        #self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
+        #self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary").to(self.device)
 
-        self.tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
-        self.model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn").to(self.device)
+        self.model_name = "facebook/bart-large-cnn"
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(self.device)
 
         self.bs = 8
         self.dbs = 8
@@ -30,15 +32,16 @@ class SoapSummer():
         padded = [b+[self.dtokenizer.eos_token_id]*(N-len(b)) for b in batch]
         return torch.tensor(padded).to(self.device)
 
-    def summarize(self,ep):
+    def summ_scenes(self,ep):
         start_time = time()
-        chunks = sum([self.chunkify(s,level='dialogue') for s in ep.scenes],[])
+        chunk_list = [self.chunkify(s,level='dialogue') for s in ep.scenes]
+        #scene_num_list = [f'SCENE{i}' for i,x in enumerate(chunk_list) for j in range(len(x))]
+        chunks = sum(chunk_list,[])
         sort_idxs = np.argsort([len(x) for x in chunks])
         reversed_sort_idxs = np.argsort(sort_idxs)
         sorted_chunks = [chunks[i] for i in sort_idxs]
         if not all([sorted_chunks[reversed_sort_idxs[i]]==c for i,c in enumerate(chunks)]):
             breakpoint()
-
         #padded_batch = self.pad_batch(chunks)
         N = ceil(len(chunks)/self.dbs)
         chunk_summs = []
@@ -53,10 +56,29 @@ class SoapSummer():
             chunk_summs += summ
         print(f'Scene summ time: {time()-start_time:.2f}')
         desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
-        concatted_scene_summs = '\n'.join(desorted_chunk_summs)
+        # now reuinfy whatever scenes were split into chunks
+        count = 0
+        desplit = []
+        for cl in chunk_list:
+            desplit.append(' '.join(desorted_chunk_summs[count:count+len(cl)]))
+            count+=len(cl)
+        assert (desplit==desorted_chunk_summs) == (set([len(x) for x in chunk_list])==set([1]))
+        with open(f'SummScreen/scene_summs/{ep.ep_name}.txt','w') as f:
+            f.write('\n'.join(desplit))
+        return desplit
+
+    def summarize(self,ep,recompute=False):
+        start_time = time()
+        maybe_scene_summ_path = f'SummScreen/scene_summs/{ep.ep_name}.txt'
+        if os.path.exists(maybe_scene_summ_path):
+            with open(maybe_scene_summ_path) as f:
+                scene_summs = f.readlines()
+        else:
+            scene_summs = self.summ_scenes(ep)
+        concatted_scene_summs = '\n'.join(scene_summs)
         chunks = self.chunkify(concatted_scene_summs,level='meta')
         assert len(chunks) < self.bs
-        mean_gt_summ_len = sum([len(s.split()) for s in ep.summaries.values()])/len(ep.summaries) # soap_central v long, kinda skewing it
+        #mean_gt_summ_len = sum([len(s.split()) for s in ep.summaries.values()])/len(ep.summaries) # soap_central v long, kinda skewing it
         #max_len = min(mean_gt_summ_len/len(chunks),50) # so just hard-code for now
         max_len = 300
         min_len = max(10,max_len-20)
@@ -146,17 +168,22 @@ if __name__ == '__main__':
     if not ARGS.only_check_gpt:
         ss = SoapSummer(device)
     all_ep_names = os.listdir('SummScreen/transcripts')
+    assert all([x.endswith('.json') for x in all_ep_names])
+    all_ep_names = [x[:-5] for x in all_ep_names]
+    all_ep_names.remove('oltl-10-18-10')
+    all_ep_names.insert(0,'oltl-10-18-10')
     if ARGS.do_shuffle:
         np.random.shuffle(all_ep_names)
     for ep_name in all_ep_names:
+        print(ep_name)
+        ep = episode_from_ep_name(ep_name)
+        #with open(join('SummScreen/transcripts',ep_name)) as f:
+        #    transcript_data = json.load(f)
+        #if not '[SCENE_BREAK]' in transcript_data['Transcript']: continue
+        #with open(join('SummScreen/summaries',ep_name)) as f:
+        #    summary_data = json.load(f)
 
-        with open(join('SummScreen/transcripts',ep_name)) as f:
-            transcript_data = json.load(f)
-        if not '[SCENE_BREAK]' in transcript_data['Transcript']: continue
-        with open(join('SummScreen/summaries',ep_name)) as f:
-            summary_data = json.load(f)
-
-        ep = Episode(ep_name,transcript_data,summary_data)
+        #ep = Episode(ep_name,transcript_data,summary_data)
 
         #concatted_scene_summs = '\n'.join([summarize_scene(x) for x in ep.scenes])
         print('Concatted scene summaries:')
