@@ -1,5 +1,6 @@
 import numpy as np
-from context_lib import redirect_stdout
+from time import time
+from contextlib import redirect_stdout
 import os
 from dl_utils.misc import check_dir
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
@@ -8,6 +9,12 @@ from nltk import word_tokenize
 from difflib import SequenceMatcher
 from dtw import dtw
 import argparse
+import subprocess as sp
+import imageio_ffmpeg
+from dl_utils.misc import asMinutes
+
+
+FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
 def clean(line):
     if ':' not in line:
@@ -41,19 +48,29 @@ def align(xlines,ylines):
     alignment = dtw(dist_mat)
     return alignment
 
+def secs_from_timestamp(timestamp):
+    hrs,mins,secs_ = timestamp.split(':')
+    secs, msecs = secs_.split(',')
+    return 3600*float(hrs) + 60*float(mins) + float(secs) + 1e-3*float(msecs)
+
 def split_by_alignment(ep_name):
+    compute_start_time = time()
     with open(f'SummScreen/transcripts/{ep_name}.json') as f:
         transcript_data = json.load(f)
 
     with open(f'SummScreen/closed_captions/{ep_name}.json') as f:
         closed_captions = json.load(f)
 
-    if not '[SCENE_BREAK]' in transcript_data['Transcript']:
-        print(f'There doesn\'t appear to be scene break markings for {ep_name}')
+    if '[SCENE_BREAK]' not in transcript_data['Transcript']:
+        print(f'Can\'t split {ep_name}, no scene markings')
         return
 
     raw_transcript_lines = transcript_data['Transcript']
     transcript_lines = [word_tokenize(clean(line)) for line in raw_transcript_lines]
+    if 'captions' not in closed_captions.keys():
+        print(f'Can\'t split {ep_name}, no captions')
+        return
+
     cc_lines = [word_tokenize(cc_clean(x[1])) for x in closed_captions['captions']]
     cc_timestamps = [x[0] for x in closed_captions['captions']]
     if ARGS.is_test:
@@ -68,11 +85,6 @@ def split_by_alignment(ep_name):
     if ARGS.print_full_aligned:
         for i,j in zip(alignment.index1,alignment.index2):
             print(transcript_lines[i],cc_lines[j], cc_timestamps[j])
-
-    def secs_from_timestamp(timestamp):
-        hrs,mins,secs_ = timestamp.split(':')
-        secs, msecs = secs_.split(',')
-        return 3600*float(hrs) + 60*float(mins) + float(secs) + 1e-3*float(msecs)
 
     timestamped_lines = []
     starttime = 0
@@ -95,11 +107,12 @@ def split_by_alignment(ep_name):
                 outpath = f'SummScreen/video_scenes/{ep_name}/{ep_name}_scene{scene_num}.mp4'
                 scene_endtime = min(new_starttime,endtime)
                 scene_endtime -= 3 + (scene_endtime - scene_starttime)/8 #cut further reduce overspill
-                print(f'SCENE{scene_num}: {scene_starttime}-{scene_endtime}')
+                print(f'SCENE{scene_num}: {asMinutes(scene_starttime)}-{asMinutes(scene_endtime)}')
                 if scene_starttime >= scene_endtime and ARGS.db_failed_scenes:
                     breakpoint()
-                with redirect_stdout(None):
-                    ffmpeg_extract_subclip(video_fpath,scene_starttime, scene_endtime, targetname=outpath)
+                #with redirect_stdout(None):
+                #ffmpeg_extract_subclip(video_fpath,scene_starttime, scene_endtime, targetname=outpath)
+                sp.call([FFMPEG_PATH, '-loglevel', 'quiet', '-ss', str(scene_starttime), '-to', str(scene_endtime), '-i', video_fpath, '-c', 'copy', '-y', outpath])
                 scene_num += 1
                 scene_starttime = max(new_starttime,endtime) # start of next scene should be greater than both start of first caption in the next scene and end of last caption in this scene
             assert len(timestamped_lines) == cur_idx+1
@@ -113,6 +126,7 @@ def split_by_alignment(ep_name):
             print(888)
         if new_endtime > endtime:
             endtime = new_endtime
+    print(f'Time to split: {asMinutes(time()-compute_start_time)}')
 
 
 if __name__ == '__main__':
