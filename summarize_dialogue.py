@@ -1,7 +1,5 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
-from datasets import load_dataset
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from time import time
-import re
 import torch
 from math import ceil
 import pandas as pd
@@ -67,7 +65,7 @@ class SoapSummer():
             f.write('\n'.join(desplit))
         return desplit
 
-    def get_scene_summs(self,ep_name): 
+    def get_scene_summs(self,ep_name):
         maybe_scene_summ_path = f'SummScreen/scene_summs/{ep.ep_name}.txt'
         if os.path.exists(maybe_scene_summ_path):
             with open(maybe_scene_summ_path) as f:
@@ -115,34 +113,10 @@ def split_text_by_lines(text):
     second_chunk = '\n'.join(lines[i+1:])
     return first_chunk, second_chunk
 
-def summarize_scenes(scene_texts):
-    text = text.replace('@@ ','').replace(' ,',',')
-    max_len = min(len(text.split()),50)
-    min_len = max(10,max_len-20)
-    print(len(text.split()))
-    if len(text.split())>800:
-        first_chunk, second_chunk = split_text_by_lines(text)
-        return summarize_scene(first_chunk) + summarize_scene(second_chunk)
-    try:
-        return dpipe(text,min_length=min_len, max_length=max_len)[0]['summary_text']
-    except IndexError:
-        first_chunk, second_chunk = split_text_by_lines(text)
-        return summarize_scene(first_chunk) + summarize_scene(second_chunk)
-
 def get_rouges(pred,gt):
     scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL','rougeLsum'], use_stemmer=True)
     raw_rscores = scorer.score(gt,pred)
     return {'r'+k[5:]+a: round(getattr(v,a),4) for k,v in raw_rscores.items() for a in ('precision','recall','fmeasure')}
-
-def get_summ_of_summs(concatted_summs,gt_len):
-    assert type(gt_len) in (int,float)
-    if len(concatted_summs.split())>800:
-        first_chunk, second_chunk = split_text_by_lines(concatted_summs)
-        return get_summ_of_summs(first_chunk,gt_len/2) + get_summ_of_summs(second_chunk,gt_len/2)
-    max_len = int(min(gt_len-50,250))
-    min_len = int(max(90,max_len-40))
-    summ_of_summs = pipe(concatted_summs,min_length=min_len, max_length=max_len)[0]['summary_text']
-    return summ_of_summs
 
 def harmonic_avg(args):
     if any([a==0 for a in args]):
@@ -225,14 +199,6 @@ if __name__ == '__main__':
                     gpt_best = gpt_scores['r2fmeasure']
                 print(gpt_scores)
 
-        p
-        #if not ARGS.only_check_gpt:
-            #print(f'\nBest ours: {our_best_scores}')
-            #all_our_bests[ep.show_name] = our_best_scores
-        #if ARGS.do_check_gpt:
-            #print(f'Best GPT: {gpt_best_scores}')
-            #all_gpt_bests[ep.show_name] = gpt_best_scores
-        if (len(all_our_bests)==ARGS.n_dpoints) or (len(all_gpt_bests)==ARGS.n_dpoints and ARGS.only_check_gpt): break
     if (not ARGS.summ_scenes_only) and (not ARGS.only_check_gpt):
         our_df = pd.DataFrame(all_our_bests).T
         our_df.loc['mean']=our_df.mean(axis=0)
