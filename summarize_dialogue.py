@@ -17,8 +17,8 @@ import numpy as np
 class SoapSummer():
     def __init__(self,device):
         self.device = device
-        #self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
-        #self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary").to(self.device)
+        self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
+        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary").to(self.device)
 
         self.model_name = "facebook/bart-large-cnn"
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -67,14 +67,17 @@ class SoapSummer():
             f.write('\n'.join(desplit))
         return desplit
 
-    def summarize(self,ep,recompute=False):
-        start_time = time()
+    def get_scene_summs(self,ep_name): 
         maybe_scene_summ_path = f'SummScreen/scene_summs/{ep.ep_name}.txt'
         if os.path.exists(maybe_scene_summ_path):
             with open(maybe_scene_summ_path) as f:
-                scene_summs = f.readlines()
+                return f.readlines()
         else:
-            scene_summs = self.summ_scenes(ep)
+            return self.summ_scenes(ep)
+
+    def summarize(self,ep,recompute=False):
+        start_time = time()
+        scene_summs = self.get_scene_summs(ep.ep_name)
         concatted_scene_summs = '\n'.join(scene_summs)
         chunks = self.chunkify(concatted_scene_summs,level='meta')
         assert len(chunks) < self.bs
@@ -157,6 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--do_shuffle',action='store_true')
     parser.add_argument('--do_check_gpt',action='store_true')
     parser.add_argument('--only_check_gpt',action='store_true')
+    parser.add_argument('--summ_scenes_only',action='store_true')
     ARGS = parser.parse_args()
 
     if ARGS.only_check_gpt:
@@ -174,21 +178,28 @@ if __name__ == '__main__':
     all_ep_names.insert(0,'oltl-10-18-10')
     if ARGS.do_shuffle:
         np.random.shuffle(all_ep_names)
+    n_procced = 0
     for ep_name in all_ep_names:
-        print(ep_name)
+        if n_procced == ARGS.n_dpoints:
+            break
+        print(n_procced,ep_name)
+        with open(join('SummScreen/transcripts',f'{ep_name}.json')) as f:
+            transcript_data = json.load(f)
+        with open(join('SummScreen/summaries',f'{ep_name}.json')) as f:
+            summary_data = json.load(f)
+
+        ep = Episode(ep_name,transcript_data,summary_data)
+
+        if not '[SCENE_BREAK]' in transcript_data['Transcript']:
+            continue
+        else:
+            n_procced += 1
         ep = episode_from_ep_name(ep_name)
-        #with open(join('SummScreen/transcripts',ep_name)) as f:
-        #    transcript_data = json.load(f)
-        #if not '[SCENE_BREAK]' in transcript_data['Transcript']: continue
-        #with open(join('SummScreen/summaries',ep_name)) as f:
-        #    summary_data = json.load(f)
-
-        #ep = Episode(ep_name,transcript_data,summary_data)
-
-        #concatted_scene_summs = '\n'.join([summarize_scene(x) for x in ep.scenes])
-        print('Concatted scene summaries:')
-        #gt_len = sum([len(x.split()) for x in ep.summaries.values()])/len(ep.summaries)
-        #summ_of_summs = get_summ_of_summs(concatted_scene_summs,gt_len)
+        if ARGS.summ_scenes_only:
+            ss.get_scene_summs(ep_name)
+            continue
+        else:
+            n_procced += 1
         if not ARGS.only_check_gpt:
             summ_of_summs = ss.summarize(ep)
         if ARGS.do_check_gpt:
@@ -214,19 +225,20 @@ if __name__ == '__main__':
                     gpt_best = gpt_scores['r2fmeasure']
                 print(gpt_scores)
 
-        if not ARGS.only_check_gpt:
-            print(f'\nBest ours: {our_best_scores}')
-            all_our_bests[ep.show_name] = our_best_scores
-        if ARGS.do_check_gpt:
-            print(f'Best GPT: {gpt_best_scores}')
-            all_gpt_bests[ep.show_name] = gpt_best_scores
+        p
+        #if not ARGS.only_check_gpt:
+            #print(f'\nBest ours: {our_best_scores}')
+            #all_our_bests[ep.show_name] = our_best_scores
+        #if ARGS.do_check_gpt:
+            #print(f'Best GPT: {gpt_best_scores}')
+            #all_gpt_bests[ep.show_name] = gpt_best_scores
         if (len(all_our_bests)==ARGS.n_dpoints) or (len(all_gpt_bests)==ARGS.n_dpoints and ARGS.only_check_gpt): break
-    if not ARGS.only_check_gpt:
+    if (not ARGS.summ_scenes_only) and (not ARGS.only_check_gpt):
         our_df = pd.DataFrame(all_our_bests).T
         our_df.loc['mean']=our_df.mean(axis=0)
         our_df.to_csv('our_rouge_scores.csv')
         print(our_df.loc['mean'])
-    if ARGS.do_check_gpt:
+    if (not ARGS.summ_scenes_only) and ARGS.do_check_gpt:
         gpt_df = pd.DataFrame(all_gpt_bests).T
         gpt_df.loc['mean']=gpt_df.mean(axis=0)
         print(gpt_df.loc['mean'])
