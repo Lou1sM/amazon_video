@@ -1,4 +1,5 @@
 import os
+import json
 from nltk.corpus import names
 from SwinBERT.src.tasks.run_caption_VidSwinBert_inference import inference
 from SwinBERT.src.datasets.caption_tensorizer import build_tensorizer
@@ -33,7 +34,6 @@ def caption_each_scene(ep_name, vl_transformer, tokenizer, tensorizer, img_res):
     scenes_dir = f'SummScreen/video_scenes/{ep_name}'
     caps_per_scene = []
     ep = episode_from_ep_name(ep_name)
-    #scene_fnames = sorted(os.listdir(scenes_dir),key=lambda x: int(x.split('_')[1].split('.')[0][5:]))
     scene_fnames = [x for x in os.listdir(scenes_dir) if x.endswith('mp4')]
     scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
     if len(ep.scenes) == 1: # prob means no scene break markings
@@ -53,10 +53,10 @@ def caption_each_scene(ep_name, vl_transformer, tokenizer, tensorizer, img_res):
         scene_transcript = ep.scenes[sn]
         appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
 
-        orig_cap = cap
+        named_cap = cap
         appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
         appearing_maybe_females = [c for c in appearing_chars if gender(c) in ['f','a']]
-        if len(appearing_maybe_males)==1:
+        if len(appearing_maybe_males)==1: # if has to be man then can't be woman
             if appearing_maybe_males[0] in appearing_maybe_females:
                 appearing_maybe_females.remove(appearing_maybe_males[0])
         if len(appearing_maybe_females)==1:
@@ -64,33 +64,20 @@ def caption_each_scene(ep_name, vl_transformer, tokenizer, tensorizer, img_res):
                 appearing_maybe_males.remove(appearing_maybe_females[0])
 
         if len(appearing_maybe_males)==1:
-            if 'a man' in cap:
-                cap = cap.replace('a man',appearing_maybe_males[0], 1)
-            elif 'a boy' in cap:
-                cap = cap.replace('a boy',appearing_maybe_males[0], 1)
+            if 'a man' in named_cap:
+                named_cap = named_cap.replace('a man',appearing_maybe_males[0], 1)
+            elif 'a boy' in named_cap:
+                named_cap = named_cap.replace('a boy',appearing_maybe_males[0], 1)
         if len(appearing_maybe_females)==1:
-            if 'a woman' in cap:
-                cap = cap.replace('a woman',appearing_maybe_females[0], 1)
-            elif 'a girl' in cap:
-                cap = cap.replace('a girl',appearing_maybe_females[0], 1)
-        #for cn in appearing_chars:
-        #    g = gender(cn)
-        #    if g=='m':
-        #        cap = maybe_replace_subj(cn,'a man',cap)
-        #        cap = maybe_replace_subj(cn,'a boy',cap)
-        #    elif g=='f':
-        #        cap = maybe_replace_subj(cn,'a woman',cap)
-        #        cap = maybe_replace_subj(cn,'a girl',cap)
-        #    elif len(appearing_chars)==1:
-        #        cap = maybe_replace_subj(cn,'a person',cap)
-        #        cap = maybe_replace_subj(cn,'someone',cap)
-        #        cap = maybe_replace_subj(cn,'somebody',cap)
-        print(f'SCENE{sn}: {cap}\t{orig_cap}')
-        caps_per_scene.append(cap)
+            if 'a woman' in named_cap:
+                named_cap = named_cap.replace('a woman',appearing_maybe_females[0], 1)
+            elif 'a girl' in named_cap:
+                named_cap = named_cap.replace('a girl',appearing_maybe_females[0], 1)
+        print(f'SCENE{sn}: {cap}\t{named_cap}')
+        caps_per_scene.append({'raw':cap, 'with_names':named_cap})
 
-    with open(f'{scenes_dir}/captions_per_scene.txt','w') as f:
-        for i,c in enumerate(caps_per_scene):
-            f.write(f'{i}: {c}')
+    with open(f'{scenes_dir}/captions_per_scene.json','w') as f:
+        json.dump(caps_per_scene,f)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
