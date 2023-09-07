@@ -1,9 +1,9 @@
 from __future__ import absolute_import, division, print_function
+from time import time
 import os
 import sys
 pythonpath = os.path.abspath(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-print(pythonpath)
 sys.path.insert(0, pythonpath)
 import numpy as np
 from PIL import Image
@@ -39,11 +39,18 @@ def _transforms(img_res, max_num_frames, frames):
     raw_video_prcoess = Compose(raw_video_crop_list)
 
     frames = frames.numpy()
+    if frames.ndim == 5: # collapse time and batch dims
+        was_batched = True
+        bs, n_frames = frames.shape[:2]
+        frames = frames.reshape(-1,*frames.shape[2:])
+    else:
+        assert frames.ndim == 4
+        was_batched = False
+        bs = 1
     frames = np.transpose(frames, (0, 2, 3, 1))
-    num_of_frames, height, width, channels = frames.shape
 
     frame_list = []
-    N = min(max_num_frames,frames.shape[0])
+    N = min(bs*max_num_frames,frames.shape[0])
     for i in range(N):
         frame_list.append(Image.fromarray(frames[i]))
 
@@ -51,25 +58,35 @@ def _transforms(img_res, max_num_frames, frames):
     crop_frames = raw_video_prcoess(frame_list)
     # (C x T x H x W) --> (T x C x H x W)
     crop_frames = crop_frames.permute(1, 0, 2, 3)
+    if was_batched:
+        crop_frames = crop_frames.reshape(bs, n_frames, *crop_frames.shape[1:])
     return crop_frames
 
-def inference(video_path,img_res,max_num_frames, model, tokenizer, tensorizer):
+def inference(frames,img_res,max_num_frames, model, tokenizer, tensorizer):
     cls_token_id, sep_token_id, pad_token_id, mask_token_id, period_token_id = \
         tokenizer.convert_tokens_to_ids([tokenizer.cls_token, tokenizer.sep_token,
         tokenizer.pad_token, tokenizer.mask_token, '.'])
 
     model.float()
     model.eval()
-    frames = _online_video_decode(max_num_frames, video_path)
+    #frames = _online_video_decode(max_num_frames, video_path)
+    #start_time = time()
     preproc_frames = _transforms(img_res, max_num_frames, frames)
-    data_sample = tensorizer.tensorize_example_e2e('', preproc_frames)
-    data_sample = tuple(t.cuda() for t in data_sample)
+    #print(f'preproc time: {time()-start_time:.3f}')
+    #start_time = time()
+    X = tensorizer.tensorize_example_e2e('', preproc_frames)
+    #print(f'tensorize time: {time()-start_time:.3f}')
+    bs = len(frames) if frames.ndim==5 else 1
+    X = [x if i==3 else x.repeat(bs,*[1 for _ in range(x.ndim)]) for i,x in enumerate(X)]
+    X = tuple(t.cuda() for t in X)
     with torch.no_grad():
 
         inputs = {'is_decode': True,
-            'input_ids': data_sample[0][None,:], 'attention_mask': data_sample[1][None,:],
-            'token_type_ids': data_sample[2][None,:], 'img_feats': data_sample[3][None,:],
-            'masked_pos': data_sample[4][None,:],
+            #'input_ids': X[0][None,:], 'attention_mask': X[1][None,:],
+            'input_ids': X[0], 'attention_mask': X[1],
+            #'token_type_ids': X[2][None,:], 'img_feats': X[3][None,:],
+            'token_type_ids': X[2], 'img_feats': X[3],
+            'masked_pos': X[4],
             'do_sample': False,
             'bos_token_id': cls_token_id,
             'pad_token_id': pad_token_id,
@@ -89,9 +106,9 @@ def inference(video_path,img_res,max_num_frames, model, tokenizer, tensorizer):
             "num_keep_best": 1,
         }
         #inputs = {'is_decode': True,
-        #    'input_ids': data_sample[0][None,:], 'attention_mask': data_sample[1][None,:],
-        #    'token_type_ids': data_sample[2][None,:], 'img_feats': data_sample[3][None,:],
-        #    'masked_pos': data_sample[4][None,:],
+        #    'input_ids': X[0][None,:], 'attention_mask': X[1][None,:],
+        #    'token_type_ids': X[2][None,:], 'img_feats': X[3][None,:],
+        #    'masked_pos': X[4][None,:],
         #    'do_sample': False,
         #    'bos_token_id': cls_token_id,
         #    'pad_token_id': pad_token_id,
@@ -109,15 +126,14 @@ def inference(video_path,img_res,max_num_frames, model, tokenizer, tensorizer):
         #    "num_return_sequences": args.num_return_sequences,
         #    "num_keep_best": args.num_keep_best,
         #}
+        #start_time = time()
         outputs = model(**inputs)
+        #print(f'true inference time: {time()-start_time:.3f}')
 
         all_caps = outputs[0]  # batch_size * num_keep_best * max_len
-        all_confs = torch.exp(outputs[1])
+        #all_confs = torch.exp(outputs[1])
 
-        assert all_caps.shape[:2] == (1,1)
-        assert all_confs.shape[:2] == (1,1)
-        cap = tokenizer.decode(all_caps[0,0].tolist(), skip_special_tokens=True)
-        return cap
+        return [tokenizer.decode(all_caps[i,0,:].tolist(),skip_special_tokens=True) for i in range(bs)]
 
 def check_arguments(args):
     # shared basic checks
