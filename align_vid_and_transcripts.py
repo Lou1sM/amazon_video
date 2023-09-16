@@ -15,6 +15,8 @@ from dl_utils.misc import asMinutes
 
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+N_WITHOUT_SCENE_BREAKS = 0
+N_WITHOUT_SCENE_CAPTIONS = 0
 
 def clean(line):
     if ':' not in line:
@@ -53,7 +55,9 @@ def secs_from_timestamp(timestamp):
     secs, msecs = secs_.split(',')
     return 3600*float(hrs) + 60*float(mins) + float(secs) + 1e-3*float(msecs)
 
-def split_by_alignment(ep_name):
+def split_by_alignment(ep_name,verbose):
+    global N_WITHOUT_SCENE_BREAKS
+    global N_WITHOUT_SCENE_CAPTIONS
     compute_start_time = time()
     with open(f'SummScreen/transcripts/{ep_name}.json') as f:
         transcript_data = json.load(f)
@@ -63,12 +67,14 @@ def split_by_alignment(ep_name):
 
     if '[SCENE_BREAK]' not in transcript_data['Transcript']:
         print(f'Can\'t split {ep_name}, no scene markings')
+        N_WITHOUT_SCENE_BREAKS += 1
         return
 
     raw_transcript_lines = transcript_data['Transcript']
     transcript_lines = [word_tokenize(clean(line)) for line in raw_transcript_lines]
     if 'captions' not in closed_captions.keys():
         print(f'Can\'t split {ep_name}, no captions')
+        N_WITHOUT_SCENE_CAPTIONS += 1
         return
 
     cc_lines = [word_tokenize(cc_clean(x[1])) for x in closed_captions['captions']]
@@ -107,7 +113,8 @@ def split_by_alignment(ep_name):
                 outpath = f'SummScreen/video_scenes/{ep_name}/{ep_name}_scene{scene_num}.mp4'
                 scene_endtime = min(new_starttime,endtime)
                 scene_endtime -= 3 + (scene_endtime - scene_starttime)/8 #cut further reduce overspill
-                print(f'SCENE{scene_num}: {asMinutes(scene_starttime)}-{asMinutes(scene_endtime)}')
+                if verbose:
+                    print(f'SCENE{scene_num}: {asMinutes(scene_starttime)}-{asMinutes(scene_endtime)}')
                 if scene_starttime >= scene_endtime and ARGS.db_failed_scenes:
                     breakpoint()
                 #with redirect_stdout(None):
@@ -126,7 +133,8 @@ def split_by_alignment(ep_name):
             print(888)
         if new_endtime > endtime:
             endtime = new_endtime
-    print(f'Time to split: {asMinutes(time()-compute_start_time)}')
+    if verbose:
+        print(f'Time to split: {asMinutes(time()-compute_start_time)}')
 
 
 if __name__ == '__main__':
@@ -141,7 +149,13 @@ if __name__ == '__main__':
     if ARGS.ep_name == 'all':
         all_ep_names = [fn[:-4] for fn in os.listdir('SummScreen/videos') if fn.endswith('.mp4')]
         for en in all_ep_names:
-            split_by_alignment(en)
+            if not os.path.exists(f'SummScreen/video_scenes/{en}'):
+                print(f'aligning and splitting {en}')
+                split_by_alignment(en,verbose=False)
+            else:
+                print(f'splits and alignment already exist for {en}')
     else:
         split_by_alignment(ARGS.ep_name)
+    print(f'num without scene breaks: {N_WITHOUT_SCENE_BREAKS}')
+    print(f'num without scene captions: {N_WITHOUT_SCENE_CAPTIONS}')
 

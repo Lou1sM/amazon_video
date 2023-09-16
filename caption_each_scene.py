@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from time import time
 from os.path import join
 from copy import copy
@@ -44,7 +45,7 @@ def get_frames(vid_paths_list,n_frames):
     return frames
 
 def caption_each_scene(ep_name, vl_transformer, tokenizer, tensorizer, img_res):
-    start_time = time()
+    #start_time = time()
     scenes_dir = f'SummScreen/video_scenes/{ep_name}'
     with open(f'SummScreen/transcripts/{ep_name}.json') as f:
         transcript_data = json.load(f)
@@ -55,20 +56,24 @@ def caption_each_scene(ep_name, vl_transformer, tokenizer, tensorizer, img_res):
     scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
     scene_vid_paths = [os.path.join(scenes_dir,f'{ep_name}_scene{sn}.mp4') for sn in scene_nums]
     scene_caps = []
-    for i in range(0,len(scene_vid_paths),ARGS.bs):
-        batch_start_time = time()
-        batch_of_scene_vid_paths = scene_vid_paths[i:i+ARGS.bs]
-        frames_start_time = time()
-        frames = get_frames(batch_of_scene_vid_paths, n_frames)
-        #print(f'frames time: {time()-frames_start_time:.3f}')
-        newcaps = inference(frames, img_res, n_frames, vl_transformer, tokenizer, tensorizer)
-        scene_caps += newcaps
-        #t = time()-batch_start_time
-        #print(f'batch time: {t:.3f}\tper sample: {t/ARGS.bs:.3f}')
-        #print(newcaps)
+    #for i in range(0,len(scene_vid_paths),ARGS.bs):
+        #batch_start_time = time()
+        #batch_of_scene_vid_paths = scene_vid_paths[i:i+ARGS.bs]
+        #frames_start_time = time()
+    for vp in scene_vid_paths:
+        frames, _ = extract_frames_from_video_path(
+                    vp, target_fps=3, num_frames=n_frames,
+                    multi_thread_decode=True, sampling_strategy="uniform",
+                    safeguard_duration=False, start=None, end=None)
+        if frames is None:
+            newcap = ['']
+            print(f'no scenes detected in {vp}, maybe it\'s v short')
+        else:
+            newcap = inference(frames, img_res, n_frames, vl_transformer, tokenizer, tensorizer)
+        scene_caps += newcap
 
 
-    print(f'total time: {time()-start_time:.3f}')
+    #print(f'total time: {time()-start_time:.3f}')
     caps_per_scene = [{'scene_id': f'{ep_name}s{sn}', 'raw':c} for sn,c in enumerate(scene_caps)]
     with open(os.path.join(scenes_dir,'raw_captions_per_scene.json'), 'w') as f:
         json.dump(caps_per_scene,f)
@@ -112,8 +117,6 @@ def filter_and_namify_scene_captions(ep_name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-t','--is_test',action='store_true')
-    parser.add_argument('--db_failed_scenes',action='store_true')
-    parser.add_argument('--print_full_aligned',action='store_true')
     parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
     parser.add_argument('--bs',type=int, default=1)
     ARGS = parser.parse_args()
@@ -136,12 +139,16 @@ if __name__ == '__main__':
     tensorizer_ = build_tensorizer(tokenizer_, 150, img_seq_len, max_gen_len, is_train=False)
 
     if ARGS.ep_name == 'all':
-        all_ep_names = [fn[:-4] for fn in os.listdir('SummScreen/video_scenes') if fn.endswith('.mp4')]
-        for en in os.listdir('SummScreen/video_scenes'):
-            scenes_dir = 'SummScreen/video_scenes/{en}'
-            if not os.path.exists(scenes_dir):
-                os.makedirs(scenes_dir)
-                caption_each_scene(en, vl_transformer_, tokenizer_, tensorizer_, img_res, n_frames)
+        all_ep_names = os.listdir('SummScreen/video_scenes')
+        to_caption = []
+        for en in all_ep_names:
+            if os.path.exists(f'SummScreen/video_scenes/{en}/raw_captions_per_scene.json'):
+                print(f'scene captions already exist for {en}')
+            else:
+                to_caption.append(en)
+            
+        for tc in tqdm(to_caption):
+            caption_each_scene(tc, vl_transformer_, tokenizer_, tensorizer_, img_res)
     else:
         caption_each_scene(ARGS.ep_name, vl_transformer_, tokenizer_, tensorizer_, img_res)
 

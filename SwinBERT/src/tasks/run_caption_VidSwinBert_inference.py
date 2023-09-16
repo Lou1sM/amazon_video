@@ -69,15 +69,14 @@ def inference(frames,img_res,max_num_frames, model, tokenizer, tensorizer):
 
     model.float()
     model.eval()
-    #frames = _online_video_decode(max_num_frames, video_path)
-    #start_time = time()
     preproc_frames = _transforms(img_res, max_num_frames, frames)
-    #print(f'preproc time: {time()-start_time:.3f}')
-    #start_time = time()
     X = tensorizer.tensorize_example_e2e('', preproc_frames)
-    #print(f'tensorize time: {time()-start_time:.3f}')
-    bs = len(frames) if frames.ndim==5 else 1
-    X = [x if i==3 else x.repeat(bs,*[1 for _ in range(x.ndim)]) for i,x in enumerate(X)]
+    if frames.ndim==5:
+        bs = len(frames)
+        X = [x if i==3 else x.repeat(bs,*[1 for _ in range(x.ndim)]) for i,x in enumerate(X)]
+    else:
+        bs = 1
+        X = [x[None] for x in X]
     X = tuple(t.cuda() for t in X)
     with torch.no_grad():
 
