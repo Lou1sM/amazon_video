@@ -8,7 +8,8 @@ from os.path import join
 import json
 from episode import Episode, episode_from_ep_name
 #from torchmetrics.text.rouge import ROUGEScore
-from rouge_score import rouge_scorer
+#from rouge_score import rouge_scorer
+from nelly_rouge import nelly_rouge
 import numpy as np
 
 
@@ -77,7 +78,8 @@ class SoapSummer():
         start_time = time()
         scene_summs = self.get_scene_summs(ep.ep_name)
         concatted_scene_summs = '\n'.join(scene_summs)
-        chunks = self.chunkify(concatted_scene_summs,level='meta')
+        #chunks = self.chunkify(concatted_scene_summs,level='meta')
+        chunks = chunkify(self.tokenizer(concatted_scene_summs),self.tokenizer.model_max_length)
         assert len(chunks) < self.bs
         #mean_gt_summ_len = sum([len(s.split()) for s in ep.summaries.values()])/len(ep.summaries) # soap_central v long, kinda skewing it
         #max_len = min(mean_gt_summ_len/len(chunks),50) # so just hard-code for now
@@ -85,21 +87,23 @@ class SoapSummer():
         min_len = max(10,max_len-20)
         meta_chunk_summs = self.model.generate(self.pad_batch(chunks),min_length=min_len,max_length=max_len)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
+        with open(f'SummScreen/full_summs/{ep.ep_name}.txt','w') as f:
+            f.write(final_summ)
         print(f'Total summ time: {time()-start_time:.2f}')
         return final_summ
 
-    def chunkify(self,text,level='dialogue'):
-        if level == 'dialogue':
-            tokenizer = self.dtokenizer
-        else:
-            assert level=='meta'
-            tokenizer = self.tokenizer
-        tokenized_text = tokenizer(text)['input_ids']
-        if len(tokenized_text) < tokenizer.model_max_length:
-            return [tokenized_text]
-        else:
-            first_chunk, second_chunk = split_text_by_lines(text)
-            return self.chunkify(first_chunk,level) + self.chunkify(second_chunk,level)
+def chunkify(self,tokenized_text,max_chunk_size):
+    #if level == 'dialogue':
+    #    tokenizer = self.dtokenizer
+    #else:
+    #    assert level=='meta'
+    #    tokenizer = self.tokenizer
+    #tokenized_text = tokenizer(text)['input_ids']
+    if len(tokenized_text) < max_chunk_size:
+        return [tokenized_text]
+    else:
+        first_chunk, second_chunk = split_text_by_lines(tokenized_text)
+        return chunkify(first_chunk,max_chunk_size) + chunkify(second_chunk,max_chunk_size)
 
 def split_text_by_lines(text):
     lines = text.split('\n')
@@ -113,10 +117,10 @@ def split_text_by_lines(text):
     second_chunk = '\n'.join(lines[i+1:])
     return first_chunk, second_chunk
 
-def get_rouges(pred,gt):
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL','rougeLsum'], use_stemmer=True)
-    raw_rscores = scorer.score(gt,pred)
-    return {'r'+k[5:]+a: round(getattr(v,a),4) for k,v in raw_rscores.items() for a in ('precision','recall','fmeasure')}
+#def old_get_rouges(pred,gt):
+    #scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL','rougeLsum'], use_stemmer=True)
+    #raw_rscores = scorer.score(gt,pred)
+    #return {'r'+k[5:]+a: round(getattr(v,a),4) for k,v in raw_rscores.items() for a in ('precision','recall','fmeasure')}
 
 def harmonic_avg(args):
     if any([a==0 for a in args]):
@@ -154,6 +158,7 @@ if __name__ == '__main__':
         np.random.shuffle(all_ep_names)
     n_procced = 0
     for ep_name in all_ep_names:
+        print(n_procced)
         if n_procced == ARGS.n_dpoints:
             break
         print(n_procced,ep_name)
@@ -166,14 +171,10 @@ if __name__ == '__main__':
 
         if not '[SCENE_BREAK]' in transcript_data['Transcript']:
             continue
-        else:
-            n_procced += 1
         ep = episode_from_ep_name(ep_name)
         if ARGS.summ_scenes_only:
             ss.get_scene_summs(ep_name)
             continue
-        else:
-            n_procced += 1
         if not ARGS.only_check_gpt:
             summ_of_summs = ss.summarize(ep)
         if ARGS.do_check_gpt:
@@ -184,20 +185,21 @@ if __name__ == '__main__':
             print('\n'+summ_name)
             print('Summary of summaries:')
             if not ARGS.only_check_gpt:
-                our_scores = get_rouges(summ_of_summs,gt_summ)
-                our_avg = harmonic_avg([v for k,v in our_scores.items() if 'fmeasure' in k])
-                if our_scores['r2fmeasure'] > our_best:
+                our_scores = nelly_rouge(summ_of_summs,gt_summ)
+                if our_scores[1] > our_best:
                     our_best_scores = our_scores
-                    our_best = our_scores['r2fmeasure']
+                    our_best = our_scores[1]
                 print(our_scores)
+                all_our_bests[ep_name] = our_scores
             if ARGS.do_check_gpt:
                 print('GPT:')
-                gpt_scores = get_rouges(gpt_summ,gt_summ)
-                gpt_avg = harmonic_avg([v for k,v in gpt_scores.items() if 'fmeasure' in k])
-                if gpt_scores['r2fmeasure'] > gpt_best:
-                    gpt_best_scores = gpt_scores
-                    gpt_best = gpt_scores['r2fmeasure']
-                print(gpt_scores)
+                our_scores = nelly_rouge(summ_of_summs,gt_summ)
+                if our_scores[1] > our_best:
+                    our_best_scores = our_scores
+                    our_best = our_scores[1]
+                print(our_scores)
+                all_our_bests[ep_name] = our_scores
+        n_procced += 1
 
     if (not ARGS.summ_scenes_only) and (not ARGS.only_check_gpt):
         our_df = pd.DataFrame(all_our_bests).T
