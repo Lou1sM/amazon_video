@@ -1,16 +1,18 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq
 import numpy as np
 from nelly_rouge import nelly_rouge
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 import argparse
 import torch
 from rouge_score import rouge_scorer
+import os
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cpu',action='store_true')
+parser.add_argument('--retokenize',action='store_true')
 parser.add_argument('--n_epochs',type=int,default=50)
 parser.add_argument('--eval_every',type=int,default=10)
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
@@ -23,34 +25,41 @@ def old_get_rouges(pred,gt):
     return [raw_rscores[x].fmeasure for x in ('rouge1', 'rouge2', 'rougeLsum')]
 
 device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 'cpu')
-trainset = load_dataset('json', data_files='SummScreen/scene_summs_to_summ_train.json',split='train')
-testset = load_dataset('json', data_files='SummScreen/scene_summs_to_summ_test.json',split='train')
 tokenizer = AutoTokenizer.from_pretrained(ARGS.model_name)
 
-def train_preprocess_function(dpoint):
-    inputs = [doc for doc in dpoint['scene_summs']]
-    model_inputs = tokenizer(inputs)
+if os.path.exists('cached_trainset') and os.path.exists('cached_testset') and not ARGS.retokenize:
+    tokenized_trainset = load_from_disk('cached_trainset')
+    tokenized_testset = load_from_disk('cached_testset')
+else:
+    trainset = load_dataset('json', data_files='SummScreen/scene_summs_to_summ_train.json',split='train')
+    testset = load_dataset('json', data_files='SummScreen/scene_summs_to_summ_test.json',split='train')
 
-    # Setup the tokenizer for targets
-    labels = tokenizer(text_target=dpoint['summ'])
+    def train_preprocess_function(dpoint):
+        inputs = [doc for doc in dpoint['scene_summs']]
+        model_inputs = tokenizer(inputs)
 
-    model_inputs['labels'] = labels['input_ids']
-    return model_inputs
+        # Setup the tokenizer for targets
+        labels = tokenizer(text_target=dpoint['summ'])
 
-def test_preprocess_function(dpoint):
-    model_inputs = tokenizer(dpoint.pop('scene_summs'))
-    for k,v in dpoint.items():
-        model_inputs[k] = [tokenizer.pad_token_id] if v is None else tokenizer(v)['input_ids']
-    return model_inputs
+        model_inputs['labels'] = labels['input_ids']
+        return model_inputs
+
+    def test_preprocess_function(dpoint):
+        model_inputs = tokenizer(dpoint.pop('scene_summs'))
+        for k,v in dpoint.items():
+            model_inputs[k] = [tokenizer.pad_token_id] if v is None else tokenizer(v)['input_ids']
+        return model_inputs
+
+    tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
+
+    tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 
 model = AutoModelForSeq2SeqLM.from_pretrained(ARGS.model_name).to(device)
 dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 
-tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
-test_loader = DataLoader(tokenized_testset, batch_size=1, shuffle=False, collate_fn=dc)
-
-tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 train_loader = DataLoader(tokenized_trainset, batch_size=2, shuffle=True, collate_fn=dc)
+test_loader = DataLoader(tokenized_testset, batch_size=1, shuffle=False, collate_fn=dc)
+import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
 def safe_decode(tokens):
      st = [[x for x in ts[:tokenizer.model_max_length] if x != -100] for ts in tokens]
