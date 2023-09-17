@@ -15,6 +15,8 @@ parser.add_argument('--cpu',action='store_true')
 parser.add_argument('--retokenize',action='store_true')
 parser.add_argument('--n_epochs',type=int,default=50)
 parser.add_argument('--eval_every',type=int,default=10)
+parser.add_argument('--print_loss_every',type=int,default=10)
+parser.add_argument('--batch_size',type=int,default=1)
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 ARGS = parser.parse_args()
 
@@ -51,13 +53,15 @@ else:
         return model_inputs
 
     tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
-
     tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
+
+    tokenized_trainset.save_to_disk('cached_trainset')
+    tokenized_testset.save_to_disk('cached_testset')
 
 model = AutoModelForSeq2SeqLM.from_pretrained(ARGS.model_name).to(device)
 dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 
-train_loader = DataLoader(tokenized_trainset, batch_size=2, shuffle=True, collate_fn=dc)
+train_loader = DataLoader(tokenized_trainset, batch_size=ARGS.batch_size, shuffle=True, collate_fn=dc)
 test_loader = DataLoader(tokenized_testset, batch_size=1, shuffle=False, collate_fn=dc)
 import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
@@ -71,6 +75,7 @@ for epoch in range(ARGS.n_epochs):
     model.train()
     epoch_loss = 0
     model.eval()
+    j = 0
     for i, batch in enumerate(train_loader):
         opt.zero_grad()
         input_ids = batch['input_ids'].to(device)
@@ -81,8 +86,14 @@ for epoch in range(ARGS.n_epochs):
         outputs = model(**cbatch)
         loss = outputs[0]
         loss.backward()
-        epoch_loss = ((i*epoch_loss) + loss) / (i+1) # running avg
+        epoch_loss = ((j*epoch_loss) + loss) / (j+1) # running avg
+        if j == ARGS.print_loss_every:
+            print(f'Batch {j} loss: {loss.item():.5f}')
+            j = 0
+            epoch_loss = 0
         opt.step()
+        j+=1
+    print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
     if (epoch)%ARGS.eval_every == 0:
         rouges = []
         old_rouges = []
@@ -97,7 +108,6 @@ for epoch in range(ARGS.n_epochs):
         for r in (old_rouges, rouges):
             rouges_arr = np.array(r)
             print(f'Mean Rouge: {rouges_arr.mean(axis=0)}')
-    print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
 
     model_fname = ARGS.model_name.split('/')[-1]
     save_dir = f'checkpoints/finetuned-{model_fname}'
