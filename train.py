@@ -30,6 +30,7 @@ device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 
 tokenizer = AutoTokenizer.from_pretrained(ARGS.model_name)
 
 if os.path.exists('cached_trainset') and os.path.exists('cached_testset') and not ARGS.retokenize:
+    print('tokenized datasets have been cached, loading')
     tokenized_trainset = load_from_disk('cached_trainset')
     tokenized_testset = load_from_disk('cached_testset')
 else:
@@ -49,7 +50,7 @@ else:
     def test_preprocess_function(dpoint):
         model_inputs = tokenizer(dpoint.pop('scene_summs'))
         for k,v in dpoint.items():
-            model_inputs[k] = [tokenizer.pad_token_id] if v is None else tokenizer(v)['input_ids']
+            model_inputs[k] = v
         return model_inputs
 
     tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
@@ -63,7 +64,6 @@ dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 
 train_loader = DataLoader(tokenized_trainset, batch_size=ARGS.batch_size, shuffle=True, collate_fn=dc)
 test_loader = DataLoader(tokenized_testset, batch_size=1, shuffle=False, collate_fn=dc)
-import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
 def safe_decode(tokens):
      st = [[x for x in ts[:tokenizer.model_max_length] if x != -100] for ts in tokens]
@@ -76,6 +76,33 @@ for epoch in range(ARGS.n_epochs):
     epoch_loss = 0
     model.eval()
     j = 0
+    if (epoch)%ARGS.eval_every == 0:
+        rouges = []
+        old_rouges = []
+        for batch in tokenized_testset:
+            tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
+            outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
+            nl_outputs = safe_decode(outputs)[0]
+            best_r2 = 0
+            new_rouge = 0
+            for k,v in batch.items():
+                if k in ('input_ids','attention_mask') or v is None:
+                    continue
+                #possible_gt = safe_decode(v)
+                possible_gt = v
+                new_rouge = nelly_rouge(nl_outputs,possible_gt)
+                if new_rouge[1] > best_r2:
+                    best_r2 = new_rouge[1]
+                    best_rouge = new_rouge
+                    old_rouge = old_get_rouges(nl_outputs,possible_gt)
+            if best_r2 == 0:
+                breakpoint()
+            old_rouges += old_rouge
+            rouges.append(best_rouge)
+
+        for r in (old_rouges, rouges):
+            rouges_arr = np.array(r)
+            print(f'Mean Rouge: {rouges_arr.mean(axis=0)}')
     for i, batch in enumerate(train_loader):
         opt.zero_grad()
         input_ids = batch['input_ids'].to(device)
@@ -94,20 +121,6 @@ for epoch in range(ARGS.n_epochs):
         opt.step()
         j+=1
     print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
-    if (epoch)%ARGS.eval_every == 0:
-        rouges = []
-        old_rouges = []
-        for batch in test_loader:
-            outputs = model.generate(batch['input_ids'][:,:tokenizer.model_max_length].cuda(),min_length=250,max_length=300)
-            nl_inputs = safe_decode(labels)
-            nl_outputs = safe_decode(outputs)
-            rouge = nelly_rouge(nl_outputs,nl_inputs)
-            old_rouge = [old_get_rouges(pred,gt) for pred,gt in zip(nl_outputs,nl_inputs)]
-            old_rouges += old_rouge
-            rouges.append(rouge)
-        for r in (old_rouges, rouges):
-            rouges_arr = np.array(r)
-            print(f'Mean Rouge: {rouges_arr.mean(axis=0)}')
 
     model_fname = ARGS.model_name.split('/')[-1]
     save_dir = f'checkpoints/finetuned-{model_fname}'
