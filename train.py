@@ -1,4 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq
+from tqdm import tqdm
 import numpy as np
 from nelly_rouge import nelly_rouge
 from datasets import load_dataset, load_from_disk
@@ -75,11 +76,29 @@ for epoch in range(ARGS.n_epochs):
     model.train()
     epoch_loss = 0
     model.eval()
-    j = 0
     if (epoch)%ARGS.eval_every == 0:
         rouges = []
         old_rouges = []
-        for batch in tokenized_testset:
+        print(f'training epoch {epoch}')
+        for j,batch in enumerate(pbar := tqdm(train_loader, dynamic_ncols=True, smoothing=0.01, leave=False)):
+            opt.zero_grad()
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels = batch['labels'].to(device)
+            cbatch = {k:v.cuda()[:,:tokenizer.model_max_length] for k,v in batch.items()}
+            cbatch['labels'] = cbatch['labels'].contiguous()
+            outputs = model(**cbatch)
+            loss = outputs[0]
+            loss.backward()
+            ema = loss if j==0 else (ema+loss)/2 # EMA moving avg
+            epoch_loss = ((j*epoch_loss) + loss) / (j+1) # running avg
+            pbar.set_description(f'Epoch: {epoch}/{ARGS.n_epochs}'
+                                 f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
+            opt.step()
+            #pbar.set_description(f"Processing {loss.item():.4f}")
+        print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
+        print('validating')
+        for batch in tqdm(tokenized_testset):
             tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
             outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
             nl_outputs = safe_decode(outputs)[0]
@@ -96,31 +115,14 @@ for epoch in range(ARGS.n_epochs):
                     best_rouge = new_rouge
                     old_rouge = old_get_rouges(nl_outputs,possible_gt)
             if best_r2 == 0:
-                breakpoint()
+                if not all([v is None for k,v in batch.items() if k not in ('input_ids','attention_mask','ep_name')]):
+                    breakpoint()
             old_rouges += old_rouge
             rouges.append(best_rouge)
 
         for r in (old_rouges, rouges):
             rouges_arr = np.array(r)
             print(f'Mean Rouge: {rouges_arr.mean(axis=0)}')
-    for i, batch in enumerate(train_loader):
-        opt.zero_grad()
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        labels = batch['labels'].to(device)
-        cbatch = {k:v.cuda()[:,:tokenizer.model_max_length] for k,v in batch.items()}
-        cbatch['labels'] = cbatch['labels'].contiguous()
-        outputs = model(**cbatch)
-        loss = outputs[0]
-        loss.backward()
-        epoch_loss = ((j*epoch_loss) + loss) / (j+1) # running avg
-        if j == ARGS.print_loss_every:
-            print(f'Batch {j} loss: {loss.item():.5f}')
-            j = 0
-            epoch_loss = 0
-        opt.step()
-        j+=1
-    print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
 
     model_fname = ARGS.model_name.split('/')[-1]
     save_dir = f'checkpoints/finetuned-{model_fname}'

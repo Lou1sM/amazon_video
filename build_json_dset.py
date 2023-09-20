@@ -9,7 +9,7 @@ ep_names = os.listdir(scene_summ_dir)
 assert all([x.endswith('.txt') for x in ep_names])
 ep_names = [x[:-4] for x in ep_names]
 shuffle(ep_names)
-train_up_to_idx = int(3*len(ep_names)/4)
+train_up_to_idx = int(9*len(ep_names)/10)
 train_ep_names = ep_names[:train_up_to_idx]
 test_ep_names = ep_names[train_up_to_idx:]
 print(test_ep_names)
