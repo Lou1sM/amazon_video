@@ -86,6 +86,9 @@ def split_by_alignment(ep_name,verbose):
     all_words, counts = np.unique(sum(cc_lines+transcript_lines,[]),return_counts=True)
 
     video_fpath = f'SummScreen/videos/{ep_name}.mp4'
+    if not os.path.exists(video_fpath):
+        print(f'Can\'t split {ep_name}, no file at {video_fpath}')
+        return
     alignment = align(transcript_lines, cc_lines)
 
     if ARGS.print_full_aligned:
