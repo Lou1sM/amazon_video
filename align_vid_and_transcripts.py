@@ -158,7 +158,7 @@ if __name__ == '__main__':
             else:
                 print(f'splits and alignment already exist for {en}')
     else:
-        split_by_alignment(ARGS.ep_name)
+        split_by_alignment(ARGS.ep_name,verbose=False)
     print(f'num without scene breaks: {N_WITHOUT_SCENE_BREAKS}')
     print(f'num without scene captions: {N_WITHOUT_SCENE_CAPTIONS}')
 

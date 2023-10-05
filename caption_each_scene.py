@@ -90,8 +90,8 @@ class Captioner():
         printwriter = PrintDataWriter()
         model = AutoModelForVision2Seq.from_pretrained("ydshieh/kosmos-2-patch14-224", trust_remote_code=True)
 
-        vd.extract_keyframes_from_videos_dir(no_of_frames=3, dir_path=fpath, writer=printwriter)
-        keyframes_paths = [join(fpath,x) for x in os.listdir(fpath) if x.endswith('keyframes.npy')]
+        vd.extract_keyframes_from_videos_dir(no_of_frames=1, dir_path=fpath, writer=printwriter)
+        keyframes_paths = sorted([join(fpath,x) for x in os.listdir(fpath) if x.endswith('keyframes.npy')])
         scene_caps = []
         scene_locs = []
         for i,kfp in enumerate(keyframes_paths):
@@ -104,7 +104,7 @@ class Captioner():
                 cap,l = processor.post_process_generation(generated_text, cleanup_and_extract=True)
                 caps_for_this_scene.append(cap)
                 locs_for_this_scene.append(l)
-            print(caps_for_this_scene)
+            print(i,caps_for_this_scene)
             scene_caps.append(' '.join(caps_for_this_scene))
             scene_locs.append(locs_for_this_scene)
 
@@ -161,22 +161,33 @@ class Captioner():
         for sn, (raw_cap, scene_transcript) in enumerate(zip(raw_caps, ep.scenes)):
             appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
 
-            cap = copy(raw_cap)
+            cap = raw_cap.lower()
+            if cap.startswith('a scene from a tv show in which'):
+                cap = cap[32:]
             appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
             appearing_maybe_females = [c for c in appearing_chars if gender(c) in ['f','a']]
-            if len(appearing_maybe_males)==1: # if has to be man then can't be woman
-                if appearing_maybe_males[0] in appearing_maybe_females:
-                    appearing_maybe_females.remove(appearing_maybe_males[0])
-            if len(appearing_maybe_females)==1: # and vice-versa
-                if appearing_maybe_females[0] in appearing_maybe_males:
-                    appearing_maybe_males.remove(appearing_maybe_females[0])
 
+            if len(appearing_maybe_females)==1:
+                femname = appearing_maybe_females.pop()
+                if 'a woman' in cap:
+                    cap = cap.replace('a woman',femname, 1)
+                    if femname in appearing_maybe_males: # could be neut. name
+                        appearing_maybe_males.remove(femname)
+                elif 'a girl' in cap:
+                    cap = cap.replace('a girl',appearing_maybe_females[0], 1)
+                    if femname in appearing_maybe_males: # could be neut. name
+                        appearing_maybe_males.remove(femname)
             if len(appearing_maybe_males)==1:
+                manname = appearing_maybe_males.pop()
                 if 'a man' in cap:
-                    cap = cap.replace('a man',appearing_maybe_males[0], 1)
+                    cap = cap.replace('a man',manname, 1)
+                    if manname in appearing_maybe_females:
+                        appearing_maybe_females.remove(manname)
                 elif 'a boy' in cap:
                     cap = cap.replace('a boy',appearing_maybe_males[0], 1)
-            if len(appearing_maybe_females)==1:
+                    if manname in appearing_maybe_females:
+                        appearing_maybe_females.remove(manname)
+            if len(appearing_maybe_females)==1: # do again in case neut. removed when checking males
                 if 'a woman' in cap:
                     cap = cap.replace('a woman',appearing_maybe_females[0], 1)
                 elif 'a girl' in cap:
