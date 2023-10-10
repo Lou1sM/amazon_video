@@ -20,7 +20,12 @@ for ep_name in train_ep_names:
     with open(os.path.join(summ_dir,f'{ep_name}.json')) as f:
         d = json.load(f)
     for k,v in d.items():
-        if len(v) > 0 and k!='soap_central':
+        if v == 'Episode summary coming soon.\n':
+            continue
+        if '[ RECAP AVAILABLE ]' in v:
+            continue
+        assert (k=='tvmega_summary') == (v.startswith('Episode'))
+        if len(v) > 0 and k not in ['soap_central','tvmega_summary']:
             train_data_list.append({'scene_summs':x, 'summ':v, 'summ_name':k, 'ep_name':ep_name})
 
 with open('SummScreen/scene_summs_to_summ_train.json','w') as f:
@@ -35,7 +40,10 @@ for i,ep_name in enumerate(test_ep_names):
     dpoint = {'ep_name':ep_name, 'scene_summs':x}
     print(d.keys())
     for k,v in d.items():
-        if len(v) > 0 and k!='soap_central':
+        if v == 'Episode summary coming soon.\n':
+            continue
+        assert (k=='tvmega_summary') == (v.startswith('Episode'))
+        if len(v) > 0 and k not in ['soap_central','tvmega_summary']:
             dpoint[k] = v
         if len(v) == 0:
             breakpoint()

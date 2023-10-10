@@ -14,10 +14,11 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument('--cpu',action='store_true')
 parser.add_argument('--retokenize',action='store_true')
-parser.add_argument('--n_epochs',type=int,default=50)
-parser.add_argument('--eval_every',type=int,default=10)
-parser.add_argument('--print_loss_every',type=int,default=10)
+parser.add_argument('--n_epochs',type=int,default=2)
+parser.add_argument('--n_iter',type=int,default=-1)
+parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--batch_size',type=int,default=1)
+parser.add_argument('--finetuned',type=int,default=0)
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 ARGS = parser.parse_args()
 
@@ -60,12 +61,19 @@ else:
     tokenized_trainset.save_to_disk('cached_trainset')
     tokenized_testset.save_to_disk('cached_testset')
 
-model = AutoModelForSeq2SeqLM.from_pretrained(ARGS.model_name).to(device)
+
+if ARGS.finetuned==0:
+    chkpt_path = ARGS.model_name
+else:
+    chkpt_path = f'./finetuned/{ARGS.model_name}/chkpt{ARGS.finetuned}'
+
+
+print(f'loading model from {chkpt_path}')
+model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
 dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 
-train_loader = DataLoader(tokenized_trainset, batch_size=ARGS.batch_size, shuffle=True, collate_fn=dc)
-test_loader = DataLoader(tokenized_testset, batch_size=1, shuffle=False, collate_fn=dc)
-
+train_loader = DataLoader(tokenized_trainset, batch_size=ARGS.batch_size, shuffle=False, collate_fn=dc)
+#test_loader = DataLoader(tokenized_testset, batch_size=1, shuffle=False, collate_fn=dc)
 def safe_decode(tokens):
      st = [[x for x in ts[:tokenizer.model_max_length] if x != -100] for ts in tokens]
      return tokenizer.batch_decode(st, skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -76,39 +84,60 @@ for epoch in range(ARGS.n_epochs):
     model.train()
     epoch_loss = 0
     model.eval()
-    if (epoch)%ARGS.eval_every == 0:
-        rouges = []
-        old_rouges = []
-        print(f'training epoch {epoch}')
-        for j,batch in enumerate(pbar := tqdm(train_loader, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            opt.zero_grad()
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-            cbatch = {k:v.cuda()[:,:tokenizer.model_max_length] for k,v in batch.items()}
-            cbatch['labels'] = cbatch['labels'].contiguous()
-            outputs = model(**cbatch)
-            loss = outputs[0]
-            loss.backward()
-            ema = loss if j==0 else (ema+loss)/2 # EMA moving avg
-            epoch_loss = ((j*epoch_loss) + loss) / (j+1) # running avg
-            pbar.set_description(f'Epoch: {epoch}/{ARGS.n_epochs}'
-                                 f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
-            opt.step()
-            #pbar.set_description(f"Processing {loss.item():.4f}")
-        print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
+    rouges = []
+    old_rouges = []
+    print(f'training epoch {epoch}')
+    for j,batch in enumerate(pbar := tqdm(train_loader, dynamic_ncols=True, smoothing=0.01, leave=False)):
+        opt.zero_grad()
+        input_ids = batch['input_ids'].to(device)
+        attention_mask = batch['attention_mask'].to(device)
+        labels = batch['labels'].to(device)
+        cbatch = {k:v.cuda()[:,:tokenizer.model_max_length] for k,v in batch.items()}
+        cbatch['labels'] = cbatch['labels'].contiguous()
+        outputs = model(**cbatch)
+        #if (j+1)%100 == 0:
+        if epoch == ARGS.eval_every-1:
+            n = min(250,len(cbatch['labels']))
+            pred_ids = model.generate(cbatch['input_ids'].cuda(),min_length=n,max_length=300)
+            preds = safe_decode(pred_ids)[0]
+            print(preds)
+            gt = safe_decode(batch['labels'])[0]
+            n = min(len(gt),len(preds))
+            if gt[:n]==preds[:n]:
+                print('PERFECT')
+            else:
+                print(gt)
+            if 'RECAP' in gt or 'RECAP' in preds:
+                breakpoint()
+        loss = outputs[0]
+        loss.backward()
+        ema = loss if j==0 else (ema+loss)/2 # EMA moving avg
+        epoch_loss = ((j*epoch_loss) + loss) / (j+1) # running avg
+        pbar.set_description(f'Epoch: {epoch}/{ARGS.n_epochs}'
+                             f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
+        opt.step()
+        if j==ARGS.n_iter:
+            break
+    model.save_pretrained(f'./finetuned/{ARGS.model_name}/chkpt{epoch}')
+    print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
+    if (epoch+1) % ARGS.eval_every == 0:
         print('validating')
+        prev = ''
+        i = 0
         for batch in tqdm(tokenized_testset):
             tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
             outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
             nl_outputs = safe_decode(outputs)[0]
+            print(nl_outputs)
+            if nl_outputs[:100] == prev[:100]:
+                breakpoint()
+            prev = nl_outputs
             best_r2 = 0
             new_rouge = 0
-            for k,v in batch.items():
-                if k in ('input_ids','attention_mask') or v is None:
+            for k,possible_gt in batch.items():
+                if k in ('input_ids','attention_mask') or possible_gt is None:
                     continue
-                #possible_gt = safe_decode(v)
-                possible_gt = v
+                print(possible_gt)
                 new_rouge = nelly_rouge(nl_outputs,possible_gt)
                 if new_rouge[1] > best_r2:
                     best_r2 = new_rouge[1]
@@ -119,13 +148,16 @@ for epoch in range(ARGS.n_epochs):
                     breakpoint()
             old_rouges += old_rouge
             rouges.append(best_rouge)
+            i+=1
+            if i==10:
+                break
 
         for r in (old_rouges, rouges):
             rouges_arr = np.array(r)
             print(f'Mean Rouge: {rouges_arr.mean(axis=0)}')
 
-    model_fname = ARGS.model_name.split('/')[-1]
-    save_dir = f'checkpoints/finetuned-{model_fname}'
-    model.save_pretrained(save_dir)
-    tokenizer.save_pretrained(save_dir)
+model_fname = ARGS.model_name.split('/')[-1]
+save_dir = f'checkpoints/finetuned-{model_fname}'
+model.save_pretrained(save_dir)
+tokenizer.save_pretrained(save_dir)
 
