@@ -20,8 +20,6 @@ from transformers import AutoProcessor, AutoModelForVision2Seq
 from Katna.video import Video
 from Katna.writer import Writer
 
-vd = Video()
-
 
 male_names = names.words('male.txt')
 female_names = names.words('female.txt')
@@ -67,7 +65,7 @@ def get_frames(vid_paths_list,n_frames):
 class Captioner():
     def init_swin_models(self):
         if not hasattr(self,'swinbert_transformer'):
-            bert_model, config, self.tokenizer_ = get_bert_model(do_lower_case=True)
+            self.bert_model, config, self.tokenizer_ = get_bert_model(do_lower_case=True)
             self.img_res = 224
             self.n_frames = 32
             self.img_seq_len = int((self.n_frames/2)*(int(self.img_res)/32)**2)
@@ -117,6 +115,7 @@ class Captioner():
 
 
     def swinbert_scene_caps(self,ep_name):
+        self.init_swin_models()
         #start_time = time()
         scenes_dir = f'SummScreen/video_scenes/{ep_name}'
         with open(f'SummScreen/transcripts/{ep_name}.json') as f:
@@ -245,6 +244,7 @@ if __name__ == '__main__':
 
         for tc in tqdm(to_caption):
             captioner_func(tc)
+            captioner.filter_and_namify_scene_captions(en, ARGS.model_name)
     else:
         captioner_func(ARGS.ep_name)
         captioner.filter_and_namify_scene_captions(ARGS.ep_name, ARGS.model_name)
