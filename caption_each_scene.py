@@ -65,7 +65,7 @@ def get_frames(vid_paths_list,n_frames):
 class Captioner():
     def init_swin_models(self):
         if not hasattr(self,'swinbert_transformer'):
-            self.bert_model, config, self.tokenizer_ = get_bert_model(do_lower_case=True)
+            self.bert_model, config, self.swin_tokenizer = get_bert_model(do_lower_case=True)
             self.img_res = 224
             self.n_frames = 32
             self.img_seq_len = int((self.n_frames/2)*(int(self.img_res)/32)**2)
@@ -79,7 +79,7 @@ class Captioner():
             self.swin_transformer.cuda()
             self.swin_transformer.eval()
 
-            self.swin_tensorizer = build_tensorizer(self.tokenizer, 150, self.img_seq_len, self.max_gen_len, is_train=False)
+            self.swin_tensorizer = build_tensorizer(self.swin_tokenizer, 150, self.img_seq_len, self.max_gen_len, is_train=False)
 
 
     def kosmos_scene_caps(self,ep_name):
