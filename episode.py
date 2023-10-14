@@ -1,4 +1,5 @@
 import json
+from nelly_rouge import nelly_rouge
 from os.path import join
 
 
@@ -24,6 +25,16 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.summary_data_dict = summary_data
 
         self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
+
+    def calc_rouge(self,summ):
+        best_scores = [-1,-1,-1]
+        for summ_name, gt_summ in self.summaries.items():
+            print('\n'+summ_name)
+            print(gt_summ)
+            scores = nelly_rouge(summ,gt_summ)
+            if scores[1] > best_scores[1]:
+                best_scores = scores
+        return best_scores
 
     def print_recap(self):
         for summ in self.summaries:
