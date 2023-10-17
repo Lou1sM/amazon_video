@@ -80,7 +80,6 @@ class Captioner():
         else:
             print(f'unrecognized model name: {model_name}')
 
-
     def kosmos_scene_caps(self,ep_name):
         ep_dir = os.path.join('SummScreen/keyframes',ep_name)
         scene_caps = []
@@ -101,7 +100,6 @@ class Captioner():
                     cap,l = self.kosmos_processor.post_process_generation(generated_text, cleanup_and_extract=True)
                     caps_for_this_scene.append(cap)
                     locs_for_this_scene.append(l)
-            print(i,scene_dir,caps_for_this_scene)
             scene_caps.append(' '.join(caps_for_this_scene))
             scene_locs.append(locs_for_this_scene)
 
@@ -112,7 +110,6 @@ class Captioner():
         check_dir(f'SummScreen/video_scenes/{ep_name}')
         with open(f'SummScreen/video_scenes/{ep_name}/kosmos_raw_scene_caps.json', 'w') as f:
             json.dump(to_dump,f)
-
 
     def swinbert_scene_caps(self,ep_name):
         scenes_dir = f'SummScreen/video_scenes/{ep_name}'
@@ -244,7 +241,7 @@ if __name__ == '__main__':
             all_ep_names = [x for x in all_ep_names if x.startswith(ARGS.show_name)]
         to_caption = []
         for en in all_ep_names:
-            if os.path.exists(f'SummScreen/video_scenes/{en}/swinbert_raw_scene_caps.json'):
+            if os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_raw_scene_caps.json'):
                 #print(f'scene captions already exist for {en}')
                 pass
             else:
