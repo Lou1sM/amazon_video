@@ -1,6 +1,7 @@
 import os
 import warnings
 warnings.filterwarnings('ignore')
+from dl_utils.misc import check_dir
 import numpy as np
 from tqdm import tqdm
 from time import time
@@ -98,20 +99,22 @@ class Captioner():
         scene_caps = []
         scene_locs = []
         n_frames_to_cap = 1
-        for i,scene_dir in enumerate(os.listdir(ep_dir)):
-            keyframes_files = sorted(os.listdir(join(ep_dir,scene_dir)), key=lambda x: int(x[3:-5])) # by where the appear in scene
-            select_every = len(keyframes_files)/(n_frames_to_cap+1)
-            selected_frame_files = [keyframes_files[int(i*select_every)] for i in range(1,(n_frames_to_cap+1))]
+        scenes = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
+        for i,scene_dir in enumerate(scenes):
             caps_for_this_scene = []
             locs_for_this_scene = []
-            for fname in selected_frame_files:
-                keyframe = np.array(Image.open(join(ep_dir,scene_dir,fname)))
-                generated_text = kosmos(keyframe, model, processor)
-                # Specify `cleanup_and_extract=False` in order to see the raw model generation.
-                cap,l = processor.post_process_generation(generated_text, cleanup_and_extract=True)
-                caps_for_this_scene.append(cap)
-                locs_for_this_scene.append(l)
-            print(i,caps_for_this_scene)
+            keyframes_files = sorted(os.listdir(join(ep_dir,scene_dir)), key=lambda x: int(x[3:-5])) # by where the appear in scene
+            if len(keyframes_files) > 0:
+                select_every = len(keyframes_files)/(n_frames_to_cap+1)
+                selected_frame_files = [keyframes_files[int(i*select_every)] for i in range(1,(n_frames_to_cap+1))]
+                for fname in selected_frame_files:
+                    keyframe = np.array(Image.open(join(ep_dir,scene_dir,fname)))
+                    generated_text = kosmos(keyframe, model, processor)
+                    # Specify `cleanup_and_extract=False` in order to see the raw model generation.
+                    cap,l = processor.post_process_generation(generated_text, cleanup_and_extract=True)
+                    caps_for_this_scene.append(cap)
+                    locs_for_this_scene.append(l)
+            print(i,scene_dir,caps_for_this_scene)
             scene_caps.append(' '.join(caps_for_this_scene))
             scene_locs.append(locs_for_this_scene)
 
@@ -119,6 +122,7 @@ class Captioner():
         for sn,(c,l) in enumerate(zip(scene_caps,scene_locs)):
             to_append = {'scene_id': f'{ep_name}s{sn}', 'raw_cap':c, 'locs':l}
             to_dump.append(to_append)
+        check_dir(f'SummScreen/video_scenes/{ep_name}')
         with open(f'SummScreen/video_scenes/{ep_name}/kosmos_raw_scene_caps.json', 'w') as f:
             json.dump(to_dump,f)
 
@@ -171,6 +175,7 @@ class Captioner():
             appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
 
             cap = raw_cap.lower()
+            cap = cap.replace('is seen','is').replace('are seen','are')
             if cap.startswith('a scene from a tv show in which'):
                 cap = cap[32:]
             appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
@@ -201,7 +206,8 @@ class Captioner():
                     cap = cap.replace('a woman',appearing_maybe_females[0], 1)
                 elif 'a girl' in cap:
                     cap = cap.replace('a girl',appearing_maybe_females[0], 1)
-            #print(f'SCENE{sn}: {raw_cap}\t{cap}')
+            if ARGS.verbose:
+                print(f'SCENE{sn}: {raw_cap}\t{cap}')
             caps_per_scene.append({'scene_id': f'{ep_name}s{sn}', 'raw':raw_cap, 'with_names':cap})
 
         with open(f'{scenes_dir}/{model_name}_procced_scene_caps.json','w') as f:
@@ -224,7 +230,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--do_filter',action='store_true')
+    parser.add_argument('--verbose',action='store_true')
     parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
+    parser.add_argument('--show_name',type=str, default='all')
     parser.add_argument('--model_name',type=str, choices=['swinbert','kosmos'], default='kosmos')
     parser.add_argument('--bs',type=int, default=1)
     ARGS = parser.parse_args()
@@ -244,7 +252,10 @@ if __name__ == '__main__':
     captioner = Captioner()
     captioner_func = captioner.kosmos_scene_caps if ARGS.model_name=='kosmos' else captioner.swinbert_scene_caps
     if ARGS.ep_name == 'all':
-        all_ep_names = os.listdir('SummScreen/video_scenes')
+        #all_ep_names = [fn for fn in os.listdir('SummScreen/video_scenes') if fn in os.listdir('SummScreen/keyframes')]
+        all_ep_names = os.listdir('SummScreen/keyframes')
+        if ARGS.show_name != 'all':
+            all_ep_names = [x for x in all_ep_names if x.startswith(ARGS.show_name)]
         to_caption = []
         for en in all_ep_names:
             if os.path.exists(f'SummScreen/video_scenes/{en}/swinbert_raw_scene_caps.json'):
@@ -257,6 +268,10 @@ if __name__ == '__main__':
             captioner_func(tc)
             captioner.filter_and_namify_scene_captions(tc, ARGS.model_name)
     else:
+        starttime = time()
         captioner_func(ARGS.ep_name)
+        print(f'caption time: {time()-starttime:.2f}')
+        starttime = time()
         captioner.filter_and_namify_scene_captions(ARGS.ep_name, ARGS.model_name)
+        print(f'posproc time: {time()-starttime:.2f}')
 
