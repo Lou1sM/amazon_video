@@ -1,4 +1,6 @@
 import os
+import warnings
+warnings.filterwarnings('ignore')
 import numpy as np
 from tqdm import tqdm
 from time import time
@@ -17,8 +19,8 @@ import argparse
 from episode import episode_from_ep_name
 from Katna.writer import Writer
 from transformers import AutoProcessor, AutoModelForVision2Seq
-from Katna.video import Video
-from Katna.writer import Writer
+#from Katna.video import Video
+from PIL import Image
 
 
 male_names = names.words('male.txt')
@@ -74,7 +76,7 @@ class Captioner():
             self.swin_model = get_swin_model(self.img_res, 'base', '600', False, True)
             self.swin_transformer = VideoTransformer(True, config, self.swin_model, self.bert_model)
             self.swin_transformer.freeze_backbone(freeze=False)
-            pretrained_model = torch.load('SwinBERT/models/table1/vatex/best-checkpoint/model.bin', map_location=torch.device('cpu'))
+            pretrained_model = torch.load('SwinBERT/models/table1/vatex/best-checkpoint/model.bin', map_location=torch.device('cuda'))
             self.swin_transformer.load_state_dict(pretrained_model, strict=False)
             self.swin_transformer.cuda()
             self.swin_transformer.eval()
@@ -83,21 +85,28 @@ class Captioner():
 
 
     def kosmos_scene_caps(self,ep_name):
-        fpath = os.path.join('SummScreen/video_scenes',ep_name)
-        vd = Video()
-        printwriter = PrintDataWriter()
+        ep_dir = os.path.join('SummScreen/keyframes',ep_name)
+        #vd = Video()
+        #printwriter = PrintDataWriter()
         model = AutoModelForVision2Seq.from_pretrained("ydshieh/kosmos-2-patch14-224", trust_remote_code=True)
+        model.eval()
 
-        vd.extract_keyframes_from_videos_dir(no_of_frames=1, dir_path=fpath, writer=printwriter)
-        keyframes_paths = sorted([join(fpath,x) for x in os.listdir(fpath) if x.endswith('keyframes.npy')])
+        #starttime = time()
+        #vd.extract_keyframes_from_videos_dir(no_of_frames=1, dir_path=ep_dir, writer=printwriter)
+        #print(f'extract time: {time() - starttime:.4f}')
+        #keyframes_paths = sorted([join(ep_dir,x) for x in os.listdir(ep_dir) if x.endswith('keyframes.npy')])
         scene_caps = []
         scene_locs = []
-        for i,kfp in enumerate(keyframes_paths):
-            keyframes = np.load(kfp)
+        n_frames_to_cap = 1
+        for i,scene_dir in enumerate(os.listdir(ep_dir)):
+            keyframes_files = sorted(os.listdir(join(ep_dir,scene_dir)), key=lambda x: int(x[3:-5])) # by where the appear in scene
+            select_every = len(keyframes_files)/(n_frames_to_cap+1)
+            selected_frame_files = [keyframes_files[int(i*select_every)] for i in range(1,(n_frames_to_cap+1))]
             caps_for_this_scene = []
             locs_for_this_scene = []
-            for kf in keyframes:
-                generated_text = kosmos(kf, model, processor)
+            for fname in selected_frame_files:
+                keyframe = np.array(Image.open(join(ep_dir,scene_dir,fname)))
+                generated_text = kosmos(keyframe, model, processor)
                 # Specify `cleanup_and_extract=False` in order to see the raw model generation.
                 cap,l = processor.post_process_generation(generated_text, cleanup_and_extract=True)
                 caps_for_this_scene.append(cap)
@@ -147,7 +156,8 @@ class Captioner():
         for sn,c in enumerate(scene_caps):
             to_append = {'scene_id': f'{ep_name}s{sn}', 'raw_cap':c}
             to_dump.append(to_append)
-        with open(f'SummScreen/video_scenes/{ep_name}/swinbert_raw_scene_caps.json', 'w') as f:
+        outpath = f'SummScreen/video_scenes/{ep_name}/swinbert_raw_scene_caps.json'
+        with open(outpath, 'w') as f:
             json.dump(to_dump,f)
 
     def filter_and_namify_scene_captions(self, ep_name, model_name):
@@ -173,7 +183,7 @@ class Captioner():
                     if femname in appearing_maybe_males: # could be neut. name
                         appearing_maybe_males.remove(femname)
                 elif 'a girl' in cap:
-                    cap = cap.replace('a girl',appearing_maybe_females[0], 1)
+                    cap = cap.replace('a girl',femname, 1)
                     if femname in appearing_maybe_males: # could be neut. name
                         appearing_maybe_males.remove(femname)
             if len(appearing_maybe_males)==1:
@@ -183,7 +193,7 @@ class Captioner():
                     if manname in appearing_maybe_females:
                         appearing_maybe_females.remove(manname)
                 elif 'a boy' in cap:
-                    cap = cap.replace('a boy',appearing_maybe_males[0], 1)
+                    cap = cap.replace('a boy',manname, 1)
                     if manname in appearing_maybe_females:
                         appearing_maybe_females.remove(manname)
             if len(appearing_maybe_females)==1: # do again in case neut. removed when checking males
@@ -191,7 +201,7 @@ class Captioner():
                     cap = cap.replace('a woman',appearing_maybe_females[0], 1)
                 elif 'a girl' in cap:
                     cap = cap.replace('a girl',appearing_maybe_females[0], 1)
-            print(f'SCENE{sn}: {raw_cap}\t{cap}')
+            #print(f'SCENE{sn}: {raw_cap}\t{cap}')
             caps_per_scene.append({'scene_id': f'{ep_name}s{sn}', 'raw':raw_cap, 'with_names':cap})
 
         with open(f'{scenes_dir}/{model_name}_procced_scene_caps.json','w') as f:
@@ -238,13 +248,14 @@ if __name__ == '__main__':
         to_caption = []
         for en in all_ep_names:
             if os.path.exists(f'SummScreen/video_scenes/{en}/swinbert_raw_scene_caps.json'):
-                print(f'scene captions already exist for {en}')
+                #print(f'scene captions already exist for {en}')
+                pass
             else:
                 to_caption.append(en)
 
         for tc in tqdm(to_caption):
             captioner_func(tc)
-            captioner.filter_and_namify_scene_captions(en, ARGS.model_name)
+            captioner.filter_and_namify_scene_captions(tc, ARGS.model_name)
     else:
         captioner_func(ARGS.ep_name)
         captioner.filter_and_namify_scene_captions(ARGS.ep_name, ARGS.model_name)
