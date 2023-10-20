@@ -89,7 +89,12 @@ class Captioner():
         for i,scene_dir in enumerate(scenes):
             caps_for_this_scene = []
             locs_for_this_scene = []
-            keyframes_files = sorted(os.listdir(join(ep_dir,scene_dir)), key=lambda x: int(x[3:-5])) # by where the appear in scene
+            keyframes_files = [fn for fn in os.listdir(join(ep_dir,scene_dir)) if fn != 'middle_frame.jpg']
+            keyframes_files = sorted(keyframes_files, key=lambda x: int(x[3:-5])) # by where the appear in scene
+            if len(keyframes_files) == 0:
+                keyframes_files = [fn for fn in os.listdir(join(ep_dir,scene_dir)) if fn == 'middle_frame.jpg']
+                if len(keyframes_files) > 0:
+                    print('middle frame to the rescue')
             if len(keyframes_files) > 0:
                 select_every = len(keyframes_files)/(n_frames_to_cap+1)
                 selected_frame_files = [keyframes_files[int(i*select_every)] for i in range(1,(n_frames_to_cap+1))]
@@ -150,46 +155,54 @@ class Captioner():
         scenes_dir = f'SummScreen/video_scenes/{ep_name}'
         ep = episode_from_ep_name(ep_name)
         with open(os.path.join(scenes_dir,f'{model_name}_raw_scene_caps.json')) as f:
-            raw_caps = [x['raw_cap'] for x in json.load(f)]
+            z = json.load(f)
+            try:
+                raw_caps = [x['raw_cap'] for x in z]
+            except KeyError:
+                breakpoint()
+                raw_caps = [x['raw'] for x in z]
         #assert len(raw_caps) == len(ep.scenes)
         caps_per_scene = []
         for sn, (raw_cap, scene_transcript) in enumerate(zip(raw_caps, ep.scenes)):
-            appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
+            if 'a commercial' in raw_cap:
+                cap = ''
+            else:
+                appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
 
-            cap = raw_cap.lower()
-            cap = cap.replace('is seen','is').replace('are seen','are')
-            if cap.startswith('a scene from a tv show in which'):
-                cap = cap[32:]
-            appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
-            appearing_maybe_females = [c for c in appearing_chars if gender(c) in ['f','a']]
+                cap = raw_cap.lower()
+                cap = cap.replace('is seen','is').replace('are seen','are')
+                if cap.startswith('a scene from a tv show in which'):
+                    cap = cap[32:]
+                appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
+                appearing_maybe_females = [c for c in appearing_chars if gender(c) in ['f','a']]
 
-            if len(appearing_maybe_females)==1:
-                femname = appearing_maybe_females.pop()
-                if 'a woman' in cap:
-                    cap = cap.replace('a woman',femname, 1)
-                    if femname in appearing_maybe_males: # could be neut. name
-                        appearing_maybe_males.remove(femname)
-                elif 'a girl' in cap:
-                    cap = cap.replace('a girl',femname, 1)
-                    if femname in appearing_maybe_males: # could be neut. name
-                        appearing_maybe_males.remove(femname)
-            if len(appearing_maybe_males)==1:
-                manname = appearing_maybe_males.pop()
-                if 'a man' in cap:
-                    cap = cap.replace('a man',manname, 1)
-                    if manname in appearing_maybe_females:
-                        appearing_maybe_females.remove(manname)
-                elif 'a boy' in cap:
-                    cap = cap.replace('a boy',manname, 1)
-                    if manname in appearing_maybe_females:
-                        appearing_maybe_females.remove(manname)
-            if len(appearing_maybe_females)==1: # do again in case neut. removed when checking males
-                if 'a woman' in cap:
-                    cap = cap.replace('a woman',appearing_maybe_females[0], 1)
-                elif 'a girl' in cap:
-                    cap = cap.replace('a girl',appearing_maybe_females[0], 1)
-            if ARGS.verbose:
-                print(f'SCENE{sn}: {raw_cap}\t{cap}')
+                if len(appearing_maybe_females)==1:
+                    femname = appearing_maybe_females.pop()
+                    if 'a woman' in cap:
+                        cap = cap.replace('a woman',femname, 1)
+                        if femname in appearing_maybe_males: # could be neut. name
+                            appearing_maybe_males.remove(femname)
+                    elif 'a girl' in cap:
+                        cap = cap.replace('a girl',femname, 1)
+                        if femname in appearing_maybe_males: # could be neut. name
+                            appearing_maybe_males.remove(femname)
+                if len(appearing_maybe_males)==1:
+                    manname = appearing_maybe_males.pop()
+                    if 'a man' in cap:
+                        cap = cap.replace('a man',manname, 1)
+                        if manname in appearing_maybe_females:
+                            appearing_maybe_females.remove(manname)
+                    elif 'a boy' in cap:
+                        cap = cap.replace('a boy',manname, 1)
+                        if manname in appearing_maybe_females:
+                            appearing_maybe_females.remove(manname)
+                if len(appearing_maybe_females)==1: # do again in case neut. removed when checking males
+                    if 'a woman' in cap:
+                        cap = cap.replace('a woman',appearing_maybe_females[0], 1)
+                    elif 'a girl' in cap:
+                        cap = cap.replace('a girl',appearing_maybe_females[0], 1)
+                if ARGS.verbose:
+                    print(f'SCENE{sn}: {raw_cap}\t{cap}')
             caps_per_scene.append({'scene_id': f'{ep_name}s{sn}', 'raw':raw_cap, 'with_names':cap})
 
         with open(f'{scenes_dir}/{model_name}_procced_scene_caps.json','w') as f:
@@ -213,6 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--do_filter',action='store_true')
     parser.add_argument('--verbose',action='store_true')
+    parser.add_argument('--filter_only',action='store_true')
     parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
     parser.add_argument('--show_name',type=str, default='all')
     parser.add_argument('--model_name',type=str, choices=['swinbert','kosmos'], default='kosmos')
@@ -232,7 +246,8 @@ if __name__ == '__main__':
     #tensorizer_ = build_tensorizer(tokenizer_, 150, img_seq_len, max_gen_len, is_train=False)
 
     captioner = Captioner()
-    captioner.init_models(ARGS.model_name)
+    if not ARGS.filter_only:
+        captioner.init_models(ARGS.model_name)
     captioner_func = captioner.kosmos_scene_caps if ARGS.model_name=='kosmos' else captioner.swinbert_scene_caps
     if ARGS.ep_name == 'all':
         #all_ep_names = [fn for fn in os.listdir('SummScreen/video_scenes') if fn in os.listdir('SummScreen/keyframes')]
@@ -241,14 +256,15 @@ if __name__ == '__main__':
             all_ep_names = [x for x in all_ep_names if x.startswith(ARGS.show_name)]
         to_caption = []
         for en in all_ep_names:
-            if os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_raw_scene_caps.json'):
+            if os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_procced_scene_caps.json'):
                 #print(f'scene captions already exist for {en}')
                 pass
             else:
                 to_caption.append(en)
 
         for tc in tqdm(to_caption):
-            captioner_func(tc)
+            if not ARGS.filter_only:
+                captioner_func(tc)
             captioner.filter_and_namify_scene_captions(tc, ARGS.model_name)
     else:
         starttime = time()
