@@ -12,11 +12,12 @@ from rouge_score import rouge_scorer
 import os
 from os.path import join
 from transformers import get_scheduler
+from build_dset import build_dset
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--cpu',action='store_true')
 parser.add_argument('--retokenize',action='store_true')
-
 parser.add_argument('--save_every',action='store_true')
 parser.add_argument('--n_epochs',type=int,default=2)
 parser.add_argument('--n_iter',type=int,default=-1)
@@ -28,7 +29,10 @@ parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 parser.add_argument('-t','--is_test',action='store_true')
 parser.add_argument('-bt','--is_test_big_bart',action='store_true')
 parser.add_argument('--overwrite',action='store_true')
+parser.add_argument('--do_reorder', action='store_true')
+parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'], default='nocaptions')
 ARGS = parser.parse_args()
+
 
 expname = set_experiment_dir(ARGS.expname, ARGS.overwrite, name_of_trials='tmp')
 ARGS.is_test = ARGS.is_test or ARGS.is_test_big_bart
@@ -46,21 +50,25 @@ else:
 print(f'loading from {chkpt_path}')
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
 
-def old_get_rouges(pred,gt):
-    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL','rougeLsum'], use_stemmer=True)
-    raw_rscores = scorer.score(gt,pred)
-    return [raw_rscores[x].fmeasure for x in ('rouge1', 'rouge2', 'rougeLsum')]
-
-
-if os.path.exists('cached_trainset') and os.path.exists('cached_testset') and not ARGS.retokenize:
+fn = f'{ARGS.caps}_reordered' if ARGS.do_reorder else ARGS.caps
+if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.retokenize:
     print('tokenized datasets have been cached, loading')
     tokenized_trainset = load_from_disk('cached_trainset')
     tokenized_testset = load_from_disk('cached_testset')
 else:
-    trainset = load_dataset('json', data_files='SummScreen/scene_summs_to_summ_train.json',split='train')
-    testset = load_dataset('json', data_files='SummScreen/scene_summs_to_summ_test.json',split='train')
+    path_to_json_trainset = f'SummScreen/json_datasets/train_{ARGS.caps}_reordered_dset.json' if ARGS.do_reorder else f'SummScreen/json_datasets/train_{ARGS.caps}_dset.json'
+    path_to_json_testset = path_to_json_trainset.replace('train','test')
+    # sharding isn't supported atm so everything ends up in 'test'
+    if not os.path.exists(path_to_json_trainset) or not os.path.exists(path_to_json_testset) or ARGS.retokenize:
+        build_dset(ARGS.caps, ARGS.do_reorder)
+        assert os.path.exists(path_to_json_trainset)
+        assert os.path.exists(path_to_json_testset)
+
+    trainset = load_dataset('json', data_files=path_to_json_trainset,split='train')
+    testset = load_dataset('json', data_files=path_to_json_testset,split='train')
 
     def train_preprocess_function(dpoint):
+        #inputs = [''.join(doc) for doc in dpoint['scene_summs']]
         inputs = [doc for doc in dpoint['scene_summs']]
         model_inputs = tokenizer(inputs)
 
@@ -79,8 +87,8 @@ else:
     tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
     tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 
-    tokenized_trainset.save_to_disk('cached_trainset')
-    tokenized_testset.save_to_disk('cached_testset')
+    tokenized_trainset.save_to_disk('SummScreen/cached_tokenized/{fn}_train_cache')
+    tokenized_testset.save_to_disk('SummScreen/cached_tokenized/{fn}_test_cache')
 
 
 print(f'loading model from {chkpt_path}')
@@ -140,8 +148,9 @@ for epoch in range(ARGS.n_epochs):
             tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
             outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
             nl_outputs = safe_decode(outputs)[0]
-            if nl_outputs[:100] == prev[:100]:
+            if (nl_outputs[:100] == prev[:100]) and not (prev_inp[:100] == batch['input_ids'][:100]):
                 breakpoint()
+            prev_inp = batch['input_ids']
             prev = nl_outputs
             best_r2 = 0
             new_rouge = 0

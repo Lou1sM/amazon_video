@@ -16,7 +16,10 @@ fs = FactScorer(model_name='retrieval+ChatGPT',
 #all_ref_summaries = []
 #all_atomic_facts = []
 
-for fn in os.listdir('SummScreen/cached_chatgpt_facts/full_pred_summ_facts')[:3]:
+all_ep_names = os.listdir('SummScreen/cached_chatgpt_facts/full_pred_summ_facts')
+all_ep_names.remove('oltl-10-18-10.txt')
+all_ep_names.insert(0,'oltl-10-18-10.txt')
+for fn in all_ep_names[:1]:
     assert fn.endswith('.txt')
     ep_name = fn[:-4]
     #all_ep_names.append(ep_name)

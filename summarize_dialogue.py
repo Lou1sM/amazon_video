@@ -8,32 +8,33 @@ import os
 from os.path import join
 import json
 from episode import Episode, episode_from_ep_name
-#from torchmetrics.text.rouge import ROUGEScore
-#from rouge_score import rouge_scorer
 import numpy as np
 
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 class SoapSummer():
-    def __init__(self,device):
-        self.device = device
-        self.dtokenizer = AutoTokenizer.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary")
-        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained("kabita-choudhary/finetuned-bart-for-conversation-summary").to(self.device)
-
-        self.model_name = "facebook/bart-large-cnn"
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(self.device)
-
+    def __init__(self, model, tokenizer, dmodel, dtokenizer, caps, do_reorder, do_resumm_scenes=False):
+        self.model = model
+        self.dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
+        self.tokenizer = tokenizer
+        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
+        self.caps = caps
+        self.do_reorder = do_reorder
+        self.do_resumm_scenes = do_resumm_scenes
         self.bs = 8
         self.dbs = 8
 
     def pad_batch(self,batch,eos_token_id):
         N=max([len(c) for c in batch])
         padded = [b+[eos_token_id]*(N-len(b)) for b in batch]
-        return torch.tensor(padded).to(self.device)
+        return torch.tensor(padded).to(device)
 
-    def summ_scenes(self,ep):
+    def summ_scenes(self, ep):
         start_time = time()
-        if ARGS.tsp:
+        if len(ep.scenes) == 1:
+            print(f'no scene breaks for {ep.ep_name}')
+        if self.do_reorder:
             order_idxs = optimal_order(ep.scenes)
             optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
             combined_scenes = [optimally_ordered_scenes[0]]
@@ -44,7 +45,7 @@ class SoapSummer():
                     combined_scenes.append(optscene)
         else:
             combined_scenes = ep.scenes
-        print([names_in_scene(s) for s in combined_scenes])
+        #print([names_in_scene(s) for s in combined_scenes])
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
@@ -57,37 +58,48 @@ class SoapSummer():
         chunk_summs = []
         for i in range(N):
             padded = self.pad_batch(sorted_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer.eos_token_id)
-            print(padded.shape)
             max_len = min(padded.shape[1],50)
             min_len = max(10,max_len-20)
             if padded.shape[1] > self.dtokenizer.model_max_length:
-                print('too long', padded.shape, self.dtokenizer.model_max_length)
+                #print('too long', padded.shape, self.dtokenizer.model_max_length)
                 padded = padded[:,:self.dtokenizer.model_max_length]
             summ_tokens = self.dmodel.generate(padded,min_length=min_len,max_length=max_len)
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True,clean_up_tokenization_spaces=True)
             chunk_summs += summ
-        print(f'Scene summ time: {time()-start_time:.2f}')
-        desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
+        #print(f'Scene summ time: {time()-start_time:.2f}')
+
         # now reuinfy whatever scenes were split into chunks
+        desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
         count = 0
         desplit = []
-        for cl in chunk_list:
+        for cl in chunk_list: # take lens from original list, before sorting
             desplit.append(' '.join(desorted_chunk_summs[count:count+len(cl)]))
             count+=len(cl)
-        assert (desplit==desorted_chunk_summs) == (set([len(x) for x in chunk_list])==set([1]))
-        with open(f'SummScreen/scene_summs/{ep.ep_name}.txt','w') as f:
+        assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
+        # if some were chunked together, may differ because of the join
+        fn = ep.ep_name + '_reordered' if self.do_reorder else ep.ep_name
+        with open(f'SummScreen/scene_summs/{fn}.txt','w') as f:
             f.write('\n'.join(desplit))
         return desplit
 
-    def get_scene_summs(self,ep_name):
-        maybe_scene_summ_path = f'SummScreen/scene_summs/{ep.ep_name}.txt'
-        if os.path.exists(maybe_scene_summ_path) and not ARGS.resumm_scenes:
+    def get_scene_summs(self, ep):
+        fn = ep.ep_name + '_reordered' if self.do_reorder else ep.ep_name
+        maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
+        if os.path.exists(maybe_scene_summ_path) and not self.do_resumm_scenes:
             with open(maybe_scene_summ_path) as f:
-                return f.readlines()
+                ss = f.readlines()
         else:
-            return self.summ_scenes(ep)
+            ss = self.summ_scenes(ep)
+        if self.caps == 'nocaptions':
+            return ss
+        else: # prepend vid caps to the scene summ
+            with open(f'SummScreen/video_scenes/{ep.ep_name}/{self.caps}_procced_scene_caps.json') as f:
+                caps = json.load(f)
+            assert len(caps)==len(ss)
+            ss_with_caps = [f'{sc["with_names"]} {x}' for sc,x in zip(caps,ss)]
+            return ss_with_caps
 
-    def summarize(self,ep,recompute=False):
+    def summarize_from_ep(self, ep, recompute=False):
         start_time = time()
         scene_summs = self.get_scene_summs(ep.ep_name)
         concatted_scene_summs = '\n'.join(scene_summs)
@@ -131,25 +143,20 @@ def split_text_by_sep(text,sep):
     assert first_chunk+second_chunk == text
     return first_chunk, second_chunk
 
-def harmonic_avg(args):
-    if any([a==0 for a in args]):
-        print(args)
-        return 0
-    return len(args)/sum([1/x for x in args])
-
 if __name__ == '__main__':
     import openai
     import argparse
 
     openai.api_key = "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"
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n_dpoints','-n',type=int,default=2)
-    parser.add_argument('--do_shuffle',action='store_true')
-    parser.add_argument('--do_check_gpt',action='store_true')
-    parser.add_argument('--only_check_gpt',action='store_true')
-    parser.add_argument('--summ_scenes_only',action='store_true')
-    parser.add_argument('--resumm_scenes',action='store_true')
-    parser.add_argument('--tsp',action='store_true')
+    parser.add_argument('--n_dpoints','-n', type=int, default=2)
+    parser.add_argument('--do_shuffle', action='store_true')
+    parser.add_argument('--do_check_gpt', action='store_true')
+    parser.add_argument('--only_check_gpt', action='store_true')
+    parser.add_argument('--summ_scenes_only', action='store_true')
+    parser.add_argument('--resumm_scenes', action='store_true')
+    parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'])
+    parser.add_argument('--do_reorder', action='store_true')
     ARGS = parser.parse_args()
 
     if ARGS.only_check_gpt:
@@ -160,7 +167,19 @@ if __name__ == '__main__':
     all_gpt_bests = {}
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     if not ARGS.only_check_gpt:
-        ss = SoapSummer(device)
+
+        model_name = 'lucadiliello/bart-small' if ARGS.is_test else 'facebook/bart-large-cnn'
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(device)
+
+        if ARGS.is_test:
+            dtokenizer = tokenizer
+            dmodel = model
+        else:
+            dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
+            dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
+
+        ss = SoapSummer(model, tokenizer, dmodel, dtokenizer, ARGS.caps, ARGS.do_reorder, ARGS.resumm_scenes)
     all_ep_names = os.listdir('SummScreen/transcripts')
     assert all([x.endswith('.json') for x in all_ep_names])
     all_ep_names = [x[:-5] for x in all_ep_names]
@@ -188,7 +207,7 @@ if __name__ == '__main__':
             ss.get_scene_summs(ep_name)
             continue
         if not ARGS.only_check_gpt:
-            csss, summ_of_summs = ss.summarize(ep)
+            csss, summ_of_summs = ss.summarize_from_ep(ep)
             print(summ_of_summs)
         if ARGS.do_check_gpt:
             gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']

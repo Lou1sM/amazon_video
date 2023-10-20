@@ -24,7 +24,21 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 
-        self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
+        self.scenes = []
+        prev = ''
+        scenes_with_maybe_emptys = '\n'.join(self.transcript).split('[SCENE_BREAK]')
+        scenes_with_maybe_emptys = [x for x in scenes_with_maybe_emptys if ':' in x or '[' in x]
+        for s in scenes_with_maybe_emptys:
+            if ':' in s:
+                self.scenes.append(prev+s)
+                prev = ''
+            else:
+                if len(self.scenes)>0:
+                    self.scenes[-1]+=s
+                else:
+                    prev = s
+        #if any([':' not in x for x in scenes_with_maybe_emptys]):
+            #breakpoint()
 
     def calc_rouge(self,summ):
         best_scores = [-1,-1,-1]

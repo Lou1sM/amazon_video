@@ -55,7 +55,7 @@ def optimal_order(scenes):
         if not changed:
             break
         #print('\n'.join([', '.join(char_names_in_scenes[oi]) for oi in order_idxs[:-1]]))
-        return order_idxs
+    return order_idxs
 
 if __name__ == '__main__':
     #ep = episode_from_ep_name('bb-01-10-14')
