@@ -30,19 +30,36 @@ class SoapSummer():
         padded = [b+[eos_token_id]*(N-len(b)) for b in batch]
         return torch.tensor(padded).to(device)
 
+    def epname_in_context(self,epname):
+        fn = epname + '_reordered' if self.do_reorder else epname
+        if self.caps != 'nocaptions':
+            fn += f'_{self.caps}caps'
+        return fn
+
     def summ_scenes(self, ep):
         start_time = time()
         if len(ep.scenes) == 1:
             print(f'no scene breaks for {ep.ep_name}')
+        if self.caps == 'nocaptions':
+            caps = ['']*len(ep.scenes)
+        else: # prepend vid caps to the scene summ
+            with open(f'SummScreen/video_scenes/{ep.ep_name}/{self.caps}_procced_scene_caps.json') as f:
+                caps = json.load(f)
+            if not len(caps)==len(ep.scenes):
+                breakpoint()
         if self.do_reorder:
             order_idxs = optimal_order(ep.scenes)
             optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
+            optimally_ordered_caps = [caps[oi]['with_names'] for oi in order_idxs[:-1]]
             combined_scenes = [optimally_ordered_scenes[0]]
-            for optscene in optimally_ordered_scenes[1:]:
+            combined_caps = [optimally_ordered_caps[0]]
+            for optscene, optcap in zip(optimally_ordered_scenes[1:],optimally_ordered_caps[1:]):
                 if identical_char_names(optscene, combined_scenes[-1]):
                     combined_scenes[-1]+=optscene.lstrip()
+                    combined_caps[-1]+=optcap.lstrip()
                 else:
                     combined_scenes.append(optscene)
+                    combined_caps.append(optcap)
         else:
             combined_scenes = ep.scenes
         #print([names_in_scene(s) for s in combined_scenes])
@@ -77,27 +94,20 @@ class SoapSummer():
             count+=len(cl)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
-        fn = ep.ep_name + '_reordered' if self.do_reorder else ep.ep_name
-        with open(f'SummScreen/scene_summs/{fn}.txt','w') as f:
-            f.write('\n'.join(desplit))
-        return desplit
+        ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
+        return ss_with_caps
 
     def get_scene_summs(self, ep):
-        fn = ep.ep_name + '_reordered' if self.do_reorder else ep.ep_name
+        fn = self.epname_in_context(ep.ep_name)
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.do_resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = f.readlines()
         else:
             ss = self.summ_scenes(ep)
-        if self.caps == 'nocaptions':
-            return ss
-        else: # prepend vid caps to the scene summ
-            with open(f'SummScreen/video_scenes/{ep.ep_name}/{self.caps}_procced_scene_caps.json') as f:
-                caps = json.load(f)
-            assert len(caps)==len(ss)
-            ss_with_caps = [f'{sc["with_names"]} {x}' for sc,x in zip(caps,ss)]
-            return ss_with_caps
+            with open(f'SummScreen/scene_summs/{fn}.txt','w') as f:
+                f.write('\n'.join(ss))
+        return ss
 
     def summarize_from_ep(self, ep, recompute=False):
         start_time = time()

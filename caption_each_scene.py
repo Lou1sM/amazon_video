@@ -85,8 +85,9 @@ class Captioner():
         scene_caps = []
         scene_locs = []
         n_frames_to_cap = 1
-        scenes = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
-        for i,scene_dir in enumerate(scenes):
+        scene_fnames = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
+        scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
+        for scene_dir in scene_fnames:
             caps_for_this_scene = []
             locs_for_this_scene = []
             keyframes_files = [fn for fn in os.listdir(join(ep_dir,scene_dir)) if fn != 'middle_frame.jpg']
@@ -109,7 +110,8 @@ class Captioner():
             scene_locs.append(locs_for_this_scene)
 
         to_dump = []
-        for sn,(c,l) in enumerate(zip(scene_caps,scene_locs)):
+        assert max(scene_nums) == len(episode_from_ep_name(ep_name).scenes)
+        for sn,c,l in zip(scene_nums,scene_caps,scene_locs):
             to_append = {'scene_id': f'{ep_name}s{sn}', 'raw_cap':c, 'locs':l}
             to_dump.append(to_append)
         check_dir(f'SummScreen/video_scenes/{ep_name}')
@@ -127,10 +129,6 @@ class Captioner():
         scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
         scene_vid_paths = [os.path.join(scenes_dir,f'{ep_name}_scene{sn}.mp4') for sn in scene_nums]
         scene_caps = []
-        #for i in range(0,len(scene_vid_paths),ARGS.bs):
-            #batch_start_time = time()
-            #batch_of_scene_vid_paths = scene_vid_paths[i:i+ARGS.bs]
-            #frames_start_time = time()
         for vp in scene_vid_paths:
             frames, _ = extract_frames_from_video_path(
                         vp, target_fps=3, num_frames=self.n_frames,
@@ -144,7 +142,7 @@ class Captioner():
             scene_caps += newcap
 
         to_dump = []
-        for sn,c in enumerate(scene_caps):
+        for sn,c in zip(scene_nums, scene_caps):
             to_append = {'scene_id': f'{ep_name}s{sn}', 'raw_cap':c}
             to_dump.append(to_append)
         outpath = f'SummScreen/video_scenes/{ep_name}/swinbert_raw_scene_caps.json'
@@ -255,6 +253,7 @@ if __name__ == '__main__':
         if ARGS.show_name != 'all':
             all_ep_names = [x for x in all_ep_names if x.startswith(ARGS.show_name)]
         to_caption = []
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         for en in all_ep_names:
             if os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_procced_scene_caps.json'):
                 #print(f'scene captions already exist for {en}')

@@ -27,10 +27,11 @@ def dpoints_from_ep_names(ep_name_list, scene_caps, do_reorder):
 
 def build_dset(scene_caps, do_reorder):
     fn = f'{scene_caps}_reordered' if do_reorder else scene_caps
-    scene_summ_dir = 'SummScreen/scene_summs'
-    ep_names = [x.replace('_reordered','') for x in os.listdir(scene_summ_dir)]
-    assert all([x.endswith('.txt') for x in ep_names])
-    ep_names = [x[:-4] for x in ep_names]
+    ep_names = [x for x in os.listdir('SummScreen/video_scenes') if x in os.listdir('SummScreen/keyframes')]
+    #ep_names = [x.replace('_reordered','') for x in os.listdir(scene_summ_dir)]
+    #assert all([x.endswith('.txt') for x in ep_names])
+    assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in ep_names])
+    #ep_names = [x[:-4] for x in ep_names]
     shuffle(ep_names)
     train_up_to_idx = int(9*len(ep_names)/10)
     train_ep_names = ep_names[:train_up_to_idx]
