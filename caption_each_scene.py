@@ -225,6 +225,7 @@ if __name__ == '__main__':
     parser.add_argument('--do_filter',action='store_true')
     parser.add_argument('--verbose',action='store_true')
     parser.add_argument('--filter_only',action='store_true')
+    parser.add_argument('--refilter',action='store_true')
     parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
     parser.add_argument('--show_name',type=str, default='all')
     parser.add_argument('--model_name',type=str, choices=['swinbert','kosmos'], default='kosmos')
@@ -253,9 +254,8 @@ if __name__ == '__main__':
         if ARGS.show_name != 'all':
             all_ep_names = [x for x in all_ep_names if x.startswith(ARGS.show_name)]
         to_caption = []
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
         for en in all_ep_names:
-            if os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_procced_scene_caps.json'):
+            if (not ARGS.refilter) and os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_procced_scene_caps.json'):
                 #print(f'scene captions already exist for {en}')
                 pass
             else:
