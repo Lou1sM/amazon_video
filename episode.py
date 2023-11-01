@@ -1,9 +1,8 @@
 import json
-from nelly_rouge import nelly_rouge
-from os.path import join
+from utils import rouge_from_multiple_refs
 
 
-def episode_from_ep_name(ep_name):
+def episode_from_epname(ep_name):
     with open(f'SummScreen/transcripts/{ep_name}.json') as f:
         transcript_data = json.load(f)
     with open(f'SummScreen/summaries/{ep_name}.json') as f:
@@ -41,15 +40,9 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         #if any([':' not in x for x in scenes_with_maybe_emptys]):
             #breakpoint()
 
-    def calc_rouge(self,summ):
-        best_scores = [-1,-1,-1]
-        for summ_name, gt_summ in self.summaries.items():
-            print('\n'+summ_name)
-            print(gt_summ)
-            scores = nelly_rouge(summ,gt_summ)
-            if scores[1] > best_scores[1]:
-                best_scores = scores
-        return best_scores
+    def calc_rouge(self,pred):
+        references = self.summaries.values()
+        return rouge_from_multiple_refs(pred, references, return_full=True)
 
     def print_recap(self):
         for summ in self.summaries:
@@ -63,7 +56,6 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
     def print_transcript(self):
         for line in self.transcript:
             print(line)
-
 
 class SSEpisode(): # orig SummScreen stored transcripts and summaries as a single json
     def __init__(self,data_dict):

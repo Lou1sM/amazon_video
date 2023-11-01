@@ -1,41 +1,48 @@
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq
-from dl_utils.misc import set_experiment_dir
-from tqdm import tqdm
 import numpy as np
-from nelly_rouge import nelly_rouge
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from dl_utils.misc import set_experiment_dir
 from datasets import load_dataset, load_from_disk
-from torch.optim import AdamW
-from torch.utils.data import DataLoader
 import argparse
 import torch
-from rouge_score import rouge_scorer
 import os
 from os.path import join
-from transformers import get_scheduler
-from build_dset import build_dset
+from summarize_dialogue import SoapSummer
+import sys
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cpu',action='store_true')
-parser.add_argument('--retokenize',action='store_true')
-parser.add_argument('--save_every',action='store_true')
-parser.add_argument('--n_epochs',type=int,default=2)
-parser.add_argument('--n_iter',type=int,default=-1)
-parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--batch_size',type=int,default=1)
-parser.add_argument('--reload_from',type=str,default='none')
+parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'], default='nocaptions')
+parser.add_argument('--cpu',action='store_true')
+parser.add_argument('--do_reorder', action='store_true')
+parser.add_argument('--do_resumm_scenes',action='store_true')
+parser.add_argument('--eval_every',type=int,default=1)
+parser.add_argument('--eval_first',action='store_true')
 parser.add_argument('--expname',type=str,default='tmp')
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
-parser.add_argument('-t','--is_test',action='store_true')
-parser.add_argument('-bt','--is_test_big_bart',action='store_true')
+parser.add_argument('--n_dpoints',type=int,default=-1)
+parser.add_argument('--n_epochs',type=int,default=2)
+parser.add_argument('--n_iter',type=int,default=-1)
 parser.add_argument('--overwrite',action='store_true')
-parser.add_argument('--do_reorder', action='store_true')
-parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'], default='nocaptions')
+parser.add_argument('--reload_from',type=str,default='none')
+parser.add_argument('--do_retokenize',action='store_true')
+parser.add_argument('--save_every',action='store_true')
+parser.add_argument('-bt','--is_test_big_bart',action='store_true')
+parser.add_argument('-t','--is_test',action='store_true')
 ARGS = parser.parse_args()
 
 
-expname = set_experiment_dir(ARGS.expname, ARGS.overwrite, name_of_trials='tmp')
 ARGS.is_test = ARGS.is_test or ARGS.is_test_big_bart
+ARGS.do_retokenize = ARGS.do_retokenize or ARGS.do_resumm_scenes
+
+if ARGS.expname=='tmp' and not ARGS.is_test:
+    sys.exit('set a different expname')
+elif ARGS.is_test:
+    ARGS.expname='tmp'
+
+
+expname = set_experiment_dir(ARGS.expname, ARGS.overwrite, name_of_trials='tmp')
+
 device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 'cpu')
 
 model_name = 'lucadiliello/bart-small' if ARGS.is_test and not ARGS.is_test_big_bart else ARGS.model_name
@@ -45,22 +52,26 @@ print(f'using model {model_name}')
 if ARGS.reload_from=='none':
     chkpt_path = model_name
 else:
-    chkpt_path = f'./experiments/{ARGS.reload_from}/chkpt-final'
+    chkpt_path = f'./experiments/{ARGS.expname}/checkpoints/epoch{ARGS.reload_from}'
 
 print(f'loading from {chkpt_path}')
+model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
+ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, ARGS.do_resumm_scenes, is_test=ARGS.is_test)
 
 fn = f'{ARGS.caps}_reordered' if ARGS.do_reorder else ARGS.caps
-if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.retokenize:
+if ARGS.is_test:
+    fn += '_test'
+if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.do_retokenize:
     print('tokenized datasets have been cached, loading')
     tokenized_trainset = load_from_disk('cached_trainset')
     tokenized_testset = load_from_disk('cached_testset')
 else:
-    path_to_json_trainset = f'SummScreen/json_datasets/train_{ARGS.caps}_reordered_dset.json' if ARGS.do_reorder else f'SummScreen/json_datasets/train_{ARGS.caps}_dset.json'
+    path_to_json_trainset = f'SummScreen/json_datasets/train_{fn}_dset.json'
     path_to_json_testset = path_to_json_trainset.replace('train','test')
     # sharding isn't supported atm so everything ends up in 'test'
-    if not os.path.exists(path_to_json_trainset) or not os.path.exists(path_to_json_testset) or ARGS.retokenize:
-        build_dset(ARGS.caps, ARGS.do_reorder)
+    if not os.path.exists(path_to_json_trainset) or not os.path.exists(path_to_json_testset) or ARGS.do_retokenize:
+        ss.build_dset(ARGS.caps, ARGS.n_dpoints)
         assert os.path.exists(path_to_json_trainset)
         assert os.path.exists(path_to_json_testset)
 
@@ -84,106 +95,33 @@ else:
             model_inputs[k] = v
         return model_inputs
 
-    tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
+    #tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
     tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 
-    tokenized_trainset.save_to_disk('SummScreen/cached_tokenized/{fn}_train_cache')
-    tokenized_testset.save_to_disk('SummScreen/cached_tokenized/{fn}_test_cache')
+    if not ARGS.is_test:
+        tokenized_trainset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_train_cache')
+        testset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_test_cache')
 
-
-print(f'loading model from {chkpt_path}')
-model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
-dc = DataCollatorForSeq2Seq(tokenizer, model=model)
-
-train_loader = DataLoader(tokenized_trainset, batch_size=ARGS.batch_size, shuffle=False, collate_fn=dc)
-def safe_decode(tokens):
-     st = [[x for x in ts[:tokenizer.model_max_length] if x != -100] for ts in tokens]
-     return tokenizer.batch_decode(st, skip_special_tokens=True, clean_up_tokenization_spaces=True)
 
 def save_to(fname):
     save_dir = join('experiments', expname, 'checkpoints', fname)
     model.save_pretrained(save_dir)
     tokenizer.save_pretrained(save_dir)
 
-opt = AdamW(model.parameters(),lr=5e-5)
 num_epochs = 3
-num_training_steps = ARGS.n_epochs * len(train_loader)
-lr_scheduler = get_scheduler(
-    name="linear", optimizer=opt, num_warmup_steps=0, num_training_steps=num_training_steps
-    )
-for epoch in range(ARGS.n_epochs):
-    model.train()
-    epoch_loss = 0
-    rouges = []
-    alltime_best_rouges = np.zeros(3)
-    patience = 0
-    print(f'training epoch {epoch}')
-    for i,batch in enumerate(pbar := tqdm(train_loader, dynamic_ncols=True, smoothing=0.01, leave=False)):
-        opt.zero_grad()
-        input_ids = batch['input_ids'].to(device)
-        attention_mask = batch['attention_mask'].to(device)
-        labels = batch['labels'].to(device)
-        cbatch = {k:v.cuda()[:,:tokenizer.model_max_length] for k,v in batch.items()}
-        cbatch['labels'] = cbatch['labels'].contiguous()
-        outputs = model(**cbatch)
-        loss = outputs[0]
-        loss.backward()
-        epoch_loss = ((i*epoch_loss) + loss) / (i+1) # running avg
-        pbar.set_description(f'Epoch: {epoch}/{ARGS.n_epochs}'
-                             f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
-        opt.step(); lr_scheduler.step()
-        if i==ARGS.n_iter or (i==10 and ARGS.is_test):
-            break
-    if ARGS.save_every:
-        save_to(f'epoch{i}')
-        model.save_pretrained(save_dir)
-        tokenizer.save_pretrained(save_dir)
-    print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
-    if (epoch+1) % ARGS.eval_every == 0:
-        model.eval()
-        print('validating')
-        prev = ''
-        epoch_rouge = np.zeros(3)
-        for j,batch in enumerate(val_pbar := tqdm(tokenized_testset, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
-            outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
-            nl_outputs = safe_decode(outputs)[0]
-            if (nl_outputs[:100] == prev[:100]) and not (prev_inp[:100] == batch['input_ids'][:100]):
-                breakpoint()
-            prev_inp = batch['input_ids']
-            prev = nl_outputs
-            best_r2 = 0
-            new_rouge = 0
-            for k,possible_gt in batch.items():
-                if k in ('input_ids','attention_mask') or possible_gt is None:
-                    continue
-                new_rouge = nelly_rouge(nl_outputs,possible_gt)
-                if new_rouge[1] > best_r2:
-                    best_r2 = new_rouge[1]
-                    best_rouge = new_rouge
-            if best_r2 == 0:
-                if not all([v is None for k,v in batch.items() if k not in ('input_ids','attention_mask','ep_name')]):
-                    breakpoint()
-            rouges.append(best_rouge)
-            epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg
-            val_pbar.set_description(f'Epoch: {epoch}/{ARGS.n_epochs}'
-                             f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f}  '
-                             f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f}')
-            if j==2 and ARGS.is_test:
-                break
 
-        rouges_arr = np.array(rouges).mean(axis=0)
-        print(f'Mean Rouge: {rouges_arr}')
-        if rouges_arr[1] > alltime_best_rouges[1]:
-            patience = 0
-            alltime_best_rouges = rouges_arr
-            save_to('best')
-        else:
-            patience += 1
-        if patience == 3:
-            break
+if ARGS.eval_first:
+    rouges = ss.eval_epoch(0)
+    rouges_arr = np.array(rouges).mean(axis=0)
+    print(f'Mean Rouge: {rouges_arr}')
 
+alltime_best_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, expname, ARGS.save_every, ARGS.eval_every)
 results_path = join('experiments',expname,'results.txt')
 with open(results_path,'w') as f:
     for r,s in zip(['r1','r2','rL'],alltime_best_rouges):
         f.write(f'{r}: {s}\n')
+summary_path = join('experiments',expname,'summary.txt')
+with open(summary_path,'w') as f:
+    f.write(f'Expname: {ARGS.expname}\n')
+    f.write(f'captions: {ARGS.caps}\n')
+    f.write(f'reorder: {ARGS.do_reorder}\n')
