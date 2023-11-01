@@ -35,14 +35,14 @@ class AtomicFactGenerator(object):
     def save_cache(self):
         self.openai_lm.save_cache()
 
-    def run(self, generation, maybe_cache, cost_estimate):
+    def run(self, generation, cost_estimate=None):
         """Convert the generation into a set of atomic facts. Return a total words cost if cost_estimate != None."""
         assert isinstance(generation, str), "generation must be a string"
-        assert len(maybe_cache) < 100, 'you might have mixed up cache and pred'
-        if os.path.exists(maybe_cache) and False:
-            with open(maybe_cache) as f:
-                pred_facts = f.readlines()
-            return pred_facts
+        #assert len(maybe_cache) < 100, 'you might have mixed up cache and pred'
+        #if os.path.exists(maybe_cache) and False:
+        #    with open(maybe_cache) as f:
+        #        pred_facts = f.readlines()
+        #    return pred_facts
         paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
 
         sentences = []
@@ -91,9 +91,9 @@ class AtomicFactGenerator(object):
         if self.is_bio:
             atomic_facts_pairs, para_breaks = postprocess_atomic_facts(atomic_facts_pairs, list(para_breaks), self.nlp)
 
-        pred_facts = [x for line in atomic_facts_pairs for x in line[1]]
-        with open(maybe_cache,'w') as f:
-            f.write('\n'.join([pf for pf in pred_facts]))
+        #pred_facts = [x for line in atomic_facts_pairs for x in line[1]]
+        #with open(maybe_cache,'w') as f:
+            #f.write('\n'.join([pf for pf in pred_facts]))
         return atomic_facts_pairs, para_breaks
 
     def get_init_atomic_facts_from_sentence(self, sentences):

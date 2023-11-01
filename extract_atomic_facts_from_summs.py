@@ -1,6 +1,6 @@
 from factscore.atomic_facts import AtomicFactGenerator
 import os
-from episode import episode_from_ep_name
+from episode import episode_from_epname
 
 
 generator = AtomicFactGenerator("factscore/api.key", "factscore/demos", gpt3_cache_file=None)
@@ -29,7 +29,7 @@ def factscore_eval_ep(ep_name):
         pred = f.read()
     pred_facts = generator.run(pred,maybe_cache,cost_estimate=None)
 
-    ep = episode_from_ep_name(ep_name)
+    ep = episode_from_epname(ep_name)
     best_iou = -1
     best_fs = None
     for summ_name, gt_summ in ep.summaries.items():
