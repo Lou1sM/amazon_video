@@ -2,7 +2,7 @@ import os
 import json
 from dl_utils.misc import check_dir
 from tqdm import tqdm
-from episode import episode_from_ep_name
+from episode import episode_from_epname
 
 
 def num_from_name(en):
@@ -16,7 +16,7 @@ for en in tqdm(ep_names_with_caps):
     if len(available_scenes)==0:
         no_scenes.append(en)
         continue
-    ep = episode_from_ep_name(en)
+    ep = episode_from_epname(en)
     true_n_scenes = len(ep.scenes)
     if len(available_scenes) == true_n_scenes:
         continue # no missing scenes

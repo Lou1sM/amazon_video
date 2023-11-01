@@ -17,7 +17,7 @@ from src.modeling.video_captioning_e2e_vid_swin_bert import VideoTransformer
 from src.datasets.data_utils.video_ops import extract_frames_from_video_path
 import torch
 import argparse
-from episode import episode_from_ep_name
+from episode import episode_from_epname
 from transformers import AutoProcessor, AutoModelForVision2Seq
 from PIL import Image
 
@@ -110,7 +110,7 @@ class Captioner():
             scene_locs.append(locs_for_this_scene)
 
         to_dump = []
-        assert max(scene_nums) == len(episode_from_ep_name(ep_name).scenes)
+        assert max(scene_nums) == len(episode_from_epname(ep_name).scenes)
         for sn,c,l in zip(scene_nums,scene_caps,scene_locs):
             to_append = {'scene_id': f'{ep_name}s{sn}', 'raw_cap':c, 'locs':l}
             to_dump.append(to_append)
@@ -151,7 +151,7 @@ class Captioner():
 
     def filter_and_namify_scene_captions(self, ep_name, model_name):
         scenes_dir = f'SummScreen/video_scenes/{ep_name}'
-        ep = episode_from_ep_name(ep_name)
+        ep = episode_from_epname(ep_name)
         with open(os.path.join(scenes_dir,f'{model_name}_raw_scene_caps.json')) as f:
             z = json.load(f)
             try:
@@ -162,47 +162,11 @@ class Captioner():
         #assert len(raw_caps) == len(ep.scenes)
         caps_per_scene = []
         for sn, (raw_cap, scene_transcript) in enumerate(zip(raw_caps, ep.scenes)):
-            if 'a commercial' in raw_cap:
-                cap = ''
-            else:
-                appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
-
-                cap = raw_cap.lower()
-                cap = cap.replace('is seen','is').replace('are seen','are')
-                if cap.startswith('a scene from a tv show in which'):
-                    cap = cap[32:]
-                appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
-                appearing_maybe_females = [c for c in appearing_chars if gender(c) in ['f','a']]
-
-                if len(appearing_maybe_females)==1:
-                    femname = appearing_maybe_females.pop()
-                    if 'a woman' in cap:
-                        cap = cap.replace('a woman',femname, 1)
-                        if femname in appearing_maybe_males: # could be neut. name
-                            appearing_maybe_males.remove(femname)
-                    elif 'a girl' in cap:
-                        cap = cap.replace('a girl',femname, 1)
-                        if femname in appearing_maybe_males: # could be neut. name
-                            appearing_maybe_males.remove(femname)
-                if len(appearing_maybe_males)==1:
-                    manname = appearing_maybe_males.pop()
-                    if 'a man' in cap:
-                        cap = cap.replace('a man',manname, 1)
-                        if manname in appearing_maybe_females:
-                            appearing_maybe_females.remove(manname)
-                    elif 'a boy' in cap:
-                        cap = cap.replace('a boy',manname, 1)
-                        if manname in appearing_maybe_females:
-                            appearing_maybe_females.remove(manname)
-                if len(appearing_maybe_females)==1: # do again in case neut. removed when checking males
-                    if 'a woman' in cap:
-                        cap = cap.replace('a woman',appearing_maybe_females[0], 1)
-                    elif 'a girl' in cap:
-                        cap = cap.replace('a girl',appearing_maybe_females[0], 1)
-                if ARGS.verbose:
-                    print(f'SCENE{sn}: {raw_cap}\t{cap}')
+            cap = filter_single_caption(raw_cap, scene_transcript)
             caps_per_scene.append({'scene_id': f'{ep_name}s{sn}', 'raw':raw_cap, 'with_names':cap})
 
+        if ARGS.verbose:
+            print(f'SCENE{sn}: {raw_cap}\t{cap}')
         with open(f'{scenes_dir}/{model_name}_procced_scene_caps.json','w') as f:
             json.dump(caps_per_scene,f)
 
@@ -218,6 +182,46 @@ class Captioner():
             max_new_tokens=64,
         )
         return self.kosmos_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+
+def filter_single_caption(scene_cap, scene_transcript):
+    boring_list = ['a commercial','talking','is shown','sitting on a chair','sitting on a couch', 'sitting in a chair', 'walking around']
+    if any(x in scene_cap for x in boring_list):
+        return ''
+    appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
+
+    cap = scene_cap.lower()
+    cap = cap.replace('is seen','is').replace('are seen','are')
+    if cap.startswith('a scene from a tv show in which'):
+        cap = cap[32:]
+    appearing_maybe_males = [c for c in appearing_chars if gender(c) in ['m','a']]
+    appearing_maybe_females = [c for c in appearing_chars if gender(c) in ['f','a']]
+
+    if len(appearing_maybe_females)==1:
+        femname = appearing_maybe_females.pop()
+        if 'a woman' in cap:
+            cap = cap.replace('a woman',femname, 1)
+            if femname in appearing_maybe_males: # could be neut. name
+                appearing_maybe_males.remove(femname)
+        elif 'a girl' in cap:
+            cap = cap.replace('a girl',femname, 1)
+            if femname in appearing_maybe_males: # could be neut. name
+                appearing_maybe_males.remove(femname)
+    if len(appearing_maybe_males)==1:
+        manname = appearing_maybe_males.pop()
+        if 'a man' in cap:
+            cap = cap.replace('a man',manname, 1)
+            if manname in appearing_maybe_females:
+                appearing_maybe_females.remove(manname)
+        elif 'a boy' in cap:
+            cap = cap.replace('a boy',manname, 1)
+            if manname in appearing_maybe_females:
+                appearing_maybe_females.remove(manname)
+    if len(appearing_maybe_females)==1: # do again in case neut. removed when checking males
+        if 'a woman' in cap:
+            cap = cap.replace('a woman',appearing_maybe_females[0], 1)
+        elif 'a girl' in cap:
+            cap = cap.replace('a girl',appearing_maybe_females[0], 1)
+    return cap
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -267,7 +271,8 @@ if __name__ == '__main__':
             captioner.filter_and_namify_scene_captions(tc, ARGS.model_name)
     else:
         starttime = time()
-        captioner_func(ARGS.ep_name)
+        if not ARGS.filter_only:
+            captioner_func(ARGS.ep_name)
         print(f'caption time: {time()-starttime:.2f}')
         starttime = time()
         captioner.filter_and_namify_scene_captions(ARGS.ep_name, ARGS.model_name)
