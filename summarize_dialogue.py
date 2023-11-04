@@ -21,8 +21,11 @@ from tqdm import tqdm
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, model, tokenizer, caps, do_reorder, do_resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, model, tokenizer, caps, do_reorder, expname, do_resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         self.model = model
+        assert isinstance(expname,str)
+        self.expname = expname
+        self.n_epochs = 0
         self.dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
         self.tokenizer = tokenizer
         self.dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
@@ -34,10 +37,13 @@ class SoapSummer():
         self.bs = 2
         self.dbs = 16
 
-    def pad_batch(self,batch,eos_token_id):
+    def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
-        padded = [b+[eos_token_id]*(N-len(b)) for b in batch]
-        return torch.tensor(padded).to(device)
+        attention_mask = torch.stack([torch.cat([torch.ones(len(c)),torch.zeros(N-len(c))]) for c in batch], dim=0).cuda()
+        padded = [b+[tokenizer.eos_token_id]*(N-len(b)) for b in batch]
+        padded = torch.tensor(padded).to(device)
+        assert padded.shape == attention_mask.shape
+        return padded, attention_mask
 
     def epname_in_context(self,epname):
         fn = epname + '_reordered' if self.do_reorder else epname
@@ -98,14 +104,24 @@ class SoapSummer():
         N = ceil(len(remaining_chunks)/self.dbs)
         remaining_chunk_summs = []
         for i in range(N):
-            padded = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer.eos_token_id)
+            padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
             max_len = min(padded.shape[1],avg_scene_summ_len+15)
             min_len = max(10,max_len-20)
             if padded.shape[1] > self.dtokenizer.model_max_length:
-                #print('too long', padded.shape, self.dtokenizer.model_max_length)
+                print('too long', padded.shape, self.dtokenizer.model_max_length)
                 padded = padded[:,:self.dtokenizer.model_max_length]
-            summ_tokens = self.dmodel.generate(padded,min_length=min_len,max_length=max_len)
-            summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True,clean_up_tokenization_spaces=True)
+                attn = attn[:,:self.dtokenizer.model_max_length]
+            summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_length=min_len, max_length=max_len)
+            summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            len_first_unpadded = attn[0].argmin()
+            if len_first_unpadded==0:
+                assert attn[0].all()
+                len_first_unpadded = attn.shape[1]
+            if not summ[0] == self.dtokenizer.decode(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0], skip_special_tokens=True, clean_up_tokenization_spaces=True):
+                print(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0])
+                print(padded[0])
+                print(padded[0,:len_first_unpadded])
+                breakpoint()
             remaining_chunk_summs += summ
         chunk_summs = short_chunk_summs + remaining_chunk_summs
         #print(f'Scene summ time: {time()-start_time:.2f}')
@@ -121,8 +137,10 @@ class SoapSummer():
         # if some were chunked together, may differ because of the join
         ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
         #if ep.ep_name == 'oltl-10-18-10' and len(''.join(ss_with_caps))!=3109:
-        if len(''.join(ss_with_caps)) > 4500:
+        if len(''.join(ss_with_caps).split()) > 5/4 * self.tokenizer.model_max_length:
+            print('GOT A LONG SS_WITH_CAPS HERE')
             breakpoint()
+            print(ss_with_caps)
         return ss_with_caps
 
     def get_scene_summs(self, ep):
@@ -151,8 +169,11 @@ class SoapSummer():
         #max_len = 300
         #min_len = max(10,max_len-20)
         #min_len = 280
-        pbatch = self.pad_batch(tok_chunks,self.tokenizer.eos_token_id)[:,:self.tokenizer.model_max_length]
-        meta_chunk_summs = self.model.generate(pbatch, min_length=280, max_length=300)
+        pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
+        if pbatch.shape[1] > self.tokenizer.model_max_length:
+            breakpoint()
+            pbatch = pbatch[:,:self.tokenizer.model_max_length]
+        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=280, max_length=300)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
         return concatted_scene_summs, final_summ
 
@@ -200,9 +221,11 @@ class SoapSummer():
         print('getting scene summs for train set')
         print('getting scene summs for test set')
         ts_list = self.dpoints_from_ep_names(ts_ep_names, scene_caps)
-        test_ep_names = set(x['ep_name'] for x in ts_list)
+        #test_ep_names = set(x['ep_name'] for x in ts_list)
+        #test_ep_names = ['atwt-05-11-05']+list(test_ep_names)
+        assert set(ts_ep_names)==set(x['ep_name'] for x in ts_list)
         ts_combined_list = []
-        for tepn in test_ep_names:
+        for tepn in ts_ep_names:
             dps_with_name = [t for t in ts_list if t['ep_name']==tepn]
             assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
             combined = {'ep_name':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
@@ -220,11 +243,11 @@ class SoapSummer():
         with open(f'SummScreen/json_datasets/train_{fn}_dset.json','w') as f:
             json.dump(tr_list, f)
 
-    def train_one_epoch(self, epoch):
+    def train_one_epoch(self, epoch, trainloader):
         self.model.train()
         self.opt.zero_grad()
         epoch_loss = 0
-        for i,batch in enumerate(pbar := tqdm(self.train_loader, dynamic_ncols=True, smoothing=0.01, leave=False)):
+        for i,batch in enumerate(pbar := tqdm(trainloader, dynamic_ncols=True, smoothing=0.01, leave=False)):
             if (l := batch['input_ids'].shape[1]) > self.tokenizer.model_max_length:
                 print('skipping because inputs are of length', l)
                 continue
@@ -240,7 +263,7 @@ class SoapSummer():
             outputs = self.model(**cbatch)
             loss = outputs[0]
             loss.backward()
-            epoch_loss = ((i*epoch_loss) + loss) / (i+1) # running avg
+            epoch_loss = ((i*epoch_loss) + loss.item()) / (i+1) # running avg
             pbar.set_description(f'Epoch: {epoch}/{self.n_epochs}'
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
             self.opt.step(); self.lr_scheduler.step()
@@ -254,14 +277,14 @@ class SoapSummer():
         self.model.save_pretrained(save_dir)
         self.tokenizer.save_pretrained(save_dir)
 
-    def eval_epoch(self,epoch_num):
+    def eval_epoch(self, epoch_num, testset):
         self.model.eval()
         print('validating')
         prev = ''
         rouges = []
         epoch_rouge = np.zeros(3)
         check_dir(generations_dir := join('experiments', self.expname, 'generations'))
-        for j,batch in enumerate(val_pbar := tqdm(self.testset, dynamic_ncols=True, smoothing=0.01, leave=False)):
+        for j,batch in enumerate(val_pbar := tqdm(testset, dynamic_ncols=True, smoothing=0.01, leave=False)):
             #tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
             nl_inputs = batch['scene_summs']
             #outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
@@ -285,17 +308,16 @@ class SoapSummer():
                 break
         return rouges
 
-    def train_epochs(self, n_epochs, trainset, testset, expname, save_every, eval_every):
+    def train_epochs(self, n_epochs, trainset, testset, save_every, eval_every):
         self.opt = AdamW(self.model.parameters(),lr=5e-6)
         #self.expdir = join('experiments',expname)
-        self.expname = expname
         dc = DataCollatorForSeq2Seq(self.tokenizer, model=self.model)
 
-        self.train_loader = DataLoader(trainset, batch_size=self.bs, shuffle=False, collate_fn=dc)
-        self.testset = testset
+        trainloader = DataLoader(trainset, batch_size=self.bs, shuffle=False, collate_fn=dc)
+        #self.testset = testset
 
         self.n_epochs = n_epochs
-        num_training_steps = self.n_epochs * len(self.train_loader)
+        num_training_steps = self.n_epochs * len(trainloader)
         self.lr_scheduler = get_scheduler(
     name="linear", optimizer=self.opt, num_warmup_steps=0, num_training_steps=num_training_steps
             )
@@ -303,11 +325,11 @@ class SoapSummer():
         alltime_best_rouges = np.zeros(3)
         for epoch in range(self.n_epochs):
             print(f'training epoch {epoch}')
-            epoch_loss = self.train_one_epoch(epoch)
-            rouges = self.eval_epoch(epoch)
+            epoch_loss = self.train_one_epoch(epoch, trainloader)
+            rouges = self.eval_epoch(epoch, testset)
             if save_every:
                 self.save_to(f'epoch{epoch}')
-            print(f'Epoch: {epoch}\tLoss: {epoch_loss.item():.5f}')
+            print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             if (epoch+1) % eval_every == 0:
                 rouges_arr = np.array(rouges).mean(axis=0)
                 if rouges_arr[1] > alltime_best_rouges[1]:

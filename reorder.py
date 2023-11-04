@@ -1,5 +1,5 @@
 import numpy as np
-from episode import episode_from_ep_name
+from episode import episode_from_epname
 
 
 def names_in_scene(scene):
@@ -21,7 +21,7 @@ def optimal_order(scenes):
         for j in range(i+1,n):
             cn2 = char_names_in_scenes[j]
             n_overlap = sum([x in cn2 for x in cn1])
-            iou = n_overlap / (len(cn1)+len(cn2))
+            iou = 0 if (len(cn1)+len(cn2)==0) else n_overlap / (len(cn1)+len(cn2))
             dists[i,j] = 1 - iou
             dists[j,i] = 1 if n_overlap==0 else np.inf # never change order for a char
     dists = np.concatenate([dists,np.zeros([n,1])],axis=1) #dummy endpoint
@@ -58,7 +58,7 @@ def optimal_order(scenes):
     return order_idxs
 
 if __name__ == '__main__':
-    #ep = episode_from_ep_name('bb-01-10-14')
-    ep = episode_from_ep_name('atwt-01-02-03')
+    #ep = episode_from_epname('bb-01-10-14')
+    ep = episode_from_epname('atwt-01-02-03')
     import pdb; pdb.set_trace()  # XXX BREAKPOINT
     optimal_order(ep.scenes)

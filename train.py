@@ -57,7 +57,7 @@ else:
 print(f'loading from {chkpt_path}')
 model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
-ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, ARGS.do_resumm_scenes, is_test=ARGS.is_test)
+ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, expname, ARGS.do_resumm_scenes, is_test=ARGS.is_test)
 
 fn = f'{ARGS.caps}_reordered' if ARGS.do_reorder else ARGS.caps
 if ARGS.is_test:
@@ -111,11 +111,11 @@ def save_to(fname):
 num_epochs = 3
 
 if ARGS.eval_first:
-    rouges = ss.eval_epoch(0)
+    rouges = ss.eval_epoch(0, testset)
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
-alltime_best_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, expname, ARGS.save_every, ARGS.eval_every)
+alltime_best_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, ARGS.save_every, ARGS.eval_every)
 results_path = join('experiments',expname,'results.txt')
 with open(results_path,'w') as f:
     for r,s in zip(['r1','r2','rL'],alltime_best_rouges):
