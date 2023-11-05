@@ -18,7 +18,7 @@ parser.add_argument('--do_reorder', action='store_true')
 parser.add_argument('--do_resumm_scenes',action='store_true')
 parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--eval_first',action='store_true')
-parser.add_argument('--expname',type=str,default='tmp')
+parser.add_argument('--expname',type=str)
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 parser.add_argument('--n_dpoints',type=int,default=-1)
 parser.add_argument('--n_epochs',type=int,default=2)
@@ -35,10 +35,12 @@ ARGS = parser.parse_args()
 ARGS.is_test = ARGS.is_test or ARGS.is_test_big_bart
 ARGS.do_retokenize = ARGS.do_retokenize or ARGS.do_resumm_scenes
 
-if ARGS.expname=='tmp' and not ARGS.is_test:
+if ARGS.expname is None and not ARGS.is_test:
     sys.exit('set a different expname')
 elif ARGS.is_test:
     ARGS.expname='tmp'
+
+print(ARGS.expname)
 
 
 expname = set_experiment_dir(ARGS.expname, ARGS.overwrite, name_of_trials='tmp')

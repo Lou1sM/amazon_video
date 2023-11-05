@@ -16,6 +16,7 @@ from utils import chunkify, summ_short_scene, safe_decode, rouge_from_multiple_r
 import numpy as np
 from random import shuffle
 from tqdm import tqdm
+from dl_utils.torch_misc import show_gpu_memory
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -34,7 +35,7 @@ class SoapSummer():
         self.do_resumm_scenes = do_resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
-        self.bs = 2
+        self.bs = 1
         self.dbs = 16
 
     def pad_batch(self,batch,tokenizer):
@@ -137,10 +138,7 @@ class SoapSummer():
         # if some were chunked together, may differ because of the join
         ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
         #if ep.ep_name == 'oltl-10-18-10' and len(''.join(ss_with_caps))!=3109:
-        if len(''.join(ss_with_caps).split()) > 5/4 * self.tokenizer.model_max_length:
-            print('GOT A LONG SS_WITH_CAPS HERE')
-            breakpoint()
-            print(ss_with_caps)
+        assert self.tokenizer.model_max_length + 15*len(ep.scenes) > len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
     def get_scene_summs(self, ep):
@@ -183,6 +181,7 @@ class SoapSummer():
         #summer = SoapSummer(None, None, caps=scene_caps, do_reorder=self.do_reorder, do_resumm_scenes=do_resumm_scenes, do_save_new_scenes=not is_test)
         summ_dir = 'SummScreen/summaries'
         for ep_name in tqdm(ep_name_list):
+            show_gpu_memory()
             ep = episode_from_epname(ep_name)
             ss = ''.join(self.get_scene_summs(ep))
             with open(os.path.join(summ_dir, f'{ep_name}.json')) as f:
@@ -236,6 +235,7 @@ class SoapSummer():
             else:
                 ts_combined_list.append(combined)
         ts_combined_list.insert(0, to_be_first)
+        check_dir('SummScreen/json_datasets')
         with open(f'SummScreen/json_datasets/test_{fn}_dset.json','w') as f:
             json.dump(ts_combined_list, f)
 
@@ -293,8 +293,8 @@ class SoapSummer():
                 print('repeat output')
             #prev_inp = batch['input_ids']
             prev = nl_outputs
-            references = [v for k,v in batch.items() if k not in ('ep_name','input_ids','attention_mask') and v is not None]
-            best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False)
+            references = [v for k,v in batch.items() if k not in ('ep_name','scene_summs') and v is not None]
+            best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
 
             rouges.append(best_rouge)
             epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg

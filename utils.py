@@ -34,17 +34,19 @@ def extract_main_rouges(scores):
     rouge2 = scores['rouge-2']['f'] * 100
     return rouge1, rouge2, rougel
 
-def rouge_from_multiple_refs(pred, references, return_full):
-    best_r2 = -1
+def rouge_from_multiple_refs(pred, references, return_full, benchmark_rl):
+    benchmark = -1
     for possible_gt in references:
         new_rouge = nelly_rouge(pred, possible_gt)
-        if new_rouge['rouge-2']['f'] > best_r2:
-            best_r2 = new_rouge['rouge-2']['f']
+        maybe_new_benchmark = new_rouge['rouge-l']['f'] if benchmark_rl else new_rouge['rouge-2']['f']
+        if maybe_new_benchmark > benchmark:
+            benchmark = maybe_new_benchmark
             best_rouge = new_rouge
-    if best_r2 == 0:
+    if benchmark == 0:
         if not all([gt is None for gt in references]):
             print('rouge is zero')
     return best_rouge if return_full else extract_main_rouges(best_rouge)
+
 def safe_decode(tokens, tokenizer):
      st = [[x for x in ts[:tokenizer.model_max_length] if x != -100] for ts in tokens]
      return tokenizer.batch_decode(st, skip_special_tokens=True, clean_up_tokenization_spaces=True)
