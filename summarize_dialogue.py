@@ -36,7 +36,7 @@ class SoapSummer():
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
         self.bs = 1
-        self.dbs = 16
+        self.dbs = 8
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
@@ -66,6 +66,8 @@ class SoapSummer():
                 caps = [c['with_names'] for c in caps_data]
             if not len(caps)==len(ep.scenes):
                 breakpoint()
+        if not all('talking' not in x for x in caps):
+            breakpoint()
         if self.do_reorder:
             order_idxs = optimal_order(ep.scenes)
             optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
@@ -83,10 +85,11 @@ class SoapSummer():
             combined_scenes = ep.scenes
             combined_caps = caps
         #print([names_in_scene(s) for s in combined_scenes])
-        avg_scene_summ_len = self.tokenizer.model_max_length//len(combined_scenes)
 
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])
+        avg_scene_summ_len = self.tokenizer.model_max_length//len(chunks)
+
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
         sort_idxs = np.argsort([len(x) for x in tok_chunks])
         reversed_sort_idxs = np.argsort(sort_idxs)
@@ -112,17 +115,18 @@ class SoapSummer():
                 print('too long', padded.shape, self.dtokenizer.model_max_length)
                 padded = padded[:,:self.dtokenizer.model_max_length]
                 attn = attn[:,:self.dtokenizer.model_max_length]
+            #show_gpu_memory()
             summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_length=min_len, max_length=max_len)
+            assert summ_tokens.shape[1] <= max_len
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
             len_first_unpadded = attn[0].argmin()
             if len_first_unpadded==0:
                 assert attn[0].all()
                 len_first_unpadded = attn.shape[1]
-            if not summ[0] == self.dtokenizer.decode(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0], skip_special_tokens=True, clean_up_tokenization_spaces=True):
-                print(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0])
-                print(padded[0])
-                print(padded[0,:len_first_unpadded])
-                breakpoint()
+            #if not summ[0] == self.dtokenizer.decode(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0], skip_special_tokens=True, clean_up_tokenization_spaces=True):
+                #print(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0])
+                #print(padded[0])
+                #print(padded[0,:len_first_unpadded])
             remaining_chunk_summs += summ
         chunk_summs = short_chunk_summs + remaining_chunk_summs
         #print(f'Scene summ time: {time()-start_time:.2f}')
@@ -138,7 +142,8 @@ class SoapSummer():
         # if some were chunked together, may differ because of the join
         ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
         #if ep.ep_name == 'oltl-10-18-10' and len(''.join(ss_with_caps))!=3109:
-        assert self.tokenizer.model_max_length + 15*len(ep.scenes) > len(self.dtokenizer(''.join(ss_with_caps))[0])
+        if self.caps == 'nocaptions':
+            assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
     def get_scene_summs(self, ep):
@@ -154,7 +159,7 @@ class SoapSummer():
             if self.do_save_new_scenes:
                 with open(fpath:=f'SummScreen/scene_summs/{fn}.txt','w') as f:
                     f.write('\n'.join(ss))
-                #print('saving to',fpath)
+                print('saving to',fpath)
         return ss
 
     def summarize_from_ep(self, ep):
@@ -181,7 +186,7 @@ class SoapSummer():
         #summer = SoapSummer(None, None, caps=scene_caps, do_reorder=self.do_reorder, do_resumm_scenes=do_resumm_scenes, do_save_new_scenes=not is_test)
         summ_dir = 'SummScreen/summaries'
         for ep_name in tqdm(ep_name_list):
-            show_gpu_memory()
+            #show_gpu_memory()
             ep = episode_from_epname(ep_name)
             ss = ''.join(self.get_scene_summs(ep))
             with open(os.path.join(summ_dir, f'{ep_name}.json')) as f:
@@ -207,7 +212,8 @@ class SoapSummer():
         assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in ep_names])
         #ep_names = [x[:-4] for x in ep_names]
         shuffle(ep_names)
-        ep_names.remove('oltl-10-18-10')
+        ep_name_to_be_first = 'atwt-05-11-05'
+        ep_names.remove(ep_name_to_be_first)
         if n_dpoints != -1:
             ep_names = ep_names[:n_dpoints]
         tr_up_to_idx = int(9*len(ep_names)/10)
@@ -216,7 +222,7 @@ class SoapSummer():
         if self.is_test:
             tr_ep_names = tr_ep_names[:100]
             ts_ep_names = ts_ep_names[:30]
-        ts_ep_names.append('oltl-10-18-10')
+        ts_ep_names.insert(0,ep_name_to_be_first)
         print('getting scene summs for train set')
         print('getting scene summs for test set')
         ts_list = self.dpoints_from_ep_names(ts_ep_names, scene_caps)
@@ -230,7 +236,7 @@ class SoapSummer():
             combined = {'ep_name':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
             for dpsn in dps_with_name:
                 combined[dpsn['summ_name']] = dpsn['summ']
-            if tepn == 'oltl-10-18-10':
+            if tepn == ep_name_to_be_first:
                 to_be_first = combined
             else:
                 ts_combined_list.append(combined)
@@ -248,21 +254,35 @@ class SoapSummer():
         self.opt.zero_grad()
         epoch_loss = 0
         for i,batch in enumerate(pbar := tqdm(trainloader, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            if (l := batch['input_ids'].shape[1]) > self.tokenizer.model_max_length:
-                print('skipping because inputs are of length', l)
+            if (l := batch['input_ids'].shape[1]) > self.tokenizer.model_max_length*6/5:
+                #print('skipping because inputs are of length', l)
                 continue
+            else:
+                batch['input_ids'] = batch['input_ids'][:,:self.tokenizer.model_max_length]
+                batch['attention_mask'] = batch['attention_mask'][:,:self.tokenizer.model_max_length]
             if (l := batch['labels'].shape[1]) > self.tokenizer.model_max_length:
                 print('skipping because labels are of length', l)
                 continue
             #cbatch = {k:v.cuda()[:,:self.tokenizer.model_max_length] for k,v in batch.items()}
+            if (x:=batch['input_ids'].shape[1]) + (y:=batch['labels'].shape[1]) > 1550:
+                #print(f'skipping because inputs are {x} and labels are {y} so maybe give OOM')
+                continue
             if max(batch['input_ids'].shape[1], batch['labels'].shape[1], batch['decoder_input_ids'].shape[1]) > self.tokenizer.model_max_length:
                 breakpoint()
             cbatch = {k:v.cuda() for k,v in batch.items()}
             cbatch['labels'] = cbatch['labels'].contiguous()
-            print(safe_decode(cbatch['input_ids'], self.tokenizer),'\n',safe_decode(cbatch['labels'], self.tokenizer))
-            outputs = self.model(**cbatch)
-            loss = outputs[0]
-            loss.backward()
+            #print(safe_decode(cbatch['input_ids'], self.tokenizer),'\n',safe_decode(cbatch['labels'], self.tokenizer))
+            #show_gpu_memory()
+            #print(f'inputs: {len(cbatch["input_ids"][0])}\tlabels: {len(cbatch["labels"][0])}')
+            try:
+                outputs = self.model(**cbatch)
+                #show_gpu_memory()
+                loss = outputs[0]
+                loss.backward()
+            except torch.cuda.OutOfMemoryError:
+                print(f'got OOM with inputs {x} and labels {y}')
+                continue
+
             epoch_loss = ((i*epoch_loss) + loss.item()) / (i+1) # running avg
             pbar.set_description(f'Epoch: {epoch}/{self.n_epochs}'
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
@@ -309,7 +329,7 @@ class SoapSummer():
         return rouges
 
     def train_epochs(self, n_epochs, trainset, testset, save_every, eval_every):
-        self.opt = AdamW(self.model.parameters(),lr=5e-6)
+        self.opt = AdamW(self.model.model.decoder.parameters(),lr=1e-6)
         #self.expdir = join('experiments',expname)
         dc = DataCollatorForSeq2Seq(self.tokenizer, model=self.model)
 

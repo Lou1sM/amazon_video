@@ -165,6 +165,7 @@ class Captioner():
             cap = filter_single_caption(raw_cap, scene_transcript)
             caps_per_scene.append({'scene_id': f'{ep_name}s{sn}', 'raw':raw_cap, 'with_names':cap})
 
+        assert all('talking' not in x['with_names'] for x in caps_per_scene)
         if ARGS.verbose:
             print(f'SCENE{sn}: {raw_cap}\t{cap}')
         with open(f'{scenes_dir}/{model_name}_procced_scene_caps.json','w') as f:
@@ -184,10 +185,10 @@ class Captioner():
         return self.kosmos_processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
 def filter_single_caption(scene_cap, scene_transcript):
-    boring_list = ['a commercial','talking','is shown','sitting on a chair','sitting on a couch', 'sitting in a chair', 'walking around']
+    boring_list = ['a commercial','talking','is shown','sitting on a chair','sitting on a couch', 'sitting in a chair', 'walking around','announcer']
     if any(x in scene_cap for x in boring_list):
         return ''
-    appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0])
+    appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0 and not x.startswith('Announcer')])
 
     cap = scene_cap.lower()
     cap = cap.replace('is seen','is').replace('are seen','are')

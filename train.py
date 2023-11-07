@@ -27,6 +27,7 @@ parser.add_argument('--overwrite',action='store_true')
 parser.add_argument('--reload_from',type=str,default='none')
 parser.add_argument('--do_retokenize',action='store_true')
 parser.add_argument('--save_every',action='store_true')
+parser.add_argument('--dont_save_new_scenes',action='store_true')
 parser.add_argument('-bt','--is_test_big_bart',action='store_true')
 parser.add_argument('-t','--is_test',action='store_true')
 ARGS = parser.parse_args()
@@ -59,7 +60,7 @@ else:
 print(f'loading from {chkpt_path}')
 model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
-ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, expname, ARGS.do_resumm_scenes, is_test=ARGS.is_test)
+ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, expname, ARGS.do_resumm_scenes, is_test=ARGS.is_test, do_save_new_scenes=not ARGS.dont_save_new_scenes)
 
 fn = f'{ARGS.caps}_reordered' if ARGS.do_reorder else ARGS.caps
 if ARGS.is_test:
