@@ -57,19 +57,19 @@ def secs_from_timestamp(timestamp):
     secs, msecs = secs_.split(',')
     return 3600*float(hrs) + 60*float(mins) + float(secs) + 1e-3*float(msecs)
 
-def split_by_alignment(ep_name,verbose):
+def split_by_alignment(epname,verbose):
     global N_WITHOUT_SCENE_BREAKS
     global N_WITHOUT_SCENE_CAPTIONS
     global N_WITH_HIDDEN_SCENE_BREAKS
     compute_start_time = time()
-    with open(f'SummScreen/transcripts/{ep_name}.json') as f:
+    with open(f'SummScreen/transcripts/{epname}.json') as f:
         raw_transcript_lines = json.load(f)['Transcript']
 
-    with open(f'SummScreen/closed_captions/{ep_name}.json') as f:
+    with open(f'SummScreen/closed_captions/{epname}.json') as f:
         closed_captions = json.load(f)
 
     #if '[SCENE_BREAK]' not in raw_transcript_lines:
-    #    print(f'Can\'t split {ep_name}, no scene markings')
+    #    print(f'Can\'t split {epname}, no scene markings')
     #    N_WITHOUT_SCENE_BREAKS += 1
     #    if '' in raw_transcript_lines:
     #        N_WITH_HIDDEN_SCENE_BREAKS += 1
@@ -77,7 +77,7 @@ def split_by_alignment(ep_name,verbose):
 
     transcript_lines = [word_tokenize(clean(line)) for line in raw_transcript_lines]
     if 'captions' not in closed_captions.keys():
-        print(f'Can\'t split {ep_name}, no captions')
+        print(f'Can\'t split {epname}, no captions')
         N_WITHOUT_SCENE_CAPTIONS += 1
         return
 
@@ -89,9 +89,9 @@ def split_by_alignment(ep_name,verbose):
         cc_timestamps = cc_timestamps[:40]
     all_words, counts = np.unique(sum(cc_lines+transcript_lines,[]),return_counts=True)
 
-    video_fpath = f'SummScreen/videos/{ep_name}.mp4'
+    video_fpath = f'SummScreen/videos/{epname}.mp4'
     if not os.path.exists(video_fpath):
-        print(f'Can\'t split {ep_name}, no file at {video_fpath}')
+        print(f'Can\'t split {epname}, no file at {video_fpath}')
         return
     alignment = align(transcript_lines, cc_lines)
     _, splits = infer_scene_splits(raw_transcript_lines, False)
@@ -104,7 +104,7 @@ def split_by_alignment(ep_name,verbose):
     starttime = 0
     endtime = 0
     cur_idx = 0
-    check_dir(f'SummScreen/video_scenes/{ep_name}')
+    check_dir(f'SummScreen/video_scenes/{epname}')
     scene_num = 0
     scene_starttime = 0
     scene_endtime = 0
@@ -120,9 +120,8 @@ def split_by_alignment(ep_name,verbose):
             timestamped_lines.append(timestamped_tline)
             if ARGS.print_tlines:
                 print(timestamped_tline)
-            breakpoint()
             if cur_idx in splits or is_last(): # increment scenes too
-                outpath = f'SummScreen/video_scenes/{ep_name}/{ep_name}_scene{scene_num}.mp4'
+                outpath = f'SummScreen/video_scenes/{epname}/{epname}_scene{scene_num}.mp4'
                 scene_endtime = min(new_starttime,endtime)
                 scene_endtime -= 3 + (scene_endtime - scene_starttime)/8 #cut further reduce overspill
                 if verbose:
@@ -155,19 +154,19 @@ if __name__ == '__main__':
     parser.add_argument('--db_failed_scenes',action='store_true')
     parser.add_argument('--print_full_aligned',action='store_true')
     parser.add_argument('--print_tlines',action='store_true')
-    parser.add_argument('--ep_name',type=str, default='oltl-10-18-10')
+    parser.add_argument('--epname',type=str, default='oltl-10-18-10')
     ARGS = parser.parse_args()
 
-    if ARGS.ep_name == 'all':
-        all_ep_names = [fn[:-4] for fn in os.listdir('SummScreen/videos') if fn.endswith('.mp4')]
-        for en in all_ep_names:
+    if ARGS.epname == 'all':
+        all_epnames = [fn[:-4] for fn in os.listdir('SummScreen/videos') if fn.endswith('.mp4')]
+        for en in all_epnames:
             if not os.path.exists(f'SummScreen/video_scenes/{en}'):
                 print(f'aligning and splitting {en}')
                 split_by_alignment(en,verbose=False)
             else:
                 print(f'splits and alignment already exist for {en}')
     else:
-        split_by_alignment(ARGS.ep_name,verbose=False)
+        split_by_alignment(ARGS.epname,verbose=False)
     print(f'num without scene breaks: {N_WITHOUT_SCENE_BREAKS}')
     print(f'num without scene captions: {N_WITHOUT_SCENE_CAPTIONS}')
     print(f'num with hidden scene breaks: {N_WITH_HIDDEN_SCENE_BREAKS}')

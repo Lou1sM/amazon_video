@@ -136,10 +136,18 @@ def labels_from_splits(splits, n):
 
 
 if __name__ == '__main__':
-    test = [1,2,1,2,3,4,3,4]
     #print(mdl_split([8,2,2,8,3,1,1,3,3,1,4,5,4,5,4,5]))
     #print(mdl_split([3,5,1,5,3,1,4,5,4,5,4,5]))
     #ep = episode_from_epname('atwt-01-02-03')
+    #with open(f'SummScreen/transcripts/bb-10-06-14.json') as f:
+    #    transcript_data = json.load(f)['Transcript']
+    #scenes, splits = infer_scene_splits(transcript_data, False)
+    #for sc in scenes:
+    #    if '\n' in sc:
+    #        print(sc)
+    #    else:
+    #        print('\n'.join(sc))
+    #    print('[INFERRED_BREAK]\n')
     epname_list = [x.rstrip('.json') for x in os.listdir('SummScreen/transcripts')][:10]
     nss = []
     for en in epname_list:
