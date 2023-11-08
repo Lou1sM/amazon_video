@@ -1,3 +1,4 @@
+from episode import infer_scene_splits
 import numpy as np
 from time import time
 from contextlib import redirect_stdout
@@ -16,6 +17,7 @@ from dl_utils.misc import asMinutes
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 N_WITHOUT_SCENE_BREAKS = 0
+N_WITH_HIDDEN_SCENE_BREAKS = 0
 N_WITHOUT_SCENE_CAPTIONS = 0
 
 def clean(line):
@@ -58,19 +60,21 @@ def secs_from_timestamp(timestamp):
 def split_by_alignment(ep_name,verbose):
     global N_WITHOUT_SCENE_BREAKS
     global N_WITHOUT_SCENE_CAPTIONS
+    global N_WITH_HIDDEN_SCENE_BREAKS
     compute_start_time = time()
     with open(f'SummScreen/transcripts/{ep_name}.json') as f:
-        transcript_data = json.load(f)
+        raw_transcript_lines = json.load(f)['Transcript']
 
     with open(f'SummScreen/closed_captions/{ep_name}.json') as f:
         closed_captions = json.load(f)
 
-    if '[SCENE_BREAK]' not in transcript_data['Transcript']:
-        print(f'Can\'t split {ep_name}, no scene markings')
-        N_WITHOUT_SCENE_BREAKS += 1
-        return
+    #if '[SCENE_BREAK]' not in raw_transcript_lines:
+    #    print(f'Can\'t split {ep_name}, no scene markings')
+    #    N_WITHOUT_SCENE_BREAKS += 1
+    #    if '' in raw_transcript_lines:
+    #        N_WITH_HIDDEN_SCENE_BREAKS += 1
+    #    return
 
-    raw_transcript_lines = transcript_data['Transcript']
     transcript_lines = [word_tokenize(clean(line)) for line in raw_transcript_lines]
     if 'captions' not in closed_captions.keys():
         print(f'Can\'t split {ep_name}, no captions')
@@ -90,6 +94,7 @@ def split_by_alignment(ep_name,verbose):
         print(f'Can\'t split {ep_name}, no file at {video_fpath}')
         return
     alignment = align(transcript_lines, cc_lines)
+    _, splits = infer_scene_splits(raw_transcript_lines, False)
 
     if ARGS.print_full_aligned:
         for i,j in zip(alignment.index1,alignment.index2):
@@ -107,12 +112,16 @@ def split_by_alignment(ep_name,verbose):
         new_starttime, new_endtime = cc_timestamps[idx2].split(' --> ')
         new_starttime = secs_from_timestamp(new_starttime)
         new_endtime = secs_from_timestamp(new_endtime)
-        if idx1!=cur_idx or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment transcript lines
+
+        def is_last(): return idx1==alignment.index1.max() and idx2==alignment.index2.max()
+
+        if idx1!=cur_idx or is_last(): # increment transcript lines, !=cur_idx means gone on to new
             timestamped_tline = f'{starttime} --> {endtime} {raw_transcript_lines[cur_idx]}'
             timestamped_lines.append(timestamped_tline)
             if ARGS.print_tlines:
                 print(timestamped_tline)
-            if raw_transcript_lines[cur_idx] == '[SCENE_BREAK]' or (idx1==alignment.index1.max() and idx2==alignment.index2.max()): # increment scenes too
+            breakpoint()
+            if cur_idx in splits or is_last(): # increment scenes too
                 outpath = f'SummScreen/video_scenes/{ep_name}/{ep_name}_scene{scene_num}.mp4'
                 scene_endtime = min(new_starttime,endtime)
                 scene_endtime -= 3 + (scene_endtime - scene_starttime)/8 #cut further reduce overspill
@@ -161,4 +170,5 @@ if __name__ == '__main__':
         split_by_alignment(ARGS.ep_name,verbose=False)
     print(f'num without scene breaks: {N_WITHOUT_SCENE_BREAKS}')
     print(f'num without scene captions: {N_WITHOUT_SCENE_CAPTIONS}')
+    print(f'num with hidden scene breaks: {N_WITH_HIDDEN_SCENE_BREAKS}')
 

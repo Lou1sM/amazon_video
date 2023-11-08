@@ -71,10 +71,16 @@ class SSEpisode(): # orig SummScreen stored transcripts and summaries as a singl
 def get_char_names(tlines):
     return [x.split(':')[0] if not x.startswith('[') and ':' in x else -1 for x in tlines]
 
+def split_by_marker(tlines, marker):
+    splits = np.array([i for i,x in enumerate(tlines) if x == marker])
+    return '\n'.join(tlines).split(marker), splits
+
 def infer_scene_splits(tlines, force_infer):
     if '[SCENE_BREAK]' in tlines and not force_infer:
-        splits = np.array([i for i,x in enumerate(tlines) if x == '[SCENE_BREAK]'])
-        return '\n'.join(tlines).split('[SCENE_BREAK]'), splits
+        return split_by_marker(tlines, '[SCENE_BREAK')
+    if '' in tlines and not force_infer:
+        tlines = ['£' if x=='' else x for x in tlines]
+        return split_by_marker(tlines, '£')
     #tlines = transcript.split('\n')
     char_names_with_fillers = get_char_names(tlines)
     fillers = [i for i,x in enumerate(char_names_with_fillers) if x==-1]

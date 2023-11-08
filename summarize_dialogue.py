@@ -58,6 +58,7 @@ class SoapSummer():
         start_time = time()
         if len(ep.scenes) == 1:
             print(f'no scene breaks for {ep.ep_name}')
+            breakpoint()
         if self.caps == 'nocaptions':
             caps = ['']*len(ep.scenes)
         else: # prepend vid caps to the scene summ
@@ -333,7 +334,7 @@ class SoapSummer():
         #self.expdir = join('experiments',expname)
         dc = DataCollatorForSeq2Seq(self.tokenizer, model=self.model)
 
-        trainloader = DataLoader(trainset, batch_size=self.bs, shuffle=False, collate_fn=dc)
+        trainloader = DataLoader(trainset, batch_size=self.bs, shuffle=True, collate_fn=dc)
         #self.testset = testset
 
         self.n_epochs = n_epochs
@@ -346,13 +347,13 @@ class SoapSummer():
         for epoch in range(self.n_epochs):
             print(f'training epoch {epoch}')
             epoch_loss = self.train_one_epoch(epoch, trainloader)
-            rouges = self.eval_epoch(epoch, testset)
             if save_every:
                 self.save_to(f'epoch{epoch}')
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             if (epoch+1) % eval_every == 0:
+                rouges = self.eval_epoch(epoch, testset)
                 rouges_arr = np.array(rouges).mean(axis=0)
-                if rouges_arr[1] > alltime_best_rouges[1]:
+                if rouges_arr[2] > alltime_best_rouges[2]:
                     patience = 0
                     alltime_best_rouges = rouges_arr
                     self.save_to('best')
