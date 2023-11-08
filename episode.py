@@ -26,7 +26,7 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.summary_data_dict = summary_data
 
         #self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
-        self.scenes, _ = infer_scene_splits(self.transcript, force_infer=True)
+        self.scenes, _ = infer_scene_splits(self.transcript, force_infer=False)
 
     def calc_rouge(self,pred):
         references = self.summaries.values()
@@ -128,9 +128,26 @@ def mdl_split(x):
 def labels_from_splits(splits, n):
     return (np.expand_dims(np.arange(n),1) > splits).sum(axis=1)
 
-def scene_detection_acc(ep_name_list):
+
+if __name__ == '__main__':
+    test = [1,2,1,2,3,4,3,4]
+    #print(mdl_split([8,2,2,8,3,1,1,3,3,1,4,5,4,5,4,5]))
+    #print(mdl_split([3,5,1,5,3,1,4,5,4,5,4,5]))
+    #ep = episode_from_epname('atwt-01-02-03')
+    epname_list = [x.rstrip('.json') for x in os.listdir('SummScreen/transcripts')][:10]
+    nss = []
+    for en in epname_list:
+        with open(f'SummScreen/transcripts/{en}.json') as f:
+            td = json.load(f)['Transcript']
+        if not any('[SCENE_BREAK]' in x for x in td):
+            continue
+        nss.append(len(''.join(td).split('[SCENE_BREAK]')))
+    mean_num_scenes = np.array(nss).mean()
     all_accs = []
-    for en in ep_name_list:
+    all_rand_accs = []
+    all_ro_accs = []
+    for en in epname_list:
+        print(en)
         with open(f'SummScreen/transcripts/{en}.json') as f:
             transcript_data = json.load(f)['Transcript']
         if not any('[SCENE_BREAK]' in x for x in transcript_data):
@@ -139,17 +156,15 @@ def scene_detection_acc(ep_name_list):
         gt_scenes, gt_splits = infer_scene_splits(transcript_data, False)
         pred_scenes, pred_splits = infer_scene_splits(transcript_data, True)
         random_oracle_splits = np.arange(0, N, N//len(gt_scenes))
+        random_splits = np.arange(0, N, N//mean_num_scenes)
         preds = labels_from_splits(pred_splits, N)
         gts = labels_from_splits(gt_splits, N)
         ro_labels = labels_from_splits(random_oracle_splits, N)
-        breakpoint()
-
-
-if __name__ == '__main__':
-    test = [1,2,1,2,3,4,3,4]
-    #print(mdl_split([8,2,2,8,3,1,1,3,3,1,4,5,4,5,4,5]))
-    #print(mdl_split([3,5,1,5,3,1,4,5,4,5,4,5]))
-    #ep = episode_from_epname('atwt-01-02-03')
-    ep_name_list = [x.rstrip('.json') for x in os.listdir('SummScreen/transcripts')]
-    scene_detection_acc(ep_name_list)
-    breakpoint()
+        rand_labels = labels_from_splits(random_splits, N)
+        acc = accuracy(preds, gts)
+        ro_acc = accuracy(ro_labels, gts)
+        rand_acc = accuracy(rand_labels, gts)
+        all_accs.append(acc); all_ro_accs.append(ro_acc); all_rand_accs.append(rand_acc)
+    print('mine:', np.array(all_accs).mean())
+    print('rand oracle:', np.array(all_ro_accs).mean())
+    print('rand:', np.array(all_rand_accs).mean())
