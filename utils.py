@@ -18,15 +18,26 @@ def rouge_preprocess(text):
     return preprocessed_text
 
 def nelly_rouge(pred,gt):
+    pred_sum_sents = [rouge_preprocess(pred) for pred in split_summ(pred)]
+    gt_sum_sents = [rouge_preprocess(g) for g in split_summ(gt)]
+    pred = '\n'.join(pred_sum_sents)
+    gt = '\n'.join(gt_sum_sents)
+
+    scores = rouge_eval.get_scores(pred, gt)
+    return scores
+
+def old_nelly_rouge(pred,gt):
     if not isinstance(pred,list):
         pred = [pred]
     if not isinstance(gt,list):
         gt = [gt]
     pred_sums = [rouge_preprocess(pred) for pred in pred]
     gt_sums = [rouge_preprocess(g) for g in gt]
-
     scores = rouge_eval.get_scores(pred_sums, gt_sums)
     return scores
+
+def split_summ(s):
+    return s.replace('. ','.\n').split('\n')
 
 def extract_main_rouges(scores):
     rougel = scores['rouge-l']['f'] * 100
