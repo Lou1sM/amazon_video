@@ -309,7 +309,7 @@ class SoapSummer():
         print('validating')
         prev = ''
         rouges = []
-        epoch_rouge = np.zeros(3)
+        epoch_rouge = np.zeros(4)
         check_dir(generations_dir := join('experiments', self.expname, 'generations'))
         for j,batch in enumerate(val_pbar := tqdm(testset, dynamic_ncols=True, smoothing=0.01, leave=False)):
             #tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)

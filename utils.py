@@ -17,13 +17,19 @@ def rouge_preprocess(text):
     preprocessed_text = rouge.Rouge.KEEP_CANNOT_IN_ONE_WORD_REVERSED.sub('cannot', ' '.join(tokens))
     return preprocessed_text
 
-def nelly_rouge(pred,gt):
-    pred_sum_sents = [rouge_preprocess(pred) for pred in split_summ(pred)]
-    gt_sum_sents = [rouge_preprocess(g) for g in split_summ(gt)]
+def nelly_rouge(pred_,gt_):
+    pred_sum_sents = [rouge_preprocess(p) for p in split_summ(pred_)]
+    gt_sum_sents = [rouge_preprocess(g) for g in split_summ(gt_)]
     pred = '\n'.join(pred_sum_sents)
     gt = '\n'.join(gt_sum_sents)
 
     scores = rouge_eval.get_scores(pred, gt)
+
+    pred_old = [rouge_preprocess(pred_)]
+    gt_old = [rouge_preprocess(gt_)]
+    old_scores = rouge_eval.get_scores(pred_old, gt_old)
+    scores['rouge-lsum'] = scores['rouge-l']
+    scores['rouge-l'] = old_scores['rouge-l']
     return scores
 
 def old_nelly_rouge(pred,gt):
@@ -40,10 +46,11 @@ def split_summ(s):
     return s.replace('. ','.\n').split('\n')
 
 def extract_main_rouges(scores):
-    rougel = scores['rouge-l']['f'] * 100
     rouge1 = scores['rouge-1']['f'] * 100
     rouge2 = scores['rouge-2']['f'] * 100
-    return rouge1, rouge2, rougel
+    rougel = scores['rouge-l']['f'] * 100
+    rougelsum = scores['rouge-lsum']['f'] * 100
+    return rouge1, rouge2, rougel, rougelsum
 
 def rouge_from_multiple_refs(pred, references, return_full, benchmark_rl):
     benchmark = -1
