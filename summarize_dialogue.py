@@ -64,7 +64,8 @@ class SoapSummer():
         else: # prepend vid caps to the scene summ
             with open(f'SummScreen/video_scenes/{ep.ep_name}/{self.caps}_procced_scene_caps.json') as f:
                 caps_data = json.load(f)
-                caps = [c['with_names'] for c in caps_data]
+            cdd = {c['scene_id']:c['with_names'] for c in caps_data}
+            caps = [cdd.get(f'{ep.ep_name}s{i}','') for i in range(len(ep.scenes))]
             if not len(caps)==len(ep.scenes):
                 breakpoint()
         if not all('talking' not in x for x in caps):
@@ -192,6 +193,8 @@ class SoapSummer():
             ss = ''.join(self.get_scene_summs(ep))
             with open(os.path.join(summ_dir, f'{ep_name}.json')) as f:
                 d = json.load(f)
+            if len(d.items())==0:
+                breakpoint()
             for k,v in d.items():
                 if '[ RECAP AVAILABLE ]' in v or 'Episode summary coming soon.' in v:
                     continue
@@ -205,7 +208,8 @@ class SoapSummer():
         fn = f'{scene_caps}_reordered' if self.do_reorder else scene_caps
         if self.is_test:
             fn += '_test'
-        ep_names = os.listdir('SummScreen/video_scenes')
+        ep_names = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
+        print(len(ep_names),len(os.listdir('SummScreen/summaries')))
         if scene_caps != 'nocaptions':
             ep_names = [x for x in ep_names if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
         #ep_names = [x.replace('_reordered','') for x in os.listdir(scene_summ_dir)]
@@ -213,7 +217,7 @@ class SoapSummer():
         assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in ep_names])
         #ep_names = [x[:-4] for x in ep_names]
         shuffle(ep_names)
-        ep_name_to_be_first = 'atwt-05-11-05'
+        ep_name_to_be_first = 'atwt-01-02-03'
         ep_names.remove(ep_name_to_be_first)
         if n_dpoints != -1:
             ep_names = ep_names[:n_dpoints]
@@ -221,15 +225,17 @@ class SoapSummer():
         tr_ep_names = ep_names[:tr_up_to_idx]
         ts_ep_names = ep_names[tr_up_to_idx:]
         if self.is_test:
-            tr_ep_names = tr_ep_names[:100]
-            ts_ep_names = ts_ep_names[:30]
+            tr_ep_names = tr_ep_names[:20]
+            ts_ep_names = ts_ep_names[:3]
         ts_ep_names.insert(0,ep_name_to_be_first)
         print('getting scene summs for train set')
         print('getting scene summs for test set')
         ts_list = self.dpoints_from_ep_names(ts_ep_names, scene_caps)
         #test_ep_names = set(x['ep_name'] for x in ts_list)
         #test_ep_names = ['atwt-05-11-05']+list(test_ep_names)
-        assert set(ts_ep_names)==set(x['ep_name'] for x in ts_list)
+        #assert set(x['ep_name'] for x in ts_list).issubset(set(ts_ep_names)) #some have no summary
+        if not set(x['ep_name'] for x in ts_list) == set(ts_ep_names):
+            breakpoint()
         ts_combined_list = []
         for tepn in ts_ep_names:
             dps_with_name = [t for t in ts_list if t['ep_name']==tepn]

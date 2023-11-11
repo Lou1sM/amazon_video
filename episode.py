@@ -16,7 +16,7 @@ def episode_from_epname(ep_name):
 
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
     def __init__(self,ep_name,transcript_data,summary_data):
-        self.transcript = transcript_data['Transcript']
+        self.transcript = [x.replace('\r\n','') for x in transcript_data['Transcript']]
         self.ep_name = ep_name
         self.summaries = summary_data
         self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
@@ -93,7 +93,7 @@ def infer_scene_splits(tlines, force_infer):
     splits = splits_without_fillers.copy()
     for f in fillers:
         splits += (splits>=f)
-    return [tlines[splits[i]+1:splits[i+1]+1] for i in range(len(splits)-1)], splits[1:-1]
+    return ['\n'.join(tlines[splits[i]+1:splits[i+1]+1]) for i in range(len(splits)-1)], splits[1:-1]
 
 def dl_from_counts(x,tot_vocab_size):
     N = x.sum()

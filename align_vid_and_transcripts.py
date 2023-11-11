@@ -151,6 +151,7 @@ def split_by_alignment(epname,verbose):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-t','--is_test',action='store_true')
+    parser.add_argument('-v','--verbose',action='store_true')
     parser.add_argument('--db_failed_scenes',action='store_true')
     parser.add_argument('--print_full_aligned',action='store_true')
     parser.add_argument('--print_tlines',action='store_true')
@@ -160,13 +161,14 @@ if __name__ == '__main__':
     if ARGS.epname == 'all':
         all_epnames = [fn[:-4] for fn in os.listdir('SummScreen/videos') if fn.endswith('.mp4')]
         for en in all_epnames:
-            if not os.path.exists(f'SummScreen/video_scenes/{en}'):
+            scene_dir = f'SummScreen/video_scenes/{en}'
+            if not (os.path.exists(scene_dir) and os.listdir(scene_dir)):
                 print(f'aligning and splitting {en}')
-                split_by_alignment(en,verbose=False)
+                split_by_alignment(en,verbose=ARGS.verbose)
             else:
                 print(f'splits and alignment already exist for {en}')
     else:
-        split_by_alignment(ARGS.epname,verbose=False)
+        split_by_alignment(ARGS.epname,verbose=ARGS.verbose)
     print(f'num without scene breaks: {N_WITHOUT_SCENE_BREAKS}')
     print(f'num without scene captions: {N_WITHOUT_SCENE_CAPTIONS}')
     print(f'num with hidden scene breaks: {N_WITH_HIDDEN_SCENE_BREAKS}')
