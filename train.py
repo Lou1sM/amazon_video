@@ -8,6 +8,7 @@ import os
 from os.path import join
 from summarize_dialogue import SoapSummer
 import sys
+from utils import get_fn
 
 
 parser = argparse.ArgumentParser()
@@ -62,18 +63,18 @@ model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
 ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, expname, ARGS.do_resumm_scenes, is_test=ARGS.is_test, do_save_new_scenes=not ARGS.dont_save_new_scenes)
 
-fn = f'{ARGS.caps}_reordered' if ARGS.do_reorder else ARGS.caps
-if ARGS.is_test:
-    fn += '_test'
+fn = get_fn(ARGS.do_reorder, ARGS.caps, ARGS.is_test, ARGS.n_dpoints)
 if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.do_retokenize:
     print('tokenized datasets have been cached, loading')
     tokenized_trainset = load_from_disk('cached_trainset')
     tokenized_testset = load_from_disk('cached_testset')
 else:
     path_to_json_trainset = f'SummScreen/json_datasets/train_{fn}_dset.json'
+    print(f'json trainset path is {path_to_json_trainset}')
     path_to_json_testset = path_to_json_trainset.replace('train','test')
     # sharding isn't supported atm so everything ends up in 'test'
     if not os.path.exists(path_to_json_trainset) or not os.path.exists(path_to_json_testset) or ARGS.do_retokenize:
+        print('building new dataset')
         ss.build_dset(ARGS.caps, ARGS.n_dpoints)
         assert os.path.exists(path_to_json_trainset)
         assert os.path.exists(path_to_json_testset)
@@ -121,7 +122,7 @@ if ARGS.eval_first:
 alltime_best_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, ARGS.save_every, ARGS.eval_every)
 results_path = join('experiments',expname,'results.txt')
 with open(results_path,'w') as f:
-    for r,s in zip(['r1','r2','rL'],alltime_best_rouges):
+    for r,s in zip(['r1','r2','rL','rLsum'],alltime_best_rouges):
         f.write(f'{r}: {s}\n')
 summary_path = join('experiments',expname,'summary.txt')
 with open(summary_path,'w') as f:

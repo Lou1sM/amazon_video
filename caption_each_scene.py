@@ -1,4 +1,5 @@
 import os
+import pandas as pd
 import warnings
 warnings.filterwarnings('ignore')
 from dl_utils.misc import check_dir
@@ -129,7 +130,6 @@ class Captioner():
         scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
         scene_vid_paths = [os.path.join(scenes_dir,f'{epname}_scene{sn}.mp4') for sn in scene_nums]
         scene_caps = []
-        breakpoint()
         for vp in scene_vid_paths:
             frames, _ = extract_frames_from_video_path(
                         vp, target_fps=3, num_frames=self.n_frames,
@@ -146,6 +146,8 @@ class Captioner():
         for sn,c in zip(scene_nums, scene_caps):
             to_append = {'scene_id': f'{epname}s{sn}', 'raw_cap':c}
             to_dump.append(to_append)
+        if to_dump == []:
+            breakpoint()
         outpath = f'SummScreen/video_scenes/{epname}/swinbert_raw_scene_caps.json'
         with open(outpath, 'w') as f:
             json.dump(to_dump,f)
@@ -258,8 +260,11 @@ if __name__ == '__main__':
         captioner.init_models(ARGS.model_name)
     captioner_func = captioner.kosmos_scene_caps if ARGS.model_name=='kosmos' else captioner.swinbert_scene_caps
     if ARGS.epname == 'all':
+        df = pd.read_csv('SummScreen/dset_info.csv',index_col=0)
+        all_epnames = df.loc[(df['duration_raw']!='failed video read') & df['has_caps']].index
         #all_epnames = [fn for fn in os.listdir('SummScreen/video_scenes') if fn in os.listdir('SummScreen/keyframes')]
-        all_epnames = os.listdir('SummScreen/keyframes')
+        #all_epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.exists('SummScreen/closed_captions/{x}')]
+        #all_epnames = [x.split('.')[0] for x in os.listdir('SummScreen/closed_captions')]
         if ARGS.show_name != 'all':
             all_epnames = [x for x in all_epnames if x.startswith(ARGS.show_name)]
         to_caption = []

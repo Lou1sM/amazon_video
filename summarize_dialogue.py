@@ -12,7 +12,7 @@ import os
 from os.path import join
 import json
 from episode import Episode, episode_from_epname
-from utils import chunkify, summ_short_scene, safe_decode, rouge_from_multiple_refs
+from utils import chunkify, summ_short_scene, safe_decode, rouge_from_multiple_refs, get_fn
 import numpy as np
 from random import shuffle
 from tqdm import tqdm
@@ -35,8 +35,8 @@ class SoapSummer():
         self.do_resumm_scenes = do_resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
-        self.bs = 1
-        self.dbs = 8
+        self.bs = 2
+        self.dbs = 16
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
@@ -57,15 +57,15 @@ class SoapSummer():
     def summ_scenes(self, ep):
         start_time = time()
         if len(ep.scenes) == 1:
-            print(f'no scene breaks for {ep.ep_name}')
+            print(f'no scene breaks for {ep.epname}')
             breakpoint()
         if self.caps == 'nocaptions':
             caps = ['']*len(ep.scenes)
         else: # prepend vid caps to the scene summ
-            with open(f'SummScreen/video_scenes/{ep.ep_name}/{self.caps}_procced_scene_caps.json') as f:
+            with open(f'SummScreen/video_scenes/{ep.epname}/{self.caps}_procced_scene_caps.json') as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
-            caps = [cdd.get(f'{ep.ep_name}s{i}','') for i in range(len(ep.scenes))]
+            caps = [cdd.get(f'{ep.epname}s{i}','') for i in range(len(ep.scenes))]
             if not len(caps)==len(ep.scenes):
                 breakpoint()
         if not all('talking' not in x for x in caps):
@@ -143,14 +143,17 @@ class SoapSummer():
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
         ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
-        #if ep.ep_name == 'oltl-10-18-10' and len(''.join(ss_with_caps))!=3109:
+        #if ep.epname == 'oltl-10-18-10' and len(''.join(ss_with_caps))!=3109:
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
     def get_scene_summs(self, ep):
-        fn = self.epname_in_context(ep.ep_name)
-        #if ep.ep_name == 'oltl-10-18-10':
+        #fn = self.epname_in_context(ep.epname)
+        fn = ep.epname + '_reordered' if self.do_reorder else ep.epname
+        if self.is_test:
+            fn += '_test'
+        #if ep.epname == 'oltl-10-18-10':
             #breakpoint()
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.do_resumm_scenes:
@@ -175,23 +178,23 @@ class SoapSummer():
         #min_len = max(10,max_len-20)
         #min_len = 280
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
-        if pbatch.shape[1] > self.tokenizer.model_max_length:
+        if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
             breakpoint()
             pbatch = pbatch[:,:self.tokenizer.model_max_length]
-        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=280, max_length=300)
+        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=180, max_length=200)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
         return concatted_scene_summs, final_summ
 
-    def dpoints_from_ep_names(self, ep_name_list, scene_caps):
-        assert not any(['reordered' in x for x in ep_name_list])
+    def dpoints_from_epnames(self, epname_list, scene_caps):
+        assert not any(['reordered' in x for x in epname_list])
         data_list = []
         #summer = SoapSummer(None, None, caps=scene_caps, do_reorder=self.do_reorder, do_resumm_scenes=do_resumm_scenes, do_save_new_scenes=not is_test)
         summ_dir = 'SummScreen/summaries'
-        for ep_name in tqdm(ep_name_list):
+        for epname in tqdm(epname_list):
             #show_gpu_memory()
-            ep = episode_from_epname(ep_name)
+            ep = episode_from_epname(epname)
             ss = ''.join(self.get_scene_summs(ep))
-            with open(os.path.join(summ_dir, f'{ep_name}.json')) as f:
+            with open(os.path.join(summ_dir, f'{epname}.json')) as f:
                 d = json.load(f)
             if len(d.items())==0:
                 breakpoint()
@@ -200,50 +203,49 @@ class SoapSummer():
                     continue
                 assert (k=='tvmega_summary') == (v.startswith('Episode'))
                 if len(v) > 0 and k not in ['soap_central','tvmega_summary']:
-                    data_list.append({'scene_summs':ss, 'summ':v, 'summ_name':k, 'ep_name':ep_name})
+                    data_list.append({'scene_summs':ss, 'summ':v, 'summ_name':k, 'epname':epname})
         return data_list
 
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
-        fn = f'{scene_caps}_reordered' if self.do_reorder else scene_caps
-        if self.is_test:
-            fn += '_test'
-        ep_names = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
-        print(len(ep_names),len(os.listdir('SummScreen/summaries')))
+        #fn = f'{scene_caps}_reordered' if self.do_reorder else scene_caps
+        fn = get_fn(self.do_reorder, self.caps, self.is_test, n_dpoints)
+        epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
+        print(len(epnames),len(os.listdir('SummScreen/summaries')))
         if scene_caps != 'nocaptions':
-            ep_names = [x for x in ep_names if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
-        #ep_names = [x.replace('_reordered','') for x in os.listdir(scene_summ_dir)]
-        #assert all([x.endswith('.txt') for x in ep_names])
-        assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in ep_names])
-        #ep_names = [x[:-4] for x in ep_names]
-        shuffle(ep_names)
-        ep_name_to_be_first = 'atwt-01-02-03'
-        ep_names.remove(ep_name_to_be_first)
+            epnames = [x for x in epnames if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
+            assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
+        #epnames = [x.replace('_reordered','') for x in os.listdir(scene_summ_dir)]
+        #assert all([x.endswith('.txt') for x in epnames])
+        #epnames = [x[:-4] for x in epnames]
+        shuffle(epnames)
+        epname_to_be_first = 'atwt-01-02-03'
+        epnames.remove(epname_to_be_first)
         if n_dpoints != -1:
-            ep_names = ep_names[:n_dpoints]
-        tr_up_to_idx = int(9*len(ep_names)/10)
-        tr_ep_names = ep_names[:tr_up_to_idx]
-        ts_ep_names = ep_names[tr_up_to_idx:]
+            epnames = epnames[:n_dpoints]
+        tr_up_to_idx = int(9*len(epnames)/10)
+        tr_epnames = epnames[:tr_up_to_idx]
+        ts_epnames = epnames[tr_up_to_idx:]
         if self.is_test:
-            tr_ep_names = tr_ep_names[:20]
-            ts_ep_names = ts_ep_names[:3]
-        ts_ep_names.insert(0,ep_name_to_be_first)
+            tr_epnames = tr_epnames[:20]
+            ts_epnames = ts_epnames[:3]
+        ts_epnames.insert(0,epname_to_be_first)
         print('getting scene summs for train set')
         print('getting scene summs for test set')
-        ts_list = self.dpoints_from_ep_names(ts_ep_names, scene_caps)
-        #test_ep_names = set(x['ep_name'] for x in ts_list)
-        #test_ep_names = ['atwt-05-11-05']+list(test_ep_names)
-        #assert set(x['ep_name'] for x in ts_list).issubset(set(ts_ep_names)) #some have no summary
-        if not set(x['ep_name'] for x in ts_list) == set(ts_ep_names):
+        ts_list = self.dpoints_from_epnames(ts_epnames, scene_caps)
+        #test_epnames = set(x['epname'] for x in ts_list)
+        #test_epnames = ['atwt-05-11-05']+list(test_epnames)
+        #assert set(x['epname'] for x in ts_list).issubset(set(ts_epnames)) #some have no summary
+        if not set(x['epname'] for x in ts_list) == set(ts_epnames):
             breakpoint()
         ts_combined_list = []
-        for tepn in ts_ep_names:
-            dps_with_name = [t for t in ts_list if t['ep_name']==tepn]
+        for tepn in ts_epnames:
+            dps_with_name = [t for t in ts_list if t['epname']==tepn]
             assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
-            combined = {'ep_name':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
+            combined = {'epname':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
             for dpsn in dps_with_name:
                 combined[dpsn['summ_name']] = dpsn['summ']
-            if tepn == ep_name_to_be_first:
+            if tepn == epname_to_be_first:
                 to_be_first = combined
             else:
                 ts_combined_list.append(combined)
@@ -252,7 +254,7 @@ class SoapSummer():
         with open(f'SummScreen/json_datasets/test_{fn}_dset.json','w') as f:
             json.dump(ts_combined_list, f)
 
-        tr_list = self.dpoints_from_ep_names(tr_ep_names, scene_caps)
+        tr_list = self.dpoints_from_epnames(tr_epnames, scene_caps)
         with open(f'SummScreen/json_datasets/train_{fn}_dset.json','w') as f:
             json.dump(tr_list, f)
 
@@ -320,7 +322,7 @@ class SoapSummer():
                 print('repeat output')
             #prev_inp = batch['input_ids']
             prev = nl_outputs
-            references = [v for k,v in batch.items() if k not in ('ep_name','scene_summs') and v is not None]
+            references = [v for k,v in batch.items() if k not in ('epname','scene_summs') and v is not None]
             best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
 
             rouges.append(best_rouge)
@@ -328,8 +330,8 @@ class SoapSummer():
             val_pbar.set_description(f'Epoch: {epoch_num}/{self.n_epochs}'
                              f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f}  '
                              f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f}')
-            ep_name = batch['ep_name']
-            with open(f'{generations_dir}/{ep_name}.txt','w') as f:
+            epname = batch['epname']
+            with open(f'{generations_dir}/{epname}.txt','w') as f:
                 f.write(nl_outputs)
             if j==2 and self.is_test:
                 break
@@ -410,47 +412,47 @@ if __name__ == '__main__':
         #    #dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
 
         ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, ARGS.do_resumm_scenes, ARGS.is_test)
-    all_ep_names = os.listdir('SummScreen/transcripts')
-    assert all([x.endswith('.json') for x in all_ep_names])
-    all_ep_names = [x[:-5] for x in all_ep_names]
-    all_ep_names.remove('oltl-10-18-10')
-    all_ep_names.insert(0,'oltl-10-18-10')
+    all_epnames = os.listdir('SummScreen/transcripts')
+    assert all([x.endswith('.json') for x in all_epnames])
+    all_epnames = [x[:-5] for x in all_epnames]
+    all_epnames.remove('oltl-10-18-10')
+    all_epnames.insert(0,'oltl-10-18-10')
     if ARGS.do_shuffle:
-        np.random.shuffle(all_ep_names)
+        np.random.shuffle(all_epnames)
     n_procced = 0
-    for ep_name in all_ep_names:
+    for epname in all_epnames:
         if n_procced == ARGS.n_dpoints:
             break
-        print(n_procced,ep_name)
-        with open(join('SummScreen/transcripts',f'{ep_name}.json')) as f:
+        print(n_procced,epname)
+        with open(join('SummScreen/transcripts',f'{epname}.json')) as f:
             transcript_data = json.load(f)
-        with open(join('SummScreen/summaries',f'{ep_name}.json')) as f:
+        with open(join('SummScreen/summaries',f'{epname}.json')) as f:
             summary_data = json.load(f)
 
-        ep = Episode(ep_name,transcript_data,summary_data)
+        ep = Episode(epname,transcript_data,summary_data)
 
         if not '[SCENE_BREAK]' in transcript_data['Transcript']:
             continue
-        ep = episode_from_epname(ep_name)
+        ep = episode_from_epname(epname)
         if ARGS.summ_scenes_only:
-            ss.get_scene_summs(ep_name)
+            ss.get_scene_summs(epname)
             continue
         if not ARGS.only_check_gpt:
             csss, summ_of_summs = ss.summarize_from_ep(ep)
         if ARGS.do_check_gpt:
             gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
         our_scores = ep.calc_rouge(summ_of_summs)
-        all_our_bests[ep_name] = [our_scores[f'rouge-{x}']['f'] for x in (1,2,'l')]
+        all_our_bests[epname] = [our_scores[f'rouge-{x}']['f'] for x in (1,2,'l')]
         print(our_scores)
         #print('summ of summs:', our_scores)
         our_csss_scores = ep.calc_rouge(csss)
-        all_csss_bests[ep_name] = [our_csss_scores[f'rouge-{x}']['f'] for x in (1,2,'l')]
+        all_csss_bests[epname] = [our_csss_scores[f'rouge-{x}']['f'] for x in (1,2,'l')]
         print(our_csss_scores)
         #print('concat of summs:', our_csss_scores)
         if ARGS.do_check_gpt:
             gpt_scores = ep.calc_rouge(gpt_summ)
             print('GPT:', gpt_scores)
-            all_gpt_bests[ep_name] = our_scores
+            all_gpt_bests[epname] = our_scores
         n_procced += 1
 
     csss_df = pd.DataFrame(all_csss_bests).T

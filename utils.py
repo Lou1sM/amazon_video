@@ -65,6 +65,14 @@ def rouge_from_multiple_refs(pred, references, return_full, benchmark_rl):
             print('rouge is zero')
     return best_rouge if return_full else extract_main_rouges(best_rouge)
 
+def get_fn(do_reorder, caps, is_test, n_dpoints):
+    fn = f'{caps}_reordered' if do_reorder else caps
+    if is_test:
+        fn += '_test'
+    if n_dpoints != -1:
+        fn += f'{n_dpoints}dps'
+    return fn
+
 def safe_decode(tokens, tokenizer):
      st = [[x for x in ts[:tokenizer.model_max_length] if x != -100] for ts in tokens]
      return tokenizer.batch_decode(st, skip_special_tokens=True, clean_up_tokenization_spaces=True)

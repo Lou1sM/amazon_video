@@ -7,21 +7,21 @@ from scipy.stats import entropy
 from dl_utils.label_funcs import accuracy
 
 
-def episode_from_epname(ep_name):
-    with open(f'SummScreen/transcripts/{ep_name}.json') as f:
+def episode_from_epname(epname):
+    with open(f'SummScreen/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
-    with open(f'SummScreen/summaries/{ep_name}.json') as f:
+    with open(f'SummScreen/summaries/{epname}.json') as f:
         summary_data = json.load(f)
-    return Episode(ep_name, transcript_data, summary_data)
+    return Episode(epname, transcript_data, summary_data)
 
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
-    def __init__(self,ep_name,transcript_data,summary_data):
+    def __init__(self,epname,transcript_data,summary_data):
         self.transcript = [x.replace('\r\n','') for x in transcript_data['Transcript']]
-        self.ep_name = ep_name
+        self.epname = epname
         self.summaries = summary_data
         self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
         self.title = transcript_data['Show Title'].lower().replace(' ','_')
-        self.show_name = ep_name.split('.')[0]
+        self.show_name = epname.split('.')[0]
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 

@@ -9,8 +9,8 @@ def num_from_name(en):
     return int(en.split('.')[0].split('_')[1][5:])
 
 no_scenes = []
-ep_names_with_caps = os.listdir('SummScreen/video_scenes')
-for en in tqdm(ep_names_with_caps):
+epnames_with_caps = os.listdir('SummScreen/video_scenes')
+for en in tqdm(epnames_with_caps):
     for fn in ['swinbert','kosmos']:
         with open(f'SummScreen/video_scenes/{en}/{fn}_raw_scene_caps.json') as f:
             caps = json.load(f)
