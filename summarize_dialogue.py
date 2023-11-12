@@ -22,7 +22,7 @@ from dl_utils.torch_misc import show_gpu_memory
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, model, tokenizer, caps, do_reorder, expname, do_resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, bs, dbs, model, tokenizer, caps, do_reorder, expname, do_resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         self.model = model
         assert isinstance(expname,str)
         self.expname = expname
@@ -35,8 +35,8 @@ class SoapSummer():
         self.do_resumm_scenes = do_resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
-        self.bs = 2
-        self.dbs = 16
+        self.bs = bs
+        self.dbs = dbs
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
@@ -210,7 +210,9 @@ class SoapSummer():
         assert type(n_dpoints)==int
         #fn = f'{scene_caps}_reordered' if self.do_reorder else scene_caps
         fn = get_fn(self.do_reorder, self.caps, self.is_test, n_dpoints)
-        epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
+        df = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
+        #epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
+        epnames = df.loc[df['has_summ']].index.tolist()
         print(len(epnames),len(os.listdir('SummScreen/summaries')))
         if scene_caps != 'nocaptions':
             epnames = [x for x in epnames if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
@@ -219,7 +221,7 @@ class SoapSummer():
         #assert all([x.endswith('.txt') for x in epnames])
         #epnames = [x[:-4] for x in epnames]
         shuffle(epnames)
-        epname_to_be_first = 'atwt-01-02-03'
+        epname_to_be_first = 'oltl-10-18-10'
         epnames.remove(epname_to_be_first)
         if n_dpoints != -1:
             epnames = epnames[:n_dpoints]
@@ -328,8 +330,9 @@ class SoapSummer():
             rouges.append(best_rouge)
             epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg
             val_pbar.set_description(f'Epoch: {epoch_num}/{self.n_epochs}'
-                             f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f}  '
-                             f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f}')
+                             f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
+                             f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
+            breakpoint()
             epname = batch['epname']
             with open(f'{generations_dir}/{epname}.txt','w') as f:
                 f.write(nl_outputs)

@@ -22,6 +22,8 @@ parser.add_argument('--eval_first',action='store_true')
 parser.add_argument('--expname',type=str)
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 parser.add_argument('--n_dpoints',type=int,default=-1)
+parser.add_argument('--bs',type=int,default=8)
+parser.add_argument('--dbs',type=int,default=1)
 parser.add_argument('--n_epochs',type=int,default=2)
 parser.add_argument('--n_iter',type=int,default=-1)
 parser.add_argument('--overwrite',action='store_true')
@@ -61,7 +63,7 @@ else:
 print(f'loading from {chkpt_path}')
 model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
-ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, expname, ARGS.do_resumm_scenes, is_test=ARGS.is_test, do_save_new_scenes=not ARGS.dont_save_new_scenes)
+ss = SoapSummer(ARGS.bs, ARGS.dbs, model, tokenizer, ARGS.caps, ARGS.do_reorder, expname, ARGS.do_resumm_scenes, is_test=ARGS.is_test, do_save_new_scenes=not ARGS.dont_save_new_scenes)
 
 fn = get_fn(ARGS.do_reorder, ARGS.caps, ARGS.is_test, ARGS.n_dpoints)
 if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.do_retokenize:

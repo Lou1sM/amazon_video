@@ -87,7 +87,8 @@ class Captioner():
         scene_locs = []
         n_frames_to_cap = 1
         scene_fnames = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
-        scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
+        #scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
+        scene_nums = sorted([int(x.split('.')[0].split('_')[1][5:]) for x in scene_fnames])
         for scene_dir in scene_fnames:
             caps_for_this_scene = []
             locs_for_this_scene = []
