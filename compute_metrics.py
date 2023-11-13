@@ -8,6 +8,7 @@ import argparse
 from episode import episode_from_epname
 import os
 from factscore.atomic_facts import AtomicFactGenerator
+from tqdm import tqdm
 
 
 def get_maybe_cached_atomic_facts(maybe_cached_path, generator, pred=None, path=None):
@@ -25,6 +26,7 @@ def get_maybe_cached_atomic_facts(maybe_cached_path, generator, pred=None, path=
             f.write('\n'.join([pf for pf in pred_facts]))
 
     return pred_facts
+
 
 if __name__ == '__main__':
     generator = AtomicFactGenerator("factscore/api.key", "factscore/demos", gpt3_cache_file=None)
@@ -54,7 +56,7 @@ if __name__ == '__main__':
     full_results = {}
     all_factscores = []
     all_rouges = []
-    for fn in all_epnames[:1]:
+    for fn in tqdm(all_epnames):
         assert fn.endswith('.txt')
         epname = fn[:-4]
 
@@ -69,9 +71,10 @@ if __name__ == '__main__':
 
         factscore = fs.get_score(topics=['A summary of a TV show'],
                        ref_summaries=[ep.summaries],
-                       atomic_facts=[atomic_facts[:2]])
+                       atomic_facts=[atomic_facts])
 
-        rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_fll=False)
+        factscore['decisions'] = [{'atom': 'Dani saw something.', 'is_supported': 1}, {'atom': "Dani saw her mother's ashes.", 'is_supported': 1}]
+        rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_full=False)
         full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
         all_factscores.append(factscore['score'])
         all_rouges.append(rouge_score)

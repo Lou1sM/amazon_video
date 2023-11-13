@@ -3,8 +3,7 @@ from dl_utils.misc import check_dir
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from transformers import get_scheduler
-from reorder import optimal_order, names_in_scene, identical_char_names
-from time import time
+from reorder import optimal_order, identical_char_names
 import torch
 from math import ceil
 import pandas as pd
@@ -12,11 +11,10 @@ import os
 from os.path import join
 import json
 from episode import Episode, episode_from_epname
-from utils import chunkify, summ_short_scene, safe_decode, rouge_from_multiple_refs, get_fn
+from utils import chunkify, summ_short_scene, rouge_from_multiple_refs, get_fn
 import numpy as np
 from random import shuffle
 from tqdm import tqdm
-from dl_utils.torch_misc import show_gpu_memory
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -83,7 +81,6 @@ class SoapSummer():
         else:
             combined_scenes = scenes
             combined_caps = caps
-        #print([names_in_scene(s) for s in combined_scenes])
 
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])
@@ -99,11 +96,9 @@ class SoapSummer():
         if n_shorts>0:
             print(f'averge scene summ length is {avg_scene_summ_len}, and shortest scene is of length {len(sorted_tok_chunks[0])} tokens, {n_shorts} will be short summed')
         assert v_short_chunk_idxs == list(range(n_shorts))
-        #v_short_chunks = [sc for sc in sorted_chunks if len(sc) < avg_scene_summ_len]
         short_chunk_summs = [summ_short_scene(sc) for sc in sorted_chunks[:n_shorts]]
         remaining_chunks = sorted_tok_chunks[n_shorts:]
         assert all([sorted_tok_chunks[reversed_sort_idxs[i]]==c for i,c in enumerate(tok_chunks)])
-        #N = ceil(len(chunks)/self.dbs)
         N = ceil(len(remaining_chunks)/self.dbs)
         remaining_chunk_summs = []
         for i in range(N):
@@ -122,13 +117,8 @@ class SoapSummer():
             if len_first_unpadded==0:
                 assert attn[0].all()
                 len_first_unpadded = attn.shape[1]
-            #if not summ[0] == self.dtokenizer.decode(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0], skip_special_tokens=True, clean_up_tokenization_spaces=True):
-                #print(self.dmodel.generate(padded[:1,:len_first_unpadded], min_length=min_len,max_length=max_len)[0])
-                #print(padded[0])
-                #print(padded[0,:len_first_unpadded])
             remaining_chunk_summs += summ
         chunk_summs = short_chunk_summs + remaining_chunk_summs
-        #print(f'Scene summ time: {time()-start_time:.2f}')
 
         # now reuinfy whatever scenes were split into chunks
         desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
@@ -145,10 +135,7 @@ class SoapSummer():
         return ss_with_caps
 
     def get_scene_summs(self, epname):
-        #fn = f'{epname}_reordered' if self.reorder else f'{epname}_randordered' if self.randordered else epname
         fn = get_fn(epname, self.reorder, self.randorder, self.is_test, -1)
-        #if ep.epname == 'oltl-10-18-10':
-            #breakpoint()
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
@@ -169,9 +156,6 @@ class SoapSummer():
     def summarize_scene_summs(self, concatted_scene_summs):
         chunks = chunkify(concatted_scene_summs,self.tokenizer.model_max_length)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
-        #max_len = 300
-        #min_len = max(10,max_len-20)
-        #min_len = 280
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
             breakpoint()
@@ -185,7 +169,6 @@ class SoapSummer():
         data_list = []
         summ_dir = 'SummScreen/summaries'
         for epname in tqdm(epname_list):
-            #show_gpu_memory()
             ss = ''.join(self.get_scene_summs(epname))
             with open(os.path.join(summ_dir, f'{epname}.json')) as f:
                 d = json.load(f)
@@ -203,7 +186,6 @@ class SoapSummer():
         assert type(n_dpoints)==int
         fn = get_fn(self.caps, self.reorder, self.randorder, self.is_test, n_dpoints)
         df = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
-        #epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
         epnames = df.loc[df['has_summ']].index.tolist()
         print(len(epnames),len(os.listdir('SummScreen/summaries')))
         if scene_caps != 'nocaptions':
@@ -225,9 +207,6 @@ class SoapSummer():
         print('getting scene summs for train set')
         print('getting scene summs for test set')
         ts_list = self.dpoints_from_epnames(ts_epnames, scene_caps)
-        #test_epnames = set(x['epname'] for x in ts_list)
-        #test_epnames = ['atwt-05-11-05']+list(test_epnames)
-        #assert set(x['epname'] for x in ts_list).issubset(set(ts_epnames)) #some have no summary
         if not set(x['epname'] for x in ts_list) == set(ts_epnames):
             breakpoint()
         ts_combined_list = []
@@ -255,16 +234,13 @@ class SoapSummer():
         self.opt.zero_grad()
         epoch_loss = 0
         for i,batch in enumerate(pbar := tqdm(trainloader, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            if (l := batch['input_ids'].shape[1]) > self.tokenizer.model_max_length*6/5:
-                #print('skipping because inputs are of length', l)
+            if (batch['input_ids'].shape[1]) > self.tokenizer.model_max_length*6/5:
                 continue
             else:
                 batch['input_ids'] = batch['input_ids'][:,:self.tokenizer.model_max_length]
                 batch['attention_mask'] = batch['attention_mask'][:,:self.tokenizer.model_max_length]
-            if (l := batch['labels'].shape[1]) > self.tokenizer.model_max_length:
-                #print('skipping because labels are of length', l)
+            if (batch['labels'].shape[1]) > self.tokenizer.model_max_length:
                 continue
-            #cbatch = {k:v.cuda()[:,:self.tokenizer.model_max_length] for k,v in batch.items()}
             if (x:=batch['input_ids'].shape[1]) + (y:=batch['labels'].shape[1]) > 1550:
                 #print(f'skipping because inputs are {x} and labels are {y} so maybe give OOM')
                 continue
@@ -272,12 +248,8 @@ class SoapSummer():
                 breakpoint()
             cbatch = {k:v.cuda() for k,v in batch.items()}
             cbatch['labels'] = cbatch['labels'].contiguous()
-            #print(safe_decode(cbatch['input_ids'], self.tokenizer),'\n',safe_decode(cbatch['labels'], self.tokenizer))
-            #show_gpu_memory()
-            #print(f'inputs: {len(cbatch["input_ids"][0])}\tlabels: {len(cbatch["labels"][0])}')
             try:
                 outputs = self.model(**cbatch)
-                #show_gpu_memory()
                 loss = outputs[0]
                 loss.backward()
             except torch.cuda.OutOfMemoryError:
@@ -288,7 +260,6 @@ class SoapSummer():
             pbar.set_description(f'Epoch: {epoch}/{self.n_epochs}'
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
             self.opt.step(); self.lr_scheduler.step()
-            #if i==ARGS.n_iter or (i==10 and ARGS.is_test):
             if i==10 and self.is_test:
                 break
         return epoch_loss
@@ -306,13 +277,10 @@ class SoapSummer():
         epoch_rouge = np.zeros(4)
         check_dir(generations_dir := join('experiments', self.expname, 'generations'))
         for j,batch in enumerate(val_pbar := tqdm(testset, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            #tensor_inputs = torch.tensor(batch['input_ids'][:tokenizer.model_max_length],device=device)
             nl_inputs = batch['scene_summs']
-            #outputs = model.generate(tensor_inputs.unsqueeze(0),min_length=250,max_length=300)
             _, nl_outputs = self.summarize_scene_summs(nl_inputs)
             if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
                 print('repeat output')
-            #prev_inp = batch['input_ids']
             prev = nl_outputs
             references = [v for k,v in batch.items() if k not in ('epname','scene_summs') and v is not None]
             best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
@@ -331,11 +299,9 @@ class SoapSummer():
 
     def train_epochs(self, n_epochs, trainset, testset, save_every, eval_every):
         self.opt = AdamW(self.model.model.decoder.parameters(),lr=1e-6)
-        #self.expdir = join('experiments',expname)
         dc = DataCollatorForSeq2Seq(self.tokenizer, model=self.model)
 
         trainloader = DataLoader(trainset, batch_size=self.bs, shuffle=True, collate_fn=dc)
-        #self.testset = testset
 
         self.n_epochs = n_epochs
         num_training_steps = self.n_epochs * len(trainloader)

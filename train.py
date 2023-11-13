@@ -98,7 +98,6 @@ else:
     testset = load_dataset('json', data_files=path_to_json_testset,split='train')
 
     def train_preprocess_function(dpoint):
-        #inputs = [''.join(doc) for doc in dpoint['scene_summs']]
         inputs = [doc for doc in dpoint['scene_summs']]
         model_inputs = tokenizer(inputs)
 
@@ -114,7 +113,6 @@ else:
             model_inputs[k] = v
         return model_inputs
 
-    #tokenized_testset = testset.map(test_preprocess_function, batched=False, num_proc=1)
     tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 
     if not ARGS.is_test:
@@ -127,18 +125,18 @@ def save_to(fname):
     model.save_pretrained(save_dir)
     tokenizer.save_pretrained(save_dir)
 
-num_epochs = 3
-
 if ARGS.eval_first:
     rouges = ss.eval_epoch(0, testset)
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
 alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, ARGS.save_every, ARGS.eval_every)
+
 def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
 
 print(display_rouges(alltime_best_rouges))
+
 results_path = join('experiments',expname,'results.txt')
 with open(results_path,'w') as f:
     for rname,rscore in display_rouges(alltime_best_rouges):
@@ -148,6 +146,7 @@ with open(results_path,'w') as f:
         for rname, rscore in display_rouges(r):
             f.write(f'{rname}: {rscore:.5f}\t')
         f.write('\n')
+
 summary_path = join('experiments',expname,'summary.txt')
 with open(summary_path,'w') as f:
     f.write(f'Expname: {ARGS.expname}\n')
