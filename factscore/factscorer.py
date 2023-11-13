@@ -35,8 +35,8 @@ class FactScorer(object):
 
         if "llama" in model_name:
             self.lm = CLM("inst-llama-7B",
-                          model_dir=os.path.join(model_dir, "inst-llama-7B"),
-                          cache_file=os.path.join(cache_dir, "inst-llama-7B.pkl"))
+                          model_dir=os.path.join(model_dir, "llama-7b"),
+                          cache_file=os.path.join(cache_dir, "llama-7b.pkl"))
         elif "ChatGPT" in model_name:
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
