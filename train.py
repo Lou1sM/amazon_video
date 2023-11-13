@@ -22,8 +22,8 @@ parser.add_argument('--eval_first',action='store_true')
 parser.add_argument('--expname',type=str)
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 parser.add_argument('--n_dpoints',type=int,default=-1)
-parser.add_argument('--bs',type=int,default=8)
-parser.add_argument('--dbs',type=int,default=1)
+parser.add_argument('--bs',type=int,default=1)
+parser.add_argument('--dbs',type=int,default=8)
 parser.add_argument('--n_epochs',type=int,default=2)
 parser.add_argument('--n_iter',type=int,default=-1)
 parser.add_argument('--overwrite',action='store_true')
@@ -121,13 +121,24 @@ if ARGS.eval_first:
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
-alltime_best_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, ARGS.save_every, ARGS.eval_every)
+alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, ARGS.save_every, ARGS.eval_every)
+def display_rouges(r):
+    return list(zip(['r1','r2','rL','rLsum'],r))
+
+print(display_rouges(alltime_best_rouges))
 results_path = join('experiments',expname,'results.txt')
 with open(results_path,'w') as f:
-    for r,s in zip(['r1','r2','rL','rLsum'],alltime_best_rouges):
-        f.write(f'{r}: {s}\n')
+    for rname,rscore in display_rouges(alltime_best_rouges):
+        f.write(f'{rname}: {rscore:.5f}\n')
+    f.write('\nALL ROUGES:\n')
+    for r in all_rouges:
+        for rname, rscore in display_rouges(r):
+            f.write(f'{rname}: {rscore:.5f}\t')
+        f.write('\n')
 summary_path = join('experiments',expname,'summary.txt')
 with open(summary_path,'w') as f:
     f.write(f'Expname: {ARGS.expname}\n')
     f.write(f'captions: {ARGS.caps}\n')
     f.write(f'reorder: {ARGS.do_reorder}\n')
+    f.write(f'N Epochs: {ARGS.n_epochs}\n')
+    f.write(f'Batch size: {ARGS.bs}\n')

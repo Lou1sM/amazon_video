@@ -229,7 +229,7 @@ class SoapSummer():
         tr_epnames = epnames[:tr_up_to_idx]
         ts_epnames = epnames[tr_up_to_idx:]
         if self.is_test:
-            tr_epnames = tr_epnames[:20]
+            tr_epnames = tr_epnames[:10]
             ts_epnames = ts_epnames[:3]
         ts_epnames.insert(0,epname_to_be_first)
         print('getting scene summs for train set')
@@ -332,7 +332,6 @@ class SoapSummer():
             val_pbar.set_description(f'Epoch: {epoch_num}/{self.n_epochs}'
                              f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
                              f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
-            breakpoint()
             epname = batch['epname']
             with open(f'{generations_dir}/{epname}.txt','w') as f:
                 f.write(nl_outputs)
@@ -355,6 +354,7 @@ class SoapSummer():
             )
         patience = 0
         alltime_best_rouges = np.zeros(3)
+        all_rouges = []
         for epoch in range(self.n_epochs):
             print(f'training epoch {epoch}')
             epoch_loss = self.train_one_epoch(epoch, trainloader)
@@ -364,6 +364,7 @@ class SoapSummer():
             if (epoch+1) % eval_every == 0:
                 rouges = self.eval_epoch(epoch, testset)
                 rouges_arr = np.array(rouges).mean(axis=0)
+                all_rouges.append(rouges_arr)
                 if rouges_arr[2] > alltime_best_rouges[2]:
                     patience = 0
                     alltime_best_rouges = rouges_arr
@@ -373,7 +374,7 @@ class SoapSummer():
                 print(f'Mean Rouge: {rouges_arr}\tPatience: {patience}')
                 if patience == 2:
                     break
-        return alltime_best_rouges
+        return alltime_best_rouges, all_rouges
 
 
 if __name__ == '__main__':
