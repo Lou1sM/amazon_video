@@ -1,6 +1,7 @@
 import numpy as np
 import json
 from factscore.factscorer import FactScorer
+from dl_utils.misc import check_dir
 from utils import rouge_from_multiple_refs
 from os.path import join
 import argparse
@@ -35,9 +36,9 @@ if __name__ == '__main__':
     ARGS = parser.parse_args()
 
 
-    fs = FactScorer(model_name='retrieval+ChatGPT',
+    fs = FactScorer(model_name='retrieval+llama+npm',
                     data_dir=".cache/factscore/",
-                    model_dir=".cache/factscore/",
+                    model_dir="huggyllama",
                     cache_dir=".cache/factscore/",
                     openai_key='factscore/api.key',
                     cost_estimate='consider-cache',
@@ -50,7 +51,6 @@ if __name__ == '__main__':
     if selected_first in all_epnames:
         all_epnames.remove(selected_first)
         all_epnames.insert(0,selected_first)
-
     full_results = {}
     all_factscores = []
     all_rouges = []
@@ -60,7 +60,8 @@ if __name__ == '__main__':
 
         ep = episode_from_epname(epname)
 
-        cache_fpath = f'SummScreen/cached_chatgpt_facts/full_pred_summ_facts/{epname}'
+        check_dir(cache_dir := 'SummScreen/cached_chatgpt_facts/full_pred_summ_facts')
+        cache_fpath = f'{cache_dir}/{epname}'
         summ_fpath = f'{gendir}/{epname}.txt'
         with open(summ_fpath) as f:
             pred = f.read()
@@ -70,7 +71,7 @@ if __name__ == '__main__':
                        ref_summaries=[ep.summaries],
                        atomic_facts=[atomic_facts[:2]])
 
-        rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values())
+        rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_fll=False)
         full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
         all_factscores.append(factscore['score'])
         all_rouges.append(rouge_score)
