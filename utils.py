@@ -65,8 +65,12 @@ def rouge_from_multiple_refs(pred, references, return_full, benchmark_rl):
             print('rouge is zero')
     return best_rouge if return_full else extract_main_rouges(best_rouge)
 
-def get_fn(do_reorder, caps, is_test, n_dpoints):
-    fn = f'{caps}_reordered' if do_reorder else caps
+def get_fn(basename, reorder, rand_order, is_test, n_dpoints):
+    fn = basename
+    if reorder:
+        fn += '_optimal_ordered'
+    if rand_order:
+        fn += '_rand_ordered'
     if is_test:
         fn += '_test'
     if n_dpoints != -1:

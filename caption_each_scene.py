@@ -112,7 +112,6 @@ class Captioner():
             scene_locs.append(locs_for_this_scene)
 
         to_dump = []
-        assert max(scene_nums) == len(episode_from_epname(epname).scenes)
         for sn,c,l in zip(scene_nums,scene_caps,scene_locs):
             to_append = {'scene_id': f'{epname}s{sn}', 'raw_cap':c, 'locs':l}
             to_dump.append(to_append)

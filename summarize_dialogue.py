@@ -22,7 +22,7 @@ from dl_utils.torch_misc import show_gpu_memory
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, bs, dbs, model, tokenizer, caps, do_reorder, expname, do_resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, model, bs, dbs, tokenizer, caps, reorder, randorder, expname, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         self.model = model
         assert isinstance(expname,str)
         self.expname = expname
@@ -31,8 +31,10 @@ class SoapSummer():
         self.tokenizer = tokenizer
         self.dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
         self.caps = caps
-        self.do_reorder = do_reorder
-        self.do_resumm_scenes = do_resumm_scenes
+        assert not (reorder and randorder)
+        self.reorder = reorder
+        self.randorder = randorder
+        self.resumm_scenes = resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
         self.bs = bs
@@ -46,33 +48,24 @@ class SoapSummer():
         assert padded.shape == attention_mask.shape
         return padded, attention_mask
 
-    def epname_in_context(self,epname):
-        fn = epname + '_reordered' if self.do_reorder else epname
-        if self.caps != 'nocaptions':
-            fn += f'_{self.caps}caps'
-        if self.is_test:
-            fn += '_test'
-        return fn
-
-    def summ_scenes(self, ep):
-        start_time = time()
-        if len(ep.scenes) == 1:
-            print(f'no scene breaks for {ep.epname}')
+    def summ_scenes(self, epname, scenes):
+        if len(scenes) == 1:
+            print(f'no scene breaks for {epname}')
             breakpoint()
         if self.caps == 'nocaptions':
-            caps = ['']*len(ep.scenes)
+            caps = ['']*len(scenes)
         else: # prepend vid caps to the scene summ
-            with open(f'SummScreen/video_scenes/{ep.epname}/{self.caps}_procced_scene_caps.json') as f:
+            with open(f'SummScreen/video_scenes/{epname}/{self.caps}_procced_scene_caps.json') as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
-            caps = [cdd.get(f'{ep.epname}s{i}','') for i in range(len(ep.scenes))]
-            if not len(caps)==len(ep.scenes):
+            caps = [cdd.get(f'{epname}s{i}','') for i in range(len(scenes))]
+            if not len(caps)==len(scenes):
                 breakpoint()
         if not all('talking' not in x for x in caps):
             breakpoint()
-        if self.do_reorder:
-            order_idxs = optimal_order(ep.scenes)
-            optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
+        if self.reorder:
+            order_idxs = optimal_order(scenes)
+            optimally_ordered_scenes = [scenes[oi] for oi in order_idxs[:-1]]
             optimally_ordered_caps = [caps[oi] for oi in order_idxs[:-1]]
             combined_scenes = [optimally_ordered_scenes[0]]
             combined_caps = [optimally_ordered_caps[0]]
@@ -83,8 +76,12 @@ class SoapSummer():
                 else:
                     combined_scenes.append(optscene)
                     combined_caps.append(optcap)
+        elif self.randorder:
+            idxs = sorted(range(len(scenes)), key=lambda x: np.random.rand())
+            combined_scenes = [scenes[ri] for ri in idxs]
+            combined_caps = [caps[ri] for ri in idxs]
         else:
-            combined_scenes = ep.scenes
+            combined_scenes = scenes
             combined_caps = caps
         #print([names_in_scene(s) for s in combined_scenes])
 
@@ -143,32 +140,30 @@ class SoapSummer():
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
         ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
-        #if ep.epname == 'oltl-10-18-10' and len(''.join(ss_with_caps))!=3109:
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
-    def get_scene_summs(self, ep):
-        #fn = self.epname_in_context(ep.epname)
-        fn = ep.epname + '_reordered' if self.do_reorder else ep.epname
-        if self.is_test:
-            fn += '_test'
+    def get_scene_summs(self, epname):
+        #fn = f'{epname}_reordered' if self.reorder else f'{epname}_randordered' if self.randordered else epname
+        fn = get_fn(epname, self.reorder, self.randorder, self.is_test, -1)
         #if ep.epname == 'oltl-10-18-10':
             #breakpoint()
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
-        if os.path.exists(maybe_scene_summ_path) and not self.do_resumm_scenes:
+        if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = f.readlines()
         else:
-            ss = self.summ_scenes(ep)
+            ep = episode_from_epname(epname)
+            ss = self.summ_scenes(epname, ep.scenes)
             if self.do_save_new_scenes:
                 with open(fpath:=f'SummScreen/scene_summs/{fn}.txt','w') as f:
                     f.write('\n'.join(ss))
                 print('saving to',fpath)
         return ss
 
-    def summarize_from_ep(self, ep):
-        scene_summs = self.get_scene_summs(ep)
+    def summarize_from_epname(self, epname):
+        scene_summs = self.get_scene_summs(epname)
         return self.summarize_scene_summs('\n'.join(scene_summs))
 
     def summarize_scene_summs(self, concatted_scene_summs):
@@ -188,12 +183,10 @@ class SoapSummer():
     def dpoints_from_epnames(self, epname_list, scene_caps):
         assert not any(['reordered' in x for x in epname_list])
         data_list = []
-        #summer = SoapSummer(None, None, caps=scene_caps, do_reorder=self.do_reorder, do_resumm_scenes=do_resumm_scenes, do_save_new_scenes=not is_test)
         summ_dir = 'SummScreen/summaries'
         for epname in tqdm(epname_list):
             #show_gpu_memory()
-            ep = episode_from_epname(epname)
-            ss = ''.join(self.get_scene_summs(ep))
+            ss = ''.join(self.get_scene_summs(epname))
             with open(os.path.join(summ_dir, f'{epname}.json')) as f:
                 d = json.load(f)
             if len(d.items())==0:
@@ -208,8 +201,7 @@ class SoapSummer():
 
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
-        #fn = f'{scene_caps}_reordered' if self.do_reorder else scene_caps
-        fn = get_fn(self.do_reorder, self.caps, self.is_test, n_dpoints)
+        fn = get_fn(self.caps, self.reorder, self.randorder, self.is_test, n_dpoints)
         df = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
         #epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.getsize(f'SummScreen/summaries/{x}') > 100]
         epnames = df.loc[df['has_summ']].index.tolist()
@@ -217,10 +209,8 @@ class SoapSummer():
         if scene_caps != 'nocaptions':
             epnames = [x for x in epnames if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
             assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
-        #epnames = [x.replace('_reordered','') for x in os.listdir(scene_summ_dir)]
-        #assert all([x.endswith('.txt') for x in epnames])
-        #epnames = [x[:-4] for x in epnames]
-        shuffle(epnames)
+        if not self.is_test:
+            shuffle(epnames)
         epname_to_be_first = 'oltl-10-18-10'
         epnames.remove(epname_to_be_first)
         if n_dpoints != -1:
@@ -272,7 +262,7 @@ class SoapSummer():
                 batch['input_ids'] = batch['input_ids'][:,:self.tokenizer.model_max_length]
                 batch['attention_mask'] = batch['attention_mask'][:,:self.tokenizer.model_max_length]
             if (l := batch['labels'].shape[1]) > self.tokenizer.model_max_length:
-                print('skipping because labels are of length', l)
+                #print('skipping because labels are of length', l)
                 continue
             #cbatch = {k:v.cuda()[:,:self.tokenizer.model_max_length] for k,v in batch.items()}
             if (x:=batch['input_ids'].shape[1]) + (y:=batch['labels'].shape[1]) > 1550:
@@ -388,9 +378,9 @@ if __name__ == '__main__':
     parser.add_argument('--do_check_gpt', action='store_true')
     parser.add_argument('--only_check_gpt', action='store_true')
     parser.add_argument('--summ_scenes_only', action='store_true')
-    parser.add_argument('--do_resumm_scenes', action='store_true')
+    parser.add_argument('--resumm_scenes', action='store_true')
     parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'],default='nocaptions')
-    parser.add_argument('--do_reorder', action='store_true')
+    parser.add_argument('--reorder', action='store_true')
     parser.add_argument('-t','--is_test', action='store_true')
     ARGS = parser.parse_args()
 
@@ -415,7 +405,7 @@ if __name__ == '__main__':
         #    #dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
         #    #dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
 
-        ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.do_reorder, ARGS.do_resumm_scenes, ARGS.is_test)
+        ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.reorder, ARGS.resumm_scenes, ARGS.is_test)
     all_epnames = os.listdir('SummScreen/transcripts')
     assert all([x.endswith('.json') for x in all_epnames])
     all_epnames = [x[:-5] for x in all_epnames]
@@ -442,7 +432,7 @@ if __name__ == '__main__':
             ss.get_scene_summs(epname)
             continue
         if not ARGS.only_check_gpt:
-            csss, summ_of_summs = ss.summarize_from_ep(ep)
+            csss, summ_of_summs = ss.summarize_from_epname(epname)
         if ARGS.do_check_gpt:
             gpt_summ = openai.ChatCompletion.create(model="gpt-3.5-turbo-16k", messages=[{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": f"Please summarize the following TV show {ep.transcript}"},])['choices'][0]['message']['content']
         our_scores = ep.calc_rouge(summ_of_summs)
