@@ -73,7 +73,7 @@ if __name__ == '__main__':
                        ref_summaries=[ep.summaries],
                        atomic_facts=[atomic_facts])
 
-        factscore['decisions'] = [{'atom': 'Dani saw something.', 'is_supported': 1}, {'atom': "Dani saw her mother's ashes.", 'is_supported': 1}]
+        factscore['decisions'] = [{k:int(v) if v in [True,False] else v for k,v in dec.items()} for dec in factscore['decisions'][0]]
         rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_full=False)
         full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
         all_factscores.append(factscore['score'])

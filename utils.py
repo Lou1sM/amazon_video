@@ -118,9 +118,9 @@ def split_text_by_sep(text,sep):
         if abs(len((first_chunk+l).split()) - N/2) > abs(len(first_chunk.split())-N/2):
             break # get as close to halfway as possible
         if first_chunk=='':
-            first_chunk = l
+            first_chunk = l+sep
         else:
-            first_chunk += sep+l
+            first_chunk += l+sep
         if not text.startswith(first_chunk):
             breakpoint()
     second_chunk = text[len(first_chunk):]
