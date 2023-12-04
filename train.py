@@ -17,6 +17,8 @@ parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions
 parser.add_argument('--cpu',action='store_true')
 parser.add_argument('--reorder', action='store_true')
 parser.add_argument('--randorder', action='store_true')
+parser.add_argument('--uniform_breaks', action='store_true')
+parser.add_argument('--startendscenes', action='store_true')
 parser.add_argument('--resumm_scenes',action='store_true')
 parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--eval_first',action='store_true')
@@ -38,6 +40,10 @@ ARGS = parser.parse_args()
 
 
 assert not (ARGS.reorder and ARGS.randorder)
+if ARGS.uniform_breaks:
+    assert ARGS.caps == 'nocaptions'
+if ARGS.startendscenes:
+    assert not (ARGS.reorder or ARGS.randorder or ARGS.uniform_breaks)
 ARGS.is_test = ARGS.is_test or ARGS.is_test_big_bart
 ARGS.retokenize = ARGS.retokenize or ARGS.resumm_scenes
 
@@ -73,12 +79,14 @@ ss = SoapSummer(model=model,
                 caps=ARGS.caps,
                 reorder=ARGS.reorder,
                 randorder=ARGS.randorder,
+                uniform_breaks=ARGS.uniform_breaks,
+                startendscenes=ARGS.startendscenes,
                 expname=expname,
                 resumm_scenes=ARGS.resumm_scenes,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
 
-fn = get_fn(ARGS.caps, ARGS.reorder, ARGS.randorder, ARGS.is_test, ARGS.n_dpoints)
+fn = get_fn(ARGS.caps, ARGS.reorder, ARGS.randorder, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.is_test, ARGS.n_dpoints)
 if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.retokenize:
     print('tokenized datasets have been cached, loading')
     tokenized_trainset = load_from_disk('cached_trainset')

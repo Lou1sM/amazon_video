@@ -20,7 +20,7 @@ from tqdm import tqdm
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, model, bs, dbs, tokenizer, caps, reorder, randorder, expname, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, model, bs, dbs, tokenizer, caps, reorder, randorder, uniform_breaks, startendscenes, expname, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         self.model = model
         assert isinstance(expname,str)
         self.expname = expname
@@ -32,6 +32,8 @@ class SoapSummer():
         assert not (reorder and randorder)
         self.reorder = reorder
         self.randorder = randorder
+        self.uniform_breaks = uniform_breaks
+        self.startendscenes = startendscenes
         self.resumm_scenes = resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
@@ -46,24 +48,24 @@ class SoapSummer():
         assert padded.shape == attention_mask.shape
         return padded, attention_mask
 
-    def summ_scenes(self, epname, scenes):
-        if len(scenes) == 1:
+    def summ_scenes(self, epname):
+        ep = episode_from_epname(epname)
+        if len(ep.scenes) == 1:
             print(f'no scene breaks for {epname}')
             breakpoint()
         if self.caps == 'nocaptions':
-            caps = ['']*len(scenes)
+            caps = ['']*len(ep.scenes)
         else: # prepend vid caps to the scene summ
             with open(f'SummScreen/video_scenes/{epname}/{self.caps}_procced_scene_caps.json') as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
-            caps = [cdd.get(f'{epname}s{i}','') for i in range(len(scenes))]
-            if not len(caps)==len(scenes):
+            caps = [cdd.get(f'{epname}s{i}','') for i in range(len(ep.scenes))]
+            if not len(caps)==len(ep.scenes):
                 breakpoint()
-        if not all('talking' not in x for x in caps):
-            breakpoint()
+        assert all('talking' not in x for x in caps)
         if self.reorder:
-            order_idxs = optimal_order(scenes)
-            optimally_ordered_scenes = [scenes[oi] for oi in order_idxs[:-1]]
+            order_idxs = optimal_order(ep.scenes)
+            optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
             optimally_ordered_caps = [caps[oi] for oi in order_idxs[:-1]]
             combined_scenes = [optimally_ordered_scenes[0]]
             combined_caps = [optimally_ordered_caps[0]]
@@ -75,15 +77,42 @@ class SoapSummer():
                     combined_scenes.append(optscene)
                     combined_caps.append(optcap)
         elif self.randorder:
-            idxs = sorted(range(len(scenes)), key=lambda x: np.random.rand())
-            combined_scenes = [scenes[ri] for ri in idxs]
+            idxs = sorted(range(len(ep.scenes)), key=lambda x: np.random.rand())
+            combined_scenes = [ep.scenes[ri] for ri in idxs]
             combined_caps = [caps[ri] for ri in idxs]
+        elif self.uniform_breaks:
+            transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
+            combined_scenes = chunkify(transcript_wo_scene_marks, self.dtokenizer.model_max_length)
+            combined_caps = caps
+        elif self.startendscenes:
+            start = ''
+            end = ''
+            newend = ''
+            startidx = 0
+            endidx = 0
+            while True:
+                if startidx == endidx:
+                    newstart = start + ep.scenes[startidx]
+                    startidx += 1
+                else:
+                    assert startidx == endidx+1
+                    newend = ep.scenes[-endidx-1] + end
+                    endidx += 1
+                if len((newstart+newend).split()) > 3/4*self.tokenizer.model_max_length:
+                    break
+                else:
+                    start, end = newstart, newend
+            assert len((start+end).split())*4/3 <= self.tokenizer.model_max_length
+            return start + end
+
+
         else:
-            combined_scenes = scenes
+            combined_scenes = ep.scenes
             combined_caps = caps
 
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])
+        assert (chunks==combined_scenes) or not self.uniform_breaks
         avg_scene_summ_len = self.tokenizer.model_max_length//len(chunks)
 
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
@@ -134,14 +163,13 @@ class SoapSummer():
         return ss_with_caps
 
     def get_scene_summs(self, epname):
-        fn = get_fn(epname, self.reorder, self.randorder, self.is_test, -1)
+        fn = get_fn(epname, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.is_test, -1)
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = f.readlines()
         else:
-            ep = episode_from_epname(epname)
-            ss = self.summ_scenes(epname, ep.scenes)
+            ss = self.summ_scenes(epname)
             if self.do_save_new_scenes:
                 with open(fpath:=f'SummScreen/scene_summs/{fn}.txt','w') as f:
                     f.write('\n'.join(ss))
@@ -183,7 +211,7 @@ class SoapSummer():
 
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
-        fn = get_fn(self.caps, self.reorder, self.randorder, self.is_test, n_dpoints)
+        fn = get_fn(self.caps, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.is_test, n_dpoints)
         df = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
         epnames = df.loc[df['has_summ']].index.tolist()
         print(len(epnames),len(os.listdir('SummScreen/summaries')))
