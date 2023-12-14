@@ -260,7 +260,7 @@ if __name__ == '__main__':
         captioner.init_models(ARGS.model_name)
     captioner_func = captioner.kosmos_scene_caps if ARGS.model_name=='kosmos' else captioner.swinbert_scene_caps
     if ARGS.epname == 'all':
-        df = pd.read_csv('SummScreen/dset_info.csv',index_col=0)
+        df = pd.read_csv('dset_info.csv',index_col=0)
         all_epnames = df.loc[(df['duration_raw']!='failed video read') & df['has_caps']].index
         #all_epnames = [fn for fn in os.listdir('SummScreen/video_scenes') if fn in os.listdir('SummScreen/keyframes')]
         #all_epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.exists('SummScreen/closed_captions/{x}')]

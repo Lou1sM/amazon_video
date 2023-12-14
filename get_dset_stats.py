@@ -13,7 +13,7 @@ all_epnames.remove('atwt-06-29-01')
 all_epnames.insert(0, 'atwt-06-29-01')
 
 dset_stats = {}
-#cur_df = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
+#cur_df = pd.read_csv('dset_info.csv', index_col=0)
 for en in tqdm(all_epnames):
     ep_info = {}
     ep = episode_from_epname(en)

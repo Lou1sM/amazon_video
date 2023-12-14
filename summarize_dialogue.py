@@ -243,7 +243,7 @@ class SoapSummer():
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
         fn = get_fn(self.caps, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, n_dpoints)
-        dset_info = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
+        dset_info = pd.read_csv('dset_info.csv', index_col=0)
         #print(len(epnames),len(os.listdir('SummScreen/summaries')))
         epname_to_be_first = 'oltl-10-18-10'
         n_points_split = {}

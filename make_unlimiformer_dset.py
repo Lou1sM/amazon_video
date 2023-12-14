@@ -10,7 +10,7 @@ def get_input_and_output(epname):
         summary = json.load(f)
     return transcript, summary
 
-dset_info = pd.read_csv('SummScreen/dset_info.csv',index_col=0)
+dset_info = pd.read_csv('dset_info.csv',index_col=0)
 names_to_use = dset_info.index[dset_info['has_summ']]
 
 for split in ('train','val','test'):
