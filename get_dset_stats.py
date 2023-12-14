@@ -61,4 +61,4 @@ df = pd.DataFrame(dset_stats).T
 splits = ['val','test']*500 + ['train']*(len(df)-1000)
 df['split'] = sorted(splits, key=lambda x:np.random.rand())
 df['usable'] = df['has_summ'] & df['has_caps'] & (df['duration']!='failed video read')
-df.to_csv('SummScreen/dset_info.csv')
+df.to_csv('dset_info.csv')
