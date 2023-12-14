@@ -1,9 +1,9 @@
+import re
 import json
 import os
 import math
 from utils import rouge_from_multiple_refs
 import numpy as np
-from scipy.stats import entropy
 from dl_utils.label_funcs import accuracy
 
 
@@ -22,11 +22,22 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
         self.title = transcript_data['Show Title'].lower().replace(' ','_')
         self.show_name = epname.split('.')[0]
+        if self.epname == 'gl-01-03-06':
+            assert self.transcript.count('') <= 1
+            if self.transcript.count('') == 1:
+                assert self.transcript.index('') == len(self.transcript)-1
+                self.transcript = self.transcript[:-1]
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 
         #self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
-        self.scenes, _ = infer_scene_splits(self.transcript, force_infer=False)
+        self.scenes, _, had_markers = infer_scene_splits(self.transcript, force_infer=False)
+        if not had_markers:
+            with_explicit_breaks = '£[SCENE_BREAK]£'.join(self.scenes).split('£')
+            assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
+            os.rename(f'SummScreen/transcripts/{epname}.json',f'SummScreen/transcripts/{epname}-without-explicit-breaks.json')
+            with open(f'SummScreen/transcripts/{epname}.json','w') as f:
+                json.dump(dict(transcript_data, Transcript=with_explicit_breaks),f)
 
     def calc_rouge(self,pred):
         references = self.summaries.values()
@@ -73,11 +84,14 @@ def get_char_names(tlines):
 
 def split_by_marker(tlines, marker):
     splits = np.array([i for i,x in enumerate(tlines) if x == marker])
-    return '\n'.join(tlines).split(marker), splits
+    return '\n'.join(tlines).split(marker+'\n'), splits, True
 
 def infer_scene_splits(tlines, force_infer):
     if '[SCENE_BREAK]' in tlines and not force_infer:
-        return split_by_marker(tlines, '[SCENE_BREAK')
+        return split_by_marker(tlines, '[SCENE_BREAK]')
+    if '--------' in ''.join(tlines):
+        tlines = ['£' if re.search(r'-{8,20}',x) else x for x in tlines]
+        return split_by_marker(tlines, '£')
     if '' in tlines and not force_infer:
         tlines = ['£' if x=='' else x for x in tlines]
         return split_by_marker(tlines, '£')
@@ -93,7 +107,7 @@ def infer_scene_splits(tlines, force_infer):
     splits = splits_without_fillers.copy()
     for f in fillers:
         splits += (splits>=f)
-    return ['\n'.join(tlines[splits[i]+1:splits[i+1]+1]) for i in range(len(splits)-1)], splits[1:-1]
+    return ['\n'.join(tlines[splits[i]+1:splits[i+1]+1]) for i in range(len(splits)-1)], splits[1:-1], False
 
 def dl_from_counts(x,tot_vocab_size):
     N = x.sum()
