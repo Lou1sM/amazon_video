@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import json
 import pandas as pd
 from episode import infer_scene_splits, episode_from_epname
@@ -20,7 +21,7 @@ for en in tqdm(all_epnames):
         #transcript_lines = json.load(f)['Transcript']
     if '[SCENE_BREAK]' in ep.transcript:
         ep_info['scene_breaks'] = 'explicit'
-    elif '' in ep.transcript:
+    elif '' in ep.transcript or any('--------' in x for x in ep.transcript):
         ep_info['scene_breaks'] = 'implicit'
     else:
         ep_info['scene_breaks'] = 'none'
@@ -57,4 +58,7 @@ for en in tqdm(all_epnames):
     dset_stats[en] = ep_info
 
 df = pd.DataFrame(dset_stats).T
+splits = ['val','test']*500 + ['train']*(len(df)-1000)
+df['split'] = sorted(splits, key=lambda x:np.random.rand())
+df['usable'] = df['has_summ'] & df['has_caps'] & (df['duration']!='failed video read')
 df.to_csv('SummScreen/dset_info.csv')

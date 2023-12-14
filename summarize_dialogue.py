@@ -1,4 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq
+from sklearn.feature_extraction.text import TfidfVectorizer
 from dl_utils.misc import check_dir
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -20,20 +21,27 @@ from tqdm import tqdm
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, model, bs, dbs, tokenizer, caps, reorder, randorder, uniform_breaks, startendscenes, expname, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
-        self.model = model
+    def __init__(self, model, bs, dbs, tokenizer, caps, reorder, randorder, uniform_breaks, startendscenes, centralscenes, expname, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+        assert (model is None) == (tokenizer is None) == (centralscenes or startendscenes)
+        assert not (centralscenes and startendscenes)
         assert isinstance(expname,str)
-        self.expname = expname
-        self.n_epochs = 0
         self.dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
-        self.tokenizer = tokenizer
         self.dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
+        if model is None:
+            self.model = self.dmodel
+            self.tokenizer = self.dtokenizer
+        else:
+            self.model = model
+            self.tokenizer = tokenizer
         self.caps = caps
         assert not (reorder and randorder)
+        self.expname = expname
+        self.n_epochs = 0
         self.reorder = reorder
         self.randorder = randorder
         self.uniform_breaks = uniform_breaks
         self.startendscenes = startendscenes
+        self.centralscenes = centralscenes
         self.resumm_scenes = resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
@@ -104,6 +112,29 @@ class SoapSummer():
                     start, end = newstart, newend
             assert len((start+end).split())*4/3 <= self.tokenizer.model_max_length
             return start + end
+        elif self.centralscenes:
+            vect = TfidfVectorizer(min_df=1, stop_words='english')
+            tfidf = vect.fit_transform(ep.scenes)
+            scene_sims = (tfidf * tfidf.T).A
+            np.fill_diagonal(scene_sims, -1)
+            y = scene_sims
+            best_scene_idxs = y.sum(axis=0).argsort()[::-1]
+            for j in range(100):
+                y = np.matmul(y,y.T)
+                new_best_scene_idxs = y.sum(axis=0).argsort()[::-1]
+                if (new_best_scene_idxs == best_scene_idxs).all():
+                    break
+                else:
+                    best_scene_idxs = new_best_scene_idxs
+            for go_up_to in range(len(best_scene_idxs)):
+                if sum(len(ep.scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
+                    break # next-one-up would push it over the edge
+            idxs_to_use = sorted(best_scene_idxs[:go_up_to])
+
+            best_in_order = [ep.scenes[i] for i in idxs_to_use]
+            assert sum(len(x.split()) for x in best_in_order)*4/3 <= self.dtokenizer.model_max_length
+            return best_in_order
+            #scene_sims = tfidf_sims(ep.scenes)
 
 
         else:
@@ -163,7 +194,7 @@ class SoapSummer():
         return ss_with_caps
 
     def get_scene_summs(self, epname):
-        fn = get_fn(epname, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.is_test, -1)
+        fn = get_fn(epname, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, -1)
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
@@ -184,9 +215,9 @@ class SoapSummer():
         chunks = chunkify(concatted_scene_summs,self.tokenizer.model_max_length)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
-        if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
-            pbatch = pbatch[:,:self.tokenizer.model_max_length]
-            attn = attn[:,:self.tokenizer.model_max_length]
+        #if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
+        pbatch = pbatch[:,:self.tokenizer.model_max_length]
+        attn = attn[:,:self.tokenizer.model_max_length]
         meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=180, max_length=200)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
         return concatted_scene_summs, final_summ
@@ -211,50 +242,83 @@ class SoapSummer():
 
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
-        fn = get_fn(self.caps, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.is_test, n_dpoints)
-        df = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
-        epnames = df.loc[df['has_summ']].index.tolist()
-        print(len(epnames),len(os.listdir('SummScreen/summaries')))
-        if scene_caps != 'nocaptions':
-            epnames = [x for x in epnames if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
-            assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
-        if not self.is_test:
-            shuffle(epnames)
+        fn = get_fn(self.caps, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, n_dpoints)
+        dset_info = pd.read_csv('SummScreen/dset_info.csv', index_col=0)
+        #print(len(epnames),len(os.listdir('SummScreen/summaries')))
         epname_to_be_first = 'oltl-10-18-10'
-        epnames.remove(epname_to_be_first)
+        n_points_split = {}
         if n_dpoints != -1:
-            epnames = epnames[:n_dpoints]
-        tr_up_to_idx = int(9*len(epnames)/10)
-        tr_epnames = epnames[:tr_up_to_idx]
-        ts_epnames = epnames[tr_up_to_idx:]
-        if self.is_test:
-            tr_epnames = tr_epnames[:10]
-            ts_epnames = ts_epnames[:3]
-        ts_epnames.insert(0,epname_to_be_first)
-        print('getting scene summs for train set')
-        print('getting scene summs for test set')
-        ts_list = self.dpoints_from_epnames(ts_epnames, scene_caps)
-        if not set(x['epname'] for x in ts_list) == set(ts_epnames):
-            breakpoint()
-        ts_combined_list = []
-        for tepn in ts_epnames:
-            dps_with_name = [t for t in ts_list if t['epname']==tepn]
-            assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
-            combined = {'epname':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
-            for dpsn in dps_with_name:
-                combined[dpsn['summ_name']] = dpsn['summ']
-            if tepn == epname_to_be_first:
-                to_be_first = combined
+            n_points_split['val'] = int(n_dpoints/10)
+            n_points_split['test'] = int(n_dpoints/10)
+            n_points_split['train'] = n_dpoints - n_points_split['val'] - n_points_split['test']
+        for split in ('train','val','test'):
+            mask = dset_info['usable'] & (dset_info['split']==split)
+            epnames = dset_info.index[mask]
+            if n_dpoints != -1:
+                epnames = epnames[:n_points_split[split]]
+            if split == 'test':
+                epnames.insert(0, epname_to_be_first)
             else:
-                ts_combined_list.append(combined)
-        ts_combined_list.insert(0, to_be_first)
-        check_dir('SummScreen/json_datasets')
-        with open(f'SummScreen/json_datasets/test_{fn}_dset.json','w') as f:
-            json.dump(ts_combined_list, f)
+                epnames = [x for x in epnames if x!=epname_to_be_first]
 
-        tr_list = self.dpoints_from_epnames(tr_epnames, scene_caps)
-        with open(f'SummScreen/json_datasets/train_{fn}_dset.json','w') as f:
-            json.dump(tr_list, f)
+            assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
+            dpoints = self.dpoints_from_epnames(epnames, scene_caps)
+            dpoints_combined = []
+            if split in ('val', 'test'):
+                for tepn in epnames:
+                    dps_with_name = [t for t in dpoints if t['epname']==tepn]
+                    assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
+                    combined = {'epname':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
+                    for dpsn in dps_with_name:
+                        combined[dpsn['summ_name']] = dpsn['summ']
+                    if tepn == epname_to_be_first:
+                        to_be_first = combined
+                    else:
+                        dpoints_combined.append(combined)
+                with open(f'SummScreen/json_datasets/{split}_{fn}_dset.json','w') as f:
+                    json.dump(dpoints_combined, f)
+            else:
+                with open(f'SummScreen/json_datasets/{split}_{fn}_dset.json','w') as f:
+                    json.dump(dpoints, f)
+
+        #if scene_caps != 'nocaptions':
+        #    tr_epnames = [x for x in tr_epnames if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
+        #    ts_epnames = [x for x in ts_epnames if os.path.exists(f'SummScreen/video_scenes/{x}/{scene_caps}_procced_scene_caps.json')]
+        #    assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in tr_epnames+ts_epnames])
+        #tr_epnames.remove(epname_to_be_first)
+        #if self.is_test:
+        #    tr_epnames = tr_epnames[:10]
+        #    ts_epnames = ts_epnames[:3]
+        #elif n_dpoints != -1:
+        #    n_tr = int(n_dpoints*9/10)
+        #    n_ts = n_dpoints - n_tr
+        #    tr_epnames = tr_epnames[:n_tr]
+        #    ts_epnames = ts_epnames[:n_ts]
+        #ts_epnames.insert(0,epname_to_be_first)
+        #print('getting scene summs for train set')
+        #print('getting scene summs for test set')
+        #ts_list = self.dpoints_from_epnames(ts_epnames, scene_caps)
+        #if not set(x['epname'] for x in ts_list) == set(ts_epnames):
+        #    breakpoint()
+        #ts_combined_list = []
+        #for tepn in ts_epnames:
+        #    dps_with_name = [t for t in ts_list if t['epname']==tepn]
+        #    assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
+        #    combined = {'epname':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
+        #    for dpsn in dps_with_name:
+        #        combined[dpsn['summ_name']] = dpsn['summ']
+        #    if tepn == epname_to_be_first:
+        #        to_be_first = combined
+        #    else:
+        #        ts_combined_list.append(combined)
+        #ts_combined_list.insert(0, to_be_first)
+        #check_dir('SummScreen/json_datasets')
+        #with open(f'SummScreen/json_datasets/test_{fn}_dset.json','w') as f:
+        #    json.dump(ts_combined_list, f)
+
+        #tr_list = self.dpoints_from_epnames(tr_epnames, scene_caps)
+        #with open(f'SummScreen/json_datasets/train_{fn}_dset.json','w') as f:
+        #    json.dump(tr_list, f)
 
     def train_one_epoch(self, epoch, trainloader):
         self.model.train()
@@ -284,7 +348,6 @@ class SoapSummer():
                 y=batch['labels'].shape[1]
                 print(f'got OOM with inputs {x} and labels {y}')
                 continue
-
             epoch_loss = ((i*epoch_loss) + loss.item()) / (i+1) # running avg
             pbar.set_description(f'Epoch: {epoch}/{self.n_epochs}'
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
@@ -298,14 +361,14 @@ class SoapSummer():
         self.model.save_pretrained(save_dir)
         self.tokenizer.save_pretrained(save_dir)
 
-    def eval_epoch(self, epoch_num, testset):
+    def inference_epoch(self, epoch_num, dset):
         self.model.eval()
         print('validating')
         prev = ''
         rouges = []
         epoch_rouge = np.zeros(4)
         check_dir(generations_dir := join('experiments', self.expname, 'generations'))
-        for j,batch in enumerate(val_pbar := tqdm(testset, dynamic_ncols=True, smoothing=0.01, leave=False)):
+        for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
             nl_inputs = batch['scene_summs']
             _, nl_outputs = self.summarize_scene_summs(nl_inputs)
             if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
@@ -316,7 +379,7 @@ class SoapSummer():
 
             rouges.append(best_rouge)
             epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg
-            val_pbar.set_description(f'Epoch: {epoch_num}/{self.n_epochs}'
+            pbar.set_description(f'Epoch: {epoch_num}/{self.n_epochs}'
                              f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
                              f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
             epname = batch['epname']
@@ -326,7 +389,7 @@ class SoapSummer():
                 break
         return rouges
 
-    def train_epochs(self, n_epochs, trainset, testset, save_every, eval_every):
+    def train_epochs(self, n_epochs, trainset, valset, testset, save_every, eval_every):
         self.opt = AdamW(self.model.model.decoder.parameters(),lr=1e-6)
         dc = DataCollatorForSeq2Seq(self.tokenizer, model=self.model)
 
@@ -345,7 +408,7 @@ class SoapSummer():
                 self.save_to(f'epoch{epoch}')
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             if (epoch+1) % eval_every == 0:
-                rouges = self.eval_epoch(epoch, testset)
+                rouges = self.inference_epoch(epoch, valset)
                 rouges_arr = np.array(rouges).mean(axis=0)
                 if any((r==rouges_arr).all() for r in all_rouges):
                     breakpoint()
@@ -359,7 +422,25 @@ class SoapSummer():
                 print(f'Mean Rouge: {rouges_arr}\tPatience: {patience}')
                 if patience == 2:
                     break
+        self.inference_epoch(self.n_epochs, testset)
         return alltime_best_rouges, all_rouges
+
+def tfidf_sims(docs):
+    all_words = ' '.join(docs).split()
+    vocab, counts = np.unique(all_words, return_counts=True)
+    idfs = np.log2(len(vocab)) - np.log2(counts)
+    word2idf = dict(zip(vocab, idfs))
+    vecs = []
+    breakpoint()
+    for d in docs:
+        dvocab, dcounts = np.unique(d.split(), return_counts=True)
+        word2tf = dict(zip(dvocab, np.log2(dcounts)))
+        v = [word2tf.get(w,0)*v for w,v in word2idf.items()]
+        vecs.append(v)
+
+    vec_arr = np.stack(vecs)
+    sims = vec_arr @ np.transpose(vec_arr)
+
 
 
 if __name__ == '__main__':

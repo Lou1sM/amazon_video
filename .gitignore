@@ -1,3 +1,5 @@
+run.sh
+experiments_before_fix_dset_fragments/**
 tags
 FActScore/**
 dev/**

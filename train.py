@@ -19,6 +19,7 @@ parser.add_argument('--reorder', action='store_true')
 parser.add_argument('--randorder', action='store_true')
 parser.add_argument('--uniform_breaks', action='store_true')
 parser.add_argument('--startendscenes', action='store_true')
+parser.add_argument('--centralscenes', action='store_true')
 parser.add_argument('--resumm_scenes',action='store_true')
 parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--eval_first',action='store_true')
@@ -51,11 +52,12 @@ if ARGS.expname is None and not ARGS.is_test:
     sys.exit('set a different expname')
 elif ARGS.is_test:
     ARGS.expname='tmp'
+    ARGS.n_dpoints = 10
 
 print(ARGS.expname)
 
 
-expname = set_experiment_dir(ARGS.expname, ARGS.overwrite, name_of_trials='tmp')
+expname = set_experiment_dir(f'experiments/{ARGS.expname}', ARGS.overwrite, name_of_trials='experiments/tmp')
 
 device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 'cpu')
 
@@ -69,8 +71,11 @@ else:
     chkpt_path = f'./experiments/{ARGS.expname}/checkpoints/epoch{ARGS.reload_from}'
 
 print(f'loading from {chkpt_path}')
-model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
-tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
+if ARGS.startendscenes or ARGS.centralscenes:
+    model, tokenizer = None, None
+else:
+    model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
+    tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
 scene_order = 'optimal' if ARGS.reorder else 'rand' if ARGS.randorder else 'identity'
 ss = SoapSummer(model=model,
                 bs=ARGS.bs,
@@ -81,51 +86,49 @@ ss = SoapSummer(model=model,
                 randorder=ARGS.randorder,
                 uniform_breaks=ARGS.uniform_breaks,
                 startendscenes=ARGS.startendscenes,
+                centralscenes=ARGS.centralscenes,
                 expname=expname,
                 resumm_scenes=ARGS.resumm_scenes,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
 
-fn = get_fn(ARGS.caps, ARGS.reorder, ARGS.randorder, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.is_test, ARGS.n_dpoints)
-if os.path.exists(f'SummScreen/cached_tokenized/{fn}_train_cache') and os.path.exists('SummScreen/cached_tokenized/{fn}_test_cache') and not ARGS.retokenize:
-    print('tokenized datasets have been cached, loading')
-    tokenized_trainset = load_from_disk('cached_trainset')
-    tokenized_testset = load_from_disk('cached_testset')
-else:
-    path_to_json_trainset = f'SummScreen/json_datasets/train_{fn}_dset.json'
-    print(f'json trainset path is {path_to_json_trainset}')
-    path_to_json_testset = path_to_json_trainset.replace('train','test')
-    # sharding isn't supported atm so everything ends up in 'test'
-    if not os.path.exists(path_to_json_trainset) or not os.path.exists(path_to_json_testset) or ARGS.retokenize:
+fn = get_fn(ARGS.caps, ARGS.reorder, ARGS.randorder, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test, ARGS.n_dpoints)
+
+def train_preproc_fn(dpoint):
+    inputs = [doc for doc in dpoint['scene_summs']]
+    model_inputs = ss.tokenizer(inputs)
+
+    # Setup the tokenizer for targets
+    labels = ss.tokenizer(text_target=dpoint['summ'])
+
+    model_inputs['labels'] = labels['input_ids']
+    return model_inputs
+
+
+def get_dsets():
+    dsets = []
+    splits = ('train', 'val', 'test')
+    use_cache = all(os.path.exists(f'SummScreen/cached_tokenized/{fn}_{s}_cache') for s in splits) and not ARGS.retokenize
+    if use_cache:
+        print('tokenized datasets have been cached, loading')
+        return [load_from_disk(f'cached_{s}set') for s in splits]
+    json_paths = [f'SummScreen/json_datasets/{s}_{fn}_dset.json' for s in splits]
+    if any(not os.path.exists(jp) for jp in json_paths) or ARGS.retokenize:
         print('building new dataset')
         ss.build_dset(ARGS.caps, ARGS.n_dpoints)
-        assert os.path.exists(path_to_json_trainset)
-        assert os.path.exists(path_to_json_testset)
+    assert all(os.path.exists(jp) for jp in json_paths)
+    for split,jp in zip(splits,json_paths):
+        dset = load_dataset('json', data_files=jp, split='train')
+        if split=='train':
+            dset = dset.map(train_preproc_fn, batched=True, remove_columns=dset.column_names)
+        if not ARGS.is_test:
+            dset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_{split}_cache')
+        dsets.append(dset)
+    return dsets
 
-    trainset = load_dataset('json', data_files=path_to_json_trainset,split='train')
-    testset = load_dataset('json', data_files=path_to_json_testset,split='train')
+trainset, valset, testset = get_dsets()
 
-    def train_preprocess_function(dpoint):
-        inputs = [doc for doc in dpoint['scene_summs']]
-        model_inputs = tokenizer(inputs)
-
-        # Setup the tokenizer for targets
-        labels = tokenizer(text_target=dpoint['summ'])
-
-        model_inputs['labels'] = labels['input_ids']
-        return model_inputs
-
-    def test_preprocess_function(dpoint):
-        model_inputs = tokenizer(dpoint.pop('scene_summs'))
-        for k,v in dpoint.items():
-            model_inputs[k] = v
-        return model_inputs
-
-    tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
-
-    if not ARGS.is_test:
-        tokenized_trainset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_train_cache')
-        testset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_test_cache')
+    #tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 
 
 def save_to(fname):
@@ -138,7 +141,7 @@ if ARGS.eval_first:
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
-alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, tokenized_trainset, testset, ARGS.save_every, ARGS.eval_every)
+alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.save_every, ARGS.eval_every)
 
 def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
