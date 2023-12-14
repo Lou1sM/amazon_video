@@ -58,7 +58,16 @@ for en in tqdm(all_epnames):
     dset_stats[en] = ep_info
 
 df = pd.DataFrame(dset_stats).T
-splits = ['val','test']*500 + ['train']*(len(df)-1000)
-df['split'] = sorted(splits, key=lambda x:np.random.rand())
+train_fnames = os.listdir('/afs/inf.ed.ac.uk/group/project/visual_narrative/SummScreen_dataset/tokenized_training_data')
+val_fnames = os.listdir('/afs/inf.ed.ac.uk/group/project/visual_narrative/SummScreen_dataset/tokenized_val_data')
+test_fnames = os.listdir('/afs/inf.ed.ac.uk/group/project/visual_narrative/SummScreen_dataset/tokenized_test_data')
+assert all(x.count('.')==1 for x in train_fnames+val_fnames+test_fnames)
+train_names = [x.split('.')[0] for x in train_fnames]
+val_names = [x.split('.')[0] for x in val_fnames]
+test_names = [x.split('.')[0] for x in test_fnames]
+df['split'] = 'nelly-excluded'
+df.loc[train_names,'split'] = 'train'
+df.loc[val_names,'split'] = 'val'
+df.loc[test_names,'split'] = 'test'
 df['usable'] = df['has_summ'] & df['has_caps'] & (df['duration']!='failed video read')
 df.to_csv('dset_info.csv')
