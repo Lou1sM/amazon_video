@@ -14,7 +14,6 @@ import json
 from episode import Episode, episode_from_epname
 from utils import chunkify, summ_short_scene, rouge_from_multiple_refs, get_fn
 import numpy as np
-from random import shuffle
 from tqdm import tqdm
 
 
@@ -294,9 +293,6 @@ class SoapSummer():
                 batch['attention_mask'] = batch['attention_mask'][:,:self.tokenizer.model_max_length]
             if (batch['labels'].shape[1]) > self.tokenizer.model_max_length:
                 continue
-            #if (x:=batch['input_ids'].shape[1]) + (y:=batch['labels'].shape[1]) > 1550:
-                #print(f'skipping because inputs are {x} and labels are {y} so maybe give OOM')
-                #continue
             if max(batch['input_ids'].shape[1], batch['labels'].shape[1], batch['decoder_input_ids'].shape[1]) > self.tokenizer.model_max_length:
                 breakpoint()
             cbatch = {k:v.cuda() for k,v in batch.items()}
@@ -373,7 +369,7 @@ class SoapSummer():
             if (epoch+1) % eval_every == 0:
                 rouges = self.inference_epoch(epoch, valset)
                 rouges_arr = np.array(rouges).mean(axis=0)
-                if any((r==rouges_arr).all() for r in all_rouges):
+                if len(rouges)>1 and any((r==rouges_arr).all() for r in all_rouges):
                     breakpoint()
                 all_rouges.append(rouges_arr)
                 if rouges_arr[2] > alltime_best_rouges[2]:
