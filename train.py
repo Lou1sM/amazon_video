@@ -51,7 +51,7 @@ ARGS.is_test = ARGS.is_test or ARGS.is_test_big_bart
 ARGS.retokenize = ARGS.retokenize or ARGS.resumm_scenes
 
 if ARGS.expname is None and not ARGS.is_test:
-    sys.exit('set a different expname')
+    sys.exit('must set explicit expname when not in test mode')
 elif ARGS.is_test:
     ARGS.expname='tmp'
     ARGS.n_dpoints = 10
@@ -113,7 +113,7 @@ def get_dsets():
     use_cache = all(os.path.exists(f'SummScreen/cached_tokenized/{fn}_{s}_cache') for s in splits) and not ARGS.retokenize
     if use_cache:
         print('tokenized datasets have been cached, loading')
-        return [load_from_disk(f'cached_{s}set') for s in splits]
+        return [load_from_disk(f'SummScreen/cached_tokenized/{fn}_{s}_cache') for s in splits]
     json_paths = [f'SummScreen/json_datasets/{s}_{fn}_dset.json' for s in splits]
     if any(not os.path.exists(jp) for jp in json_paths) or ARGS.retokenize:
         print('building new dataset')
@@ -123,8 +123,7 @@ def get_dsets():
         dset = load_dataset('json', data_files=jp, split='train')
         if split=='train':
             dset = dset.map(train_preproc_fn, batched=True, remove_columns=dset.column_names)
-        if not ARGS.is_test:
-            dset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_{split}_cache')
+        dset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_{split}_cache')
         dsets.append(dset)
     return dsets
 

@@ -317,6 +317,7 @@ class SoapSummer():
 
     def save_to(self, fname):
         save_dir = join(self.expdir, 'checkpoints', fname)
+        print('saving checkpoint to',save_dir)
         self.model.save_pretrained(save_dir)
         self.tokenizer.save_pretrained(save_dir)
 
@@ -361,7 +362,6 @@ class SoapSummer():
         for epoch in range(self.n_epochs):
             print(f'training epoch {epoch}')
             epoch_loss = self.train_one_epoch(epoch, trainloader, no_pbar)
-            self.save_to(f'epoch{epoch}')
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             rouges = self.inference_epoch(epoch, valset)
             rouges_arr = np.array(rouges).mean(axis=0)
