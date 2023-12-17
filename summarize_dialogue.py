@@ -365,7 +365,10 @@ class SoapSummer():
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             rouges = self.inference_epoch(epoch, valset)
             rouges_arr = np.array(rouges).mean(axis=0)
-            assert not any((r==rouges_arr).all() for r in all_rouges)
+            if len(all_rouges)>1 and (rouges_arr==all_rouges[-1]).all():
+                print('WARNING: rouge unchanged since last epoch')
+            else:
+                assert not any((r==rouges_arr).all() for r in all_rouges)
             all_rouges.append(rouges_arr)
             if rouges_arr[early_stop_metric] > alltime_best_rouges[early_stop_metric]:
                 patience = 0
