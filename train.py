@@ -34,6 +34,7 @@ parser.add_argument('--overwrite',action='store_true')
 parser.add_argument('--reload_from',type=str,default='none')
 parser.add_argument('--retokenize',action='store_true')
 parser.add_argument('--save_every',action='store_true')
+parser.add_argument('--no_pbar',action='store_true')
 parser.add_argument('--dont_save_new_scenes',action='store_true')
 parser.add_argument('-bt','--is_test_big_bart',action='store_true')
 parser.add_argument('-t','--is_test',action='store_true')
@@ -57,7 +58,7 @@ elif ARGS.is_test:
 print(ARGS.expname)
 
 
-expname = set_experiment_dir(f'experiments/{ARGS.expname}', ARGS.overwrite, name_of_trials='experiments/tmp')
+expdir = set_experiment_dir(f'experiments/{ARGS.expname}', ARGS.overwrite, name_of_trials='experiments/tmp')
 
 device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 'cpu')
 
@@ -87,7 +88,7 @@ ss = SoapSummer(model=model,
                 uniform_breaks=ARGS.uniform_breaks,
                 startendscenes=ARGS.startendscenes,
                 centralscenes=ARGS.centralscenes,
-                expname=expname,
+                expdir=expdir,
                 resumm_scenes=ARGS.resumm_scenes,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
@@ -132,7 +133,7 @@ trainset, valset, testset = get_dsets()
 
 
 def save_to(fname):
-    save_dir = join('experiments', expname, 'checkpoints', fname)
+    save_dir = join(expdir, 'checkpoints', fname)
     model.save_pretrained(save_dir)
     tokenizer.save_pretrained(save_dir)
 
@@ -141,14 +142,14 @@ if ARGS.eval_first:
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
-alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.save_every, ARGS.eval_every)
+alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.save_every, ARGS.eval_every, ARGS.no_pbar)
 
 def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
 
 print(display_rouges(alltime_best_rouges))
 
-results_path = join('experiments',expname,'results.txt')
+results_path = join(expdir,'results.txt')
 with open(results_path,'w') as f:
     for rname,rscore in display_rouges(alltime_best_rouges):
         f.write(f'{rname}: {rscore:.5f}\n')
@@ -158,7 +159,7 @@ with open(results_path,'w') as f:
             f.write(f'{rname}: {rscore:.5f}\t')
         f.write('\n')
 
-summary_path = join('experiments',expname,'summary.txt')
+summary_path = join(expdir,'summary.txt')
 with open(summary_path,'w') as f:
     f.write(f'Expname: {ARGS.expname}\n')
     f.write(f'captions: {ARGS.caps}\n')
