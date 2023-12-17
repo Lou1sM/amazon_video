@@ -247,8 +247,8 @@ class SoapSummer():
         epname_to_be_first = 'oltl-10-18-10'
         n_points_split = {}
         if n_dpoints != -1:
-            n_points_split['val'] = min(2,int(n_dpoints/10))
-            n_points_split['test'] = min(2,int(n_dpoints/10))
+            n_points_split['val'] = max(2,int(n_dpoints/10))
+            n_points_split['test'] = max(2,int(n_dpoints/10))
             n_points_split['train'] = n_dpoints - n_points_split['val'] - n_points_split['test']
             assert n_points_split['train'] >= 2
         for split in ('train','val','test'):
@@ -365,8 +365,7 @@ class SoapSummer():
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             rouges = self.inference_epoch(epoch, valset)
             rouges_arr = np.array(rouges).mean(axis=0)
-            if len(rouges)>1 and any((r==rouges_arr).all() for r in all_rouges):
-                breakpoint()
+            assert not any((r==rouges_arr).all() for r in all_rouges)
             all_rouges.append(rouges_arr)
             if rouges_arr[early_stop_metric] > alltime_best_rouges[early_stop_metric]:
                 patience = 0
