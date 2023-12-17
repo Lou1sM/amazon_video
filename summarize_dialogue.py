@@ -348,39 +348,35 @@ class SoapSummer():
                 break
         return rouges
 
-    def train_epochs(self, n_epochs, trainset, valset, testset, save_every, eval_every, no_pbar):
+    def train_epochs(self, n_epochs, trainset, valset, testset, no_pbar, early_stop_metric):
         self.opt = AdamW(self.model.model.decoder.parameters(),lr=1e-6)
         dc = DataCollatorForSeq2Seq(self.tokenizer, model=self.model)
-
         trainloader = DataLoader(trainset, batch_size=self.bs, shuffle=True, collate_fn=dc)
-
         self.n_epochs = n_epochs
         num_training_steps = self.n_epochs * len(trainloader)
         self.lr_scheduler = get_scheduler(name="linear", optimizer=self.opt, num_warmup_steps=0, num_training_steps=num_training_steps)
         patience = 0
-        alltime_best_rouges = np.zeros(3)
+        alltime_best_rouges = np.zeros(4)
         all_rouges = []
         for epoch in range(self.n_epochs):
             print(f'training epoch {epoch}')
             epoch_loss = self.train_one_epoch(epoch, trainloader, no_pbar)
-            if save_every:
-                self.save_to(f'epoch{epoch}')
+            self.save_to(f'epoch{epoch}')
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
-            if (epoch+1) % eval_every == 0:
-                rouges = self.inference_epoch(epoch, valset)
-                rouges_arr = np.array(rouges).mean(axis=0)
-                if len(rouges)>1 and any((r==rouges_arr).all() for r in all_rouges):
-                    breakpoint()
-                all_rouges.append(rouges_arr)
-                if rouges_arr[2] > alltime_best_rouges[2]:
-                    patience = 0
-                    alltime_best_rouges = rouges_arr
-                    self.save_to('best')
-                else:
-                    patience += 1
-                print(f'Mean Rouge: {rouges_arr}\tPatience: {patience}')
-                if patience == 2:
-                    break
+            rouges = self.inference_epoch(epoch, valset)
+            rouges_arr = np.array(rouges).mean(axis=0)
+            if len(rouges)>1 and any((r==rouges_arr).all() for r in all_rouges):
+                breakpoint()
+            all_rouges.append(rouges_arr)
+            if rouges_arr[early_stop_metric] > alltime_best_rouges[early_stop_metric]:
+                patience = 0
+                alltime_best_rouges = rouges_arr
+                self.save_to('best')
+            else:
+                patience += 1
+            print(f'Mean Rouge: {rouges_arr}\tPatience: {patience}')
+            if patience == 2:
+                break
         self.inference_epoch(self.n_epochs, testset)
         return alltime_best_rouges, all_rouges
 

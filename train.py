@@ -29,6 +29,7 @@ parser.add_argument('--n_dpoints',type=int,default=-1)
 parser.add_argument('--bs',type=int,default=1)
 parser.add_argument('--dbs',type=int,default=8)
 parser.add_argument('--n_epochs',type=int,default=2)
+parser.add_argument('--early_stop_metric',type=int,default=2)
 parser.add_argument('--n_iter',type=int,default=-1)
 parser.add_argument('--overwrite',action='store_true')
 parser.add_argument('--reload_from',type=str,default='none')
@@ -142,7 +143,7 @@ if ARGS.eval_first:
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
-alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.save_every, ARGS.eval_every, ARGS.no_pbar)
+alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.no_pbar, ARGS.early_stop_metric)
 
 def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
