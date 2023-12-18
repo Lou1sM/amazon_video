@@ -15,8 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size',type=int,default=1)
 parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'], default='nocaptions')
 parser.add_argument('--cpu',action='store_true')
-parser.add_argument('--reorder', action='store_true')
-parser.add_argument('--randorder', action='store_true')
+parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
 parser.add_argument('--uniform_breaks', action='store_true')
 parser.add_argument('--startendscenes', action='store_true')
 parser.add_argument('--centralscenes', action='store_true')
@@ -42,11 +41,11 @@ parser.add_argument('-t','--is_test',action='store_true')
 ARGS = parser.parse_args()
 
 
-assert not (ARGS.reorder and ARGS.randorder)
 if ARGS.uniform_breaks:
     assert ARGS.caps == 'nocaptions'
 if ARGS.startendscenes:
-    assert not (ARGS.reorder or ARGS.randorder or ARGS.uniform_breaks)
+    assert not ARGS.uniform_breaks
+    assert ARGS.order=='identity'
 ARGS.is_test = ARGS.is_test or ARGS.is_test_big_bart
 ARGS.retokenize = ARGS.retokenize or ARGS.resumm_scenes
 
@@ -55,8 +54,6 @@ if ARGS.expname is None and not ARGS.is_test:
 elif ARGS.is_test:
     ARGS.expname='tmp'
     ARGS.n_dpoints = 10
-
-print(ARGS.expname)
 
 
 expdir = set_experiment_dir(f'experiments/{ARGS.expname}', ARGS.overwrite, name_of_trials='experiments/tmp')
@@ -72,20 +69,18 @@ if ARGS.reload_from=='none':
 else:
     chkpt_path = f'./experiments/{ARGS.expname}/checkpoints/epoch{ARGS.reload_from}'
 
-print(f'loading from {chkpt_path}')
+print(f'loading model from {chkpt_path}')
 if ARGS.startendscenes or ARGS.centralscenes:
     model, tokenizer = None, None
 else:
     model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
     tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
-scene_order = 'optimal' if ARGS.reorder else 'rand' if ARGS.randorder else 'identity'
 ss = SoapSummer(model=model,
                 bs=ARGS.bs,
                 dbs=ARGS.dbs,
                 tokenizer=tokenizer,
                 caps=ARGS.caps,
-                reorder=ARGS.reorder,
-                randorder=ARGS.randorder,
+                scene_order=ARGS.order,
                 uniform_breaks=ARGS.uniform_breaks,
                 startendscenes=ARGS.startendscenes,
                 centralscenes=ARGS.centralscenes,
@@ -94,7 +89,7 @@ ss = SoapSummer(model=model,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
 
-fn = get_fn(ARGS.caps, ARGS.reorder, ARGS.randorder, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test, ARGS.n_dpoints)
+fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test, ARGS.n_dpoints)
 
 def train_preproc_fn(dpoint):
     inputs = [doc for doc in dpoint['scene_summs']]
@@ -110,8 +105,9 @@ def train_preproc_fn(dpoint):
 def get_dsets():
     dsets = []
     splits = ('train', 'val', 'test')
-    use_cache = all(os.path.exists(f'SummScreen/cached_tokenized/{fn}_{s}_cache') for s in splits) and not ARGS.retokenize
-    if use_cache:
+    maybe_cache_paths = [f'SummScreen/cached_tokenized/{fn}_{s}_cache' for s in splits]
+    if all(os.path.exists(p) for p in maybe_cache_paths) and not ARGS.retokenize:
+        print(maybe_cache_paths[0], 'exists, loading from there')
         print('tokenized datasets have been cached, loading')
         return [load_from_disk(f'SummScreen/cached_tokenized/{fn}_{s}_cache') for s in splits]
     json_paths = [f'SummScreen/json_datasets/{s}_{fn}_dset.json' for s in splits]
@@ -163,7 +159,6 @@ summary_path = join(expdir,'summary.txt')
 with open(summary_path,'w') as f:
     f.write(f'Expname: {ARGS.expname}\n')
     f.write(f'captions: {ARGS.caps}\n')
-    f.write(f'reorder: {ARGS.reorder}\n')
-    f.write(f'randorder: {ARGS.randorder}\n')
+    f.write(f'order: {ARGS.order}\n')
     f.write(f'N Epochs: {ARGS.n_epochs}\n')
     f.write(f'Batch size: {ARGS.bs}\n')

@@ -20,7 +20,7 @@ from tqdm import tqdm
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, model, bs, dbs, tokenizer, caps, reorder, randorder, uniform_breaks, startendscenes, centralscenes, expdir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, model, bs, dbs, tokenizer, caps, scene_order, uniform_breaks, startendscenes, centralscenes, expdir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         assert (model is None) == (tokenizer is None) == (centralscenes or startendscenes)
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
@@ -33,11 +33,9 @@ class SoapSummer():
             self.model = model
             self.tokenizer = tokenizer
         self.caps = caps
-        assert not (reorder and randorder)
         self.expdir = expdir
         self.n_epochs = 0
-        self.reorder = reorder
-        self.randorder = randorder
+        self.scene_order = scene_order
         self.uniform_breaks = uniform_breaks
         self.startendscenes = startendscenes
         self.centralscenes = centralscenes
@@ -70,7 +68,7 @@ class SoapSummer():
             if not len(caps)==len(ep.scenes):
                 breakpoint()
         assert all('talking' not in x for x in caps)
-        if self.reorder:
+        if self.scene_order=='optimal':
             order_idxs = optimal_order(ep.scenes)
             optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
             optimally_ordered_caps = [caps[oi] for oi in order_idxs[:-1]]
@@ -83,7 +81,7 @@ class SoapSummer():
                 else:
                     combined_scenes.append(optscene)
                     combined_caps.append(optcap)
-        elif self.randorder:
+        elif self.scene_order=='rand':
             idxs = sorted(range(len(ep.scenes)), key=lambda x: np.random.rand())
             combined_scenes = [ep.scenes[ri] for ri in idxs]
             combined_caps = [caps[ri] for ri in idxs]
@@ -193,8 +191,9 @@ class SoapSummer():
         return ss_with_caps
 
     def get_scene_summs(self, epname):
-        fn = get_fn(epname, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, -1)
+        fn = get_fn(epname, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, -1)
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
+        breakpoint()
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = f.readlines()
@@ -241,7 +240,7 @@ class SoapSummer():
 
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
-        fn = get_fn(self.caps, self.reorder, self.randorder, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, n_dpoints)
+        fn = get_fn(self.caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, n_dpoints)
         dset_info = pd.read_csv('dset_info.csv', index_col=0)
         #print(len(epnames),len(os.listdir('SummScreen/summaries')))
         epname_to_be_first = 'oltl-10-18-10'
@@ -413,7 +412,7 @@ if __name__ == '__main__':
     parser.add_argument('--summ_scenes_only', action='store_true')
     parser.add_argument('--resumm_scenes', action='store_true')
     parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'],default='nocaptions')
-    parser.add_argument('--reorder', action='store_true')
+    parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is_test', action='store_true')
     ARGS = parser.parse_args()
 
@@ -438,7 +437,7 @@ if __name__ == '__main__':
         #    #dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
         #    #dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
 
-        ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.reorder, ARGS.resumm_scenes, ARGS.is_test)
+        ss = SoapSummer(model, tokenizer, ARGS.caps, ARGS.order, ARGS.resumm_scenes, ARGS.is_test)
     all_epnames = os.listdir('SummScreen/transcripts')
     assert all([x.endswith('.json') for x in all_epnames])
     all_epnames = [x[:-5] for x in all_epnames]
