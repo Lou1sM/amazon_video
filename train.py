@@ -23,6 +23,7 @@ parser.add_argument('--resumm_scenes',action='store_true')
 parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--eval_first',action='store_true')
 parser.add_argument('--expname',type=str)
+parser.add_argument('--expdir_prefix',type=str,default='experiments')
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 parser.add_argument('--n_dpoints',type=int,default=-1)
 parser.add_argument('--bs',type=int,default=1)
@@ -56,7 +57,7 @@ elif ARGS.is_test:
     ARGS.n_dpoints = 10
 
 
-expdir = set_experiment_dir(f'experiments/{ARGS.expname}', ARGS.overwrite, name_of_trials='experiments/tmp')
+expdir = set_experiment_dir(join(ARGS.expdir_prefix,ARGS.expname), ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'tmp'))
 
 device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 'cpu')
 
@@ -89,7 +90,7 @@ ss = SoapSummer(model=model,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
 
-fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test, ARGS.n_dpoints)
+fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test)
 
 def train_preproc_fn(dpoint):
     inputs = [doc for doc in dpoint['scene_summs']]
@@ -105,21 +106,22 @@ def train_preproc_fn(dpoint):
 def get_dsets():
     dsets = []
     splits = ('train', 'val', 'test')
-    maybe_cache_paths = [f'SummScreen/cached_tokenized/{fn}_{s}_cache' for s in splits]
+    maybe_cache_paths = [f'SummScreen/cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{s}_cache' for s in splits]
     if all(os.path.exists(p) for p in maybe_cache_paths) and not ARGS.retokenize:
         print(maybe_cache_paths[0], 'exists, loading from there')
         print('tokenized datasets have been cached, loading')
-        return [load_from_disk(f'SummScreen/cached_tokenized/{fn}_{s}_cache') for s in splits]
-    json_paths = [f'SummScreen/json_datasets/{s}_{fn}_dset.json' for s in splits]
+        return [load_from_disk(cp) for cp in maybe_cache_paths]
+    json_paths = [f'SummScreen/json_datasets/{fn}_{ARGS.n_dpoints}dps_{s}_dset.json' for s in splits]
     if any(not os.path.exists(jp) for jp in json_paths) or ARGS.retokenize:
         print('building new dataset')
         ss.build_dset(ARGS.caps, ARGS.n_dpoints)
     assert all(os.path.exists(jp) for jp in json_paths)
-    for split,jp in zip(splits,json_paths):
+    for split,jp,cp in zip(splits,json_paths,maybe_cache_paths):
         dset = load_dataset('json', data_files=jp, split='train')
         if split=='train':
             dset = dset.map(train_preproc_fn, batched=True, remove_columns=dset.column_names)
-        dset.save_to_disk(f'SummScreen/cached_tokenized/{fn}_{split}_cache')
+        assert cp == f'SummScreen/cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{split}_cache'
+        dset.save_to_disk(cp)
         dsets.append(dset)
     return dsets
 

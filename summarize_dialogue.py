@@ -44,6 +44,7 @@ class SoapSummer():
         self.is_test = is_test
         self.bs = bs
         self.dbs = dbs
+        self.fn = get_fn(self.caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test)
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
@@ -89,7 +90,12 @@ class SoapSummer():
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
             combined_scenes = chunkify(transcript_wo_scene_marks, self.dtokenizer.model_max_length)
             combined_caps = caps
-        elif self.startendscenes:
+
+        else:
+            combined_scenes = ep.scenes
+            combined_caps = caps
+
+        if self.startendscenes:
             start = ''
             end = ''
             newend = ''
@@ -97,11 +103,11 @@ class SoapSummer():
             endidx = 0
             while True:
                 if startidx == endidx:
-                    newstart = start + ep.scenes[startidx]
+                    newstart = start + combined_scenes[startidx]
                     startidx += 1
                 else:
                     assert startidx == endidx+1
-                    newend = ep.scenes[-endidx-1] + end
+                    newend = combined_scenes[-endidx-1] + end
                     endidx += 1
                 if len((newstart+newend).split()) > 3/4*self.tokenizer.model_max_length:
                     break
@@ -111,7 +117,7 @@ class SoapSummer():
             return start + end
         elif self.centralscenes:
             vect = TfidfVectorizer(min_df=1, stop_words='english')
-            tfidf = vect.fit_transform(ep.scenes)
+            tfidf = vect.fit_transform(combined_scenes)
             scene_sims = (tfidf * tfidf.T).A
             np.fill_diagonal(scene_sims, -1)
             y = scene_sims
@@ -124,19 +130,14 @@ class SoapSummer():
                 else:
                     best_scene_idxs = new_best_scene_idxs
             for go_up_to in range(len(best_scene_idxs)):
-                if sum(len(ep.scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
+                if sum(len(combined_scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
                     break # next-one-up would push it over the edge
             idxs_to_use = sorted(best_scene_idxs[:go_up_to])
 
-            best_in_order = [ep.scenes[i] for i in idxs_to_use]
+            best_in_order = [combined_scenes[i] for i in idxs_to_use]
             assert sum(len(x.split()) for x in best_in_order)*4/3 <= self.dtokenizer.model_max_length
             return best_in_order
             #scene_sims = tfidf_sims(ep.scenes)
-
-
-        else:
-            combined_scenes = ep.scenes
-            combined_caps = caps
 
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])
@@ -150,8 +151,6 @@ class SoapSummer():
         sorted_tok_chunks = [tok_chunks[i] for i in sort_idxs]
         v_short_chunk_idxs = [i for i,sc in enumerate(sorted_tok_chunks) if len(sc) < avg_scene_summ_len]
         n_shorts = len(v_short_chunk_idxs)
-        #if n_shorts>0:
-            #print(f'averge scene summ length is {avg_scene_summ_len}, and shortest scene is of length {len(sorted_tok_chunks[0])} tokens, {n_shorts} will be short summed')
         assert v_short_chunk_idxs == list(range(n_shorts))
         short_chunk_summs = [summ_short_scene(sc) for sc in sorted_chunks[:n_shorts]]
         remaining_chunks = sorted_tok_chunks[n_shorts:]
@@ -191,15 +190,14 @@ class SoapSummer():
         return ss_with_caps
 
     def get_scene_summs(self, epname):
-        fn = get_fn(epname, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, -1)
-        maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
+        maybe_scene_summ_path = f'SummScreen/scene_summs/{epname}_{self.fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = f.readlines()
         else:
             ss = self.summ_scenes(epname)
             if self.do_save_new_scenes:
-                with open(fpath:=f'SummScreen/scene_summs/{fn}.txt','w') as f:
+                with open(fpath:=f'SummScreen/scene_summs/{epname}_{self.fn}.txt','w') as f:
                     f.write('\n'.join(ss))
                 #print('saving to',fpath)
         return ss
@@ -239,7 +237,6 @@ class SoapSummer():
 
     def build_dset(self, scene_caps, n_dpoints):
         assert type(n_dpoints)==int
-        fn = get_fn(self.caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, n_dpoints)
         dset_info = pd.read_csv('dset_info.csv', index_col=0)
         #print(len(epnames),len(os.listdir('SummScreen/summaries')))
         epname_to_be_first = 'oltl-10-18-10'
@@ -272,7 +269,7 @@ class SoapSummer():
                     todump.append(combined)
             else:
                 todump = dpoints
-            with open(f'SummScreen/json_datasets/{split}_{fn}_dset.json','w') as f:
+            with open(f'SummScreen/json_datasets/{self.fn}_{n_dpoints}dps_{split}_dset.json','w') as f:
                 json.dump(todump, f)
 
     def train_one_epoch(self, epoch, trainloader, no_pbar):

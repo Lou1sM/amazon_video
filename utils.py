@@ -65,10 +65,10 @@ def rouge_from_multiple_refs(pred, references, return_full, benchmark_rl):
             print('rouge is zero')
     return best_rouge if return_full else extract_main_rouges(best_rouge)
 
-def get_fn(basename, order, uniform_breaks, startendscenes, centralscenes, is_test, n_dpoints):
-    fn = basename
-    if order=='':
-        fn += '_optimal_ordered'
+def get_fn(caps, order, uniform_breaks, startendscenes, centralscenes, is_test):
+    fn = caps
+    if order=='optimal':
+        fn += '_reordered'
     if order=='rand':
         fn += '_rand_ordered'
     if uniform_breaks:
@@ -79,8 +79,8 @@ def get_fn(basename, order, uniform_breaks, startendscenes, centralscenes, is_te
         fn += '_centralscenes'
     if is_test:
         fn += '_test'
-    if n_dpoints != -1:
-        fn += f'{n_dpoints}dps'
+    #if n_dpoints != -1:
+        #fn += f'{n_dpoints}dps'
     return fn
 
 def safe_decode(tokens, tokenizer):
