@@ -103,11 +103,11 @@ class SoapSummer():
             endidx = 0
             while True:
                 if startidx == endidx:
-                    newstart = start + combined_scenes[startidx]
+                    newstart = start + ep.scenes[startidx]
                     startidx += 1
                 else:
                     assert startidx == endidx+1
-                    newend = combined_scenes[-endidx-1] + end
+                    newend = ep.scenes[-endidx-1] + end
                     endidx += 1
                 if len((newstart+newend).split()) > 3/4*self.tokenizer.model_max_length:
                     break
@@ -130,11 +130,11 @@ class SoapSummer():
                 else:
                     best_scene_idxs = new_best_scene_idxs
             for go_up_to in range(len(best_scene_idxs)):
-                if sum(len(combined_scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
+                if sum(len(ep.scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
                     break # next-one-up would push it over the edge
             idxs_to_use = sorted(best_scene_idxs[:go_up_to])
 
-            best_in_order = [combined_scenes[i] for i in idxs_to_use]
+            best_in_order = [ep.scenes[i] for i in idxs_to_use]
             assert sum(len(x.split()) for x in best_in_order)*4/3 <= self.dtokenizer.model_max_length
             return best_in_order
             #scene_sims = tfidf_sims(ep.scenes)
@@ -222,7 +222,7 @@ class SoapSummer():
         data_list = []
         summ_dir = 'SummScreen/summaries'
         for epname in tqdm(epname_list):
-            ss = ''.join(self.get_scene_summs(epname))
+            ss = '\n'.join(self.get_scene_summs(epname))
             with open(os.path.join(summ_dir, f'{epname}.json')) as f:
                 d = json.load(f)
             if len(d.items())==0:
