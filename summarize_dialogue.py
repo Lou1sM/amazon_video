@@ -319,13 +319,13 @@ class SoapSummer():
         self.model.save_pretrained(save_dir)
         self.tokenizer.save_pretrained(save_dir)
 
-    def inference_epoch(self, epoch_num, dset):
+    def inference_epoch(self, epoch_num, dset, dset_fragment_name):
         self.model.eval()
         print('validating')
         prev = ''
         rouges = []
         epoch_rouge = np.zeros(4)
-        check_dir(generations_dir := join(self.expdir, 'generations'))
+        check_dir(generations_dir := join(self.expdir, f'generations_{dset_fragment_name}'))
         for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
             nl_inputs = batch['scene_summs']
             _, nl_outputs = self.summarize_scene_summs(nl_inputs)
@@ -361,7 +361,7 @@ class SoapSummer():
             print(f'training epoch {epoch}')
             epoch_loss = self.train_one_epoch(epoch, trainloader, no_pbar)
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
-            rouges = self.inference_epoch(epoch, valset)
+            rouges = self.inference_epoch(epoch, valset, 'val')
             rouges_arr = np.array(rouges).mean(axis=0)
             if len(all_rouges)>1 and (rouges_arr==all_rouges[-1]).all():
                 print('WARNING: rouge unchanged since last epoch')
@@ -380,7 +380,7 @@ class SoapSummer():
         best_chkpt = f'{self.expdir}/checkpoints/best'
         print('reloading', best_chkpt)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
-        self.inference_epoch(self.n_epochs, testset)
+        self.inference_epoch(self.n_epochs, testset, 'test')
         return alltime_best_rouges, all_rouges
 
 def tfidf_sims(docs):
