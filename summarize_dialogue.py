@@ -193,7 +193,7 @@ class SoapSummer():
         maybe_scene_summ_path = f'SummScreen/scene_summs/{epname}_{self.fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
-                ss = f.readlines()
+                ss = [x.strip() for x in f.readlines()]
         else:
             ss = self.summ_scenes(epname)
             if self.do_save_new_scenes:
