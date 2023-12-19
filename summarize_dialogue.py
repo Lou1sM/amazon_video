@@ -193,7 +193,6 @@ class SoapSummer():
     def get_scene_summs(self, epname):
         fn = get_fn(epname, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test, -1)
         maybe_scene_summ_path = f'SummScreen/scene_summs/{fn}.txt'
-        breakpoint()
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = f.readlines()
@@ -378,6 +377,9 @@ class SoapSummer():
             print(f'Mean Rouge: {rouges_arr}\tPatience: {patience}')
             if patience == 2:
                 break
+        best_chkpt = f'{self.expdir}/checkpoints/best'
+        print('reloading', best_chkpt)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
         self.inference_epoch(self.n_epochs, testset)
         return alltime_best_rouges, all_rouges
 
