@@ -22,7 +22,7 @@ class LM(object):
         if self.model is None:
             self.load_model()
 
-        max_output_length = 1 if pred.endswith(" True or False?\nAnswer:") else max_output_length
+        max_output_length = 1 if pred.endswith(" True or False?\nOutput:") else max_output_length
         pred = pred.strip() # it's important not to end with a whitespace
         return self._generate(pred, max_output_length=max_output_length)
 

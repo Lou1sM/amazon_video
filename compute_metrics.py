@@ -35,6 +35,8 @@ if __name__ == '__main__':
     parser.add_argument('--expname',type=str,default='tmp')
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--overwrite',action='store_true')
+    parser.add_argument('--run_factscore',action='store_true')
+    parser.add_argument('--only_get_facts',action='store_true')
     ARGS = parser.parse_args()
 
 
@@ -47,12 +49,14 @@ if __name__ == '__main__':
                     abstain_detection_type='generic')
 
 
-    gendir = join(expdir:=join('experiments',ARGS.expname), 'generations')
+    #gendir = join(expdir:=join('experiments',ARGS.expname), 'generations_test')
+    gendir = f'../all_test_gens/{ARGS.expname}'
     all_epnames = os.listdir(gendir)
-    selected_first = 'oltl-10-18-10.txt'
-    if selected_first in all_epnames:
-        all_epnames.remove(selected_first)
-        all_epnames.insert(0,selected_first)
+    expdir = f'/users-2/louis/full_results/{ARGS.expname}'
+    #selected_first = 'oltl-10-18-10.txt'
+    #if selected_first in all_epnames:
+        #all_epnames.remove(selected_first)
+        #all_epnames.insert(0,selected_first)
     full_results = {}
     all_factscores = []
     all_rouges = []
@@ -62,29 +66,34 @@ if __name__ == '__main__':
 
         ep = episode_from_epname(epname)
 
-        check_dir(cache_dir := 'SummScreen/cached_chatgpt_facts/full_pred_summ_facts')
+        #check_dir(cache_dir := 'SummScreen/cached_llama_facts/full_pred_summ_facts')
+        check_dir(cache_dir := f'../gpt-3.5-turbo-instruct-facts/{ARGS.expname}')
         cache_fpath = f'{cache_dir}/{epname}'
         summ_fpath = f'{gendir}/{epname}.txt'
         with open(summ_fpath) as f:
             pred = f.read()
         atomic_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, pred=pred)
 
-        factscore = fs.get_score(topics=['A summary of a TV show'],
-                       ref_summaries=[ep.summaries],
-                       atomic_facts=[atomic_facts])
+        if not ARGS.only_get_facts:
+            factscore = fs.get_score(topics=['A summary of a TV show'],
+                          ref_summaries=[ep.summaries],
+                          atomic_facts=[atomic_facts])
 
-        factscore['decisions'] = [{k:int(v) if v in [True,False] else v for k,v in dec.items()} for dec in factscore['decisions'][0]]
-        rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_full=False)
-        full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
-        all_factscores.append(factscore['score'])
-        all_rouges.append(rouge_score)
-    rouges_arr = np.array(all_rouges).mean(axis=0)
-    mean_factscore = np.array(all_factscores).mean()
+            factscore['decisions'] = [{k:int(v) if v in [True,False] else v for k,v in dec.items()} for dec in factscore['decisions'][0]]
+            rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_full=False)
+            full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
+            full_results[epname] = {'rouge':rouge_score}
+            all_factscores.append(factscore['score'])
+            all_rouges.append(rouge_score)
+    if not ARGS.only_get_facts:
+        rouges_arr = np.array(all_rouges).mean(axis=0)
+        mean_factscore = np.array(all_factscores).mean()
 
-    with open(join(expdir, 'results.txt'), 'w') as f:
-        f.write(f'Expname: {ARGS.expname}\nFActScore: {mean_factscore:.4f}\n')
-        for r,s in zip(['1','2','L'], rouges_arr):
-            f.write(f'rouge{r}: {s}\n')
+        with open(join(expdir, 'results.txt'), 'w') as f:
+            #f.write(f'Expname: {ARGS.expname}\nFActScore: {mean_factscore:.4f}\n')
+            f.write(f'Expname: {ARGS.expname}\n')
+            for r,s in zip(['1','2','L'], rouges_arr):
+                f.write(f'rouge{r}: {s}\n')
 
-    with open(join(expdir,'full_results.json'),'w') as f:
-        json.dump(full_results, f)
+        with open(join(expdir,'full_results.json'),'w') as f:
+            json.dump(full_results, f)

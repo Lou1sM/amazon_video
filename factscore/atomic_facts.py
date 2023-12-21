@@ -130,12 +130,12 @@ class AtomicFactGenerator(object):
             prompt_to_sent[prompt] = sentence
 
         #if cost_estimate:
-        #    total_words_estimate = 0
-        #    for prompt in prompts:
-        #        if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
-        #            continue
-        #        total_words_estimate += len(prompt.split())
-        #    return total_words_estimate
+            #total_words_estimate = 0
+            #for prompt in prompts:
+            #    #if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
+            #        #continue
+            #    total_words_estimate += len(prompt.split())
+            #return total_words_estimate
         #else:
         for prompt in prompts:
             output = self.openai_lm.generate(pred=prompt)

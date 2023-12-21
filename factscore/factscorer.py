@@ -34,9 +34,9 @@ class FactScorer(object):
         self.cost_estimate = cost_estimate
 
         if "llama" in model_name:
-            self.lm = CLM("inst-llama-7B",
-                          model_dir=os.path.join(model_dir, "llama-7b"),
-                          cache_file=os.path.join(cache_dir, "llama-7b.pkl"))
+            self.lm = CLM("inst-llama-13B",
+                          model_dir=os.path.join(model_dir, "llama-13b"),
+                          cache_file=os.path.join(cache_dir, "llama-13b.pkl"))
         elif "ChatGPT" in model_name:
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
