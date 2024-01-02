@@ -50,13 +50,9 @@ if __name__ == '__main__':
 
 
     #gendir = join(expdir:=join('experiments',ARGS.expname), 'generations_test')
-    gendir = f'../all_test_gens/{ARGS.expname}'
+    expdir = f'/rds/user/co-maho1/hpc-work/experiments/{ARGS.expname}'
+    gendir = join(expdir, 'generations_test')
     all_epnames = os.listdir(gendir)
-    expdir = f'/users-2/louis/full_results/{ARGS.expname}'
-    #selected_first = 'oltl-10-18-10.txt'
-    #if selected_first in all_epnames:
-        #all_epnames.remove(selected_first)
-        #all_epnames.insert(0,selected_first)
     full_results = {}
     all_factscores = []
     all_rouges = []
@@ -82,18 +78,17 @@ if __name__ == '__main__':
             factscore['decisions'] = [{k:int(v) if v in [True,False] else v for k,v in dec.items()} for dec in factscore['decisions'][0]]
             rouge_score = rouge_from_multiple_refs(pred, ep.summaries.values(), benchmark_rl=True, return_full=False)
             full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
-            full_results[epname] = {'rouge':rouge_score}
             all_factscores.append(factscore['score'])
             all_rouges.append(rouge_score)
     if not ARGS.only_get_facts:
         rouges_arr = np.array(all_rouges).mean(axis=0)
         mean_factscore = np.array(all_factscores).mean()
 
-        with open(join(expdir, 'results.txt'), 'w') as f:
-            #f.write(f'Expname: {ARGS.expname}\nFActScore: {mean_factscore:.4f}\n')
+        with open(join(expdir, 'rouge_and_factscore_results.txt'), 'w') as f:
+            f.write(f'Expname: {ARGS.expname}\nFActScore: {mean_factscore:.4f}\n')
             f.write(f'Expname: {ARGS.expname}\n')
-            for r,s in zip(['1','2','L'], rouges_arr):
+            for r,s in zip(['1','2','L','Lsum'], rouges_arr):
                 f.write(f'rouge{r}: {s}\n')
 
-        with open(join(expdir,'full_results.json'),'w') as f:
+        with open(join(expdir,'full_rouge_and_factscore_results.json'),'w') as f:
             json.dump(full_results, f)

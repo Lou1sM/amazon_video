@@ -1,4 +1,5 @@
 run.sh
+slurm*.out
 experiments_before_fix_dset_fragments/**
 tags
 FActScore/**
