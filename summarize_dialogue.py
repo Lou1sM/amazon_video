@@ -219,7 +219,13 @@ class SoapSummer():
         #if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
         pbatch = pbatch[:,:self.tokenizer.model_max_length]
         attn = attn[:,:self.tokenizer.model_max_length]
-        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=180, max_length=200)
+        if self.caps_only:
+            min_len = 80
+            max_len = 100
+        else:
+            min_len = 180
+            max_len = 200
+        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=min_len, max_length=max_len)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
         return concatted_scene_summs, final_summ
 
@@ -366,7 +372,7 @@ class SoapSummer():
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
             rouges = self.inference_epoch(epoch, valset, 'val')
             rouges_arr = np.array(rouges).mean(axis=0)
-            if len(all_rouges)>1 and (rouges_arr==all_rouges[-1]).all():
+            if len(all_rouges)>0 and (rouges_arr==all_rouges[-1]).all():
                 print('WARNING: rouge unchanged since last epoch')
             else:
                 assert not any((r==rouges_arr).all() for r in all_rouges)
