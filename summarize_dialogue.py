@@ -32,7 +32,12 @@ class SoapSummer():
         else:
             self.model = model
             self.tokenizer = tokenizer
-        self.caps = caps
+        if caps.endswith('-only'):
+            self.caps = caps[:-5]
+            self.caps_only = True
+        else:
+            self.caps = caps
+            self.caps_only = False
         self.expdir = expdir
         self.n_epochs = 0
         self.scene_order = scene_order
@@ -44,7 +49,7 @@ class SoapSummer():
         self.is_test = is_test
         self.bs = bs
         self.dbs = dbs
-        self.fn = get_fn(self.caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test)
+        self.fn = get_fn(caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test)
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
@@ -56,22 +61,23 @@ class SoapSummer():
 
     def summ_scenes(self, epname):
         ep = episode_from_epname(epname)
-        if len(ep.scenes) == 1:
+        scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
+        if len(scenes) == 1:
             print(f'no scene breaks for {epname}')
             breakpoint()
         if self.caps == 'nocaptions':
-            caps = ['']*len(ep.scenes)
+            caps = ['']*len(scenes)
         else: # prepend vid caps to the scene summ
             with open(f'SummScreen/video_scenes/{epname}/{self.caps}_procced_scene_caps.json') as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
-            caps = [cdd.get(f'{epname}s{i}','') for i in range(len(ep.scenes))]
-            if not len(caps)==len(ep.scenes):
+            caps = [cdd.get(f'{epname}s{i}','') for i in range(len(scenes))]
+            if not len(caps)==len(scenes):
                 breakpoint()
         assert all('talking' not in x for x in caps)
         if self.scene_order=='optimal':
-            order_idxs = optimal_order(ep.scenes)
-            optimally_ordered_scenes = [ep.scenes[oi] for oi in order_idxs[:-1]]
+            order_idxs = optimal_order(scenes)
+            optimally_ordered_scenes = [scenes[oi] for oi in order_idxs[:-1]]
             optimally_ordered_caps = [caps[oi] for oi in order_idxs[:-1]]
             combined_scenes = [optimally_ordered_scenes[0]]
             combined_caps = [optimally_ordered_caps[0]]
@@ -83,8 +89,8 @@ class SoapSummer():
                     combined_scenes.append(optscene)
                     combined_caps.append(optcap)
         elif self.scene_order=='rand':
-            idxs = sorted(range(len(ep.scenes)), key=lambda x: np.random.rand())
-            combined_scenes = [ep.scenes[ri] for ri in idxs]
+            idxs = sorted(range(len(scenes)), key=lambda x: np.random.rand())
+            combined_scenes = [scenes[ri] for ri in idxs]
             combined_caps = [caps[ri] for ri in idxs]
         elif self.uniform_breaks:
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
@@ -92,7 +98,7 @@ class SoapSummer():
             combined_caps = caps
 
         else:
-            combined_scenes = ep.scenes
+            combined_scenes = scenes
             combined_caps = caps
 
         if self.startendscenes:
@@ -103,11 +109,11 @@ class SoapSummer():
             endidx = 0
             while True:
                 if startidx == endidx:
-                    newstart = start + ep.scenes[startidx]
+                    newstart = start + scenes[startidx]
                     startidx += 1
                 else:
                     assert startidx == endidx+1
-                    newend = ep.scenes[-endidx-1] + end
+                    newend = scenes[-endidx-1] + end
                     endidx += 1
                 if len((newstart+newend).split()) > 3/4*self.tokenizer.model_max_length:
                     break
@@ -130,14 +136,14 @@ class SoapSummer():
                 else:
                     best_scene_idxs = new_best_scene_idxs
             for go_up_to in range(len(best_scene_idxs)):
-                if sum(len(ep.scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
+                if sum(len(scenes[sidx].split()) for sidx in best_scene_idxs[:go_up_to+1])*4/3 > self.dtokenizer.model_max_length:
                     break # next-one-up would push it over the edge
             idxs_to_use = sorted(best_scene_idxs[:go_up_to])
 
-            best_in_order = [ep.scenes[i] for i in idxs_to_use]
+            best_in_order = [scenes[i] for i in idxs_to_use]
             assert sum(len(x.split()) for x in best_in_order)*4/3 <= self.dtokenizer.model_max_length
             return best_in_order
-            #scene_sims = tfidf_sims(ep.scenes)
+            #scene_sims = tfidf_sims(scenes)
 
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])

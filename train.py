@@ -13,7 +13,7 @@ from utils import get_fn
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size',type=int,default=1)
-parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'], default='nocaptions')
+parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions','kosmos-only','swinbert-only'], default='nocaptions')
 parser.add_argument('--cpu',action='store_true')
 parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
 parser.add_argument('--uniform_breaks', action='store_true')
