@@ -37,10 +37,12 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite',action='store_true')
     parser.add_argument('--run_factscore',action='store_true')
     parser.add_argument('--only_get_facts',action='store_true')
+    parser.add_argument('--llama_size', type=str)
     ARGS = parser.parse_args()
+    assert ARGS.llama_size in ('7B', '13B', '70B')
 
 
-    fs = FactScorer(model_name='retrieval+llama+npm',
+    fs = FactScorer(model_name=f'retrieval+llama{ARGS.llama_size}+npm',
                     data_dir=".cache/factscore/",
                     model_dir="huggyllama",
                     cache_dir=".cache/factscore/",
@@ -50,7 +52,8 @@ if __name__ == '__main__':
 
 
     #gendir = join(expdir:=join('experiments',ARGS.expname), 'generations_test')
-    expdir = f'/rds/user/co-maho1/hpc-work/experiments/{ARGS.expname}'
+    #expdir = f'/rds/user/co-maho1/hpc-work/experiments/{ARGS.expname}'
+    expdir = f'experiments/{ARGS.expname}'
     gendir = join(expdir, 'generations_test')
     all_epnames = os.listdir(gendir)
     full_results = {}
@@ -71,7 +74,7 @@ if __name__ == '__main__':
         atomic_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, pred=pred)
 
         if not ARGS.only_get_facts:
-            factscore = fs.get_score(topics=['A summary of a TV show'],
+            factscore = fs.get_score(epname, topics=['A summary of a TV show'],
                           ref_summaries=[ep.summaries],
                           atomic_facts=[atomic_facts])
 
@@ -80,6 +83,8 @@ if __name__ == '__main__':
             full_results[epname] = {'factscore':factscore, 'rouge':rouge_score}
             all_factscores.append(factscore['score'])
             all_rouges.append(rouge_score)
+        if ARGS.is_test:
+            break
     if not ARGS.only_get_facts:
         rouges_arr = np.array(all_rouges).mean(axis=0)
         mean_factscore = np.array(all_factscores).mean()

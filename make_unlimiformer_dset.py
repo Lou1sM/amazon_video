@@ -46,4 +46,4 @@ for split in ('train','val','test'):
     with open(f'../unlimiformer/summscreen_for_unlimiformer_{split}.json','w') as f:
         json.dump(dpoints, f)
     with open(f'../unlimiformer/summscreen_for_unlimiformer_{split}_small.json','w') as f:
-        json.dump(dpoints[:20], f)
+        json.dump(dpoints[:10], f)

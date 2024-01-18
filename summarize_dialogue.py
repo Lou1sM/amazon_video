@@ -96,7 +96,6 @@ class SoapSummer():
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
             combined_scenes = chunkify(transcript_wo_scene_marks, self.dtokenizer.model_max_length)
             combined_caps = caps
-
         else:
             combined_scenes = scenes
             combined_caps = caps

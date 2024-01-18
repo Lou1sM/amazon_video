@@ -1,4 +1,5 @@
 import argparse
+from dl_utils.misc import check_dir
 import string
 import json
 import numpy as np
@@ -15,7 +16,7 @@ from factscore.retrieval import DocDB, Retrieval
 
 class FactScorer(object):
     def __init__(self, model_name, data_dir, model_dir, cache_dir, openai_key, cost_estimate, abstain_detection_type, batch_size=256):
-        assert model_name in ["retrieval+llama", "retrieval+llama+npm", "retrieval+ChatGPT", "npm", "retrieval+ChatGPT+npm"]
+        #assert model_name in ["retrieval+llama", "retrieval+llama+npm", "retrieval+ChatGPT", "npm", "retrieval+ChatGPT+npm"]
         self.model_name = model_name
 
         self.db = {}
@@ -34,9 +35,15 @@ class FactScorer(object):
         self.cost_estimate = cost_estimate
 
         if "llama" in model_name:
-            self.lm = CLM("inst-llama-13B",
-                          model_dir=os.path.join(model_dir, "llama-13b"),
-                          cache_file=os.path.join(cache_dir, "llama-13b.pkl"))
+            if 'llama7B' in model_name:
+                size = '7'
+            elif 'llama13B' in model_name:
+                size = '13'
+            elif 'llama70B' in model_name:
+                size = '70'
+            self.lm = CLM(f"inst-llama-{size}B",
+                          model_dir=os.path.join(model_dir, f"llama-{size}b"),
+                          cache_file=os.path.join(cache_dir, f"llama-{size}b.pkl"))
         elif "ChatGPT" in model_name:
             self.lm = OpenAIModel("ChatGPT",
                                   cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
@@ -84,7 +91,7 @@ class FactScorer(object):
 
         logging.critical("Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): $%.2f for %d words and %d tokens" % (task, rate, total_cost, total_words, total_tokens))
 
-    def get_score(self, topics, ref_summaries, generations=None, atomic_facts=None):
+    def get_score(self, epname, topics, ref_summaries, generations=None, atomic_facts=None):
         assert type(topics)==list
         assert (generations is None) != (atomic_facts is None), 'use exactly one of gens/facts'
         if atomic_facts is not None:
@@ -99,7 +106,7 @@ class FactScorer(object):
                 total_words += self.af_generator.run(gen, cost_estimate=self.cost_estimate)
 
             self.print_cost_estimates(total_words, task="atomic fact generation", model="davinci-003")
-            topics = tqdm(topics)
+            #topics = tqdm(topics)
             atomic_facts = []
             for topic, gen in zip(topics, generations):
                 # optionally, first detect if the response is abstained
@@ -122,14 +129,14 @@ class FactScorer(object):
         assert len(topics)==len(atomic_facts)
         respond_ratio = np.mean([facts is not None for facts in atomic_facts])
 
-        topics = tqdm(topics)
+        #topics = tqdm(topics)
         scores = []
         decisions = []
         for topic, facts, ep_ref_summs in zip(topics, atomic_facts, ref_summaries):
             if facts is None:
                 decisions.append(None)
             else:
-                decision = self._get_score(topic, facts, ep_ref_summs)
+                decision = self._get_score(epname, topic, facts, ep_ref_summs)
                 score = np.mean([d["is_supported"] for d in decision])
 
                 decisions.append(decision)
@@ -146,9 +153,16 @@ class FactScorer(object):
 
         return out
 
-    def _get_score(self, topic, atomic_facts, summaries_dict, cost_estimate=None):
+    def _get_score(self, epname, topic, atomic_facts, summaries_dict, cost_estimate=None):
         decisions = []
         total_words = 0
+        cache_dir = '../factscore_is_supporteds_caches/'
+        cache_path = os.path.join(cache_dir,f'{epname}-{self.model_name}.json')
+        if check_dir(cache_dir) and os.path.exists(cache_path):
+            with open(cache_path) as f:
+                cache = json.load(f)
+        else:
+            cache = {}
         for atom in atomic_facts:
             atom = atom.strip()
             definition = f'Answer the question about {topic} based on the given context.\n\n'
@@ -164,28 +178,34 @@ class FactScorer(object):
                 n = len(prompt.split())
                 self.print_cost_estimates(n, task="factscore evaluation", model="gpt-3.5-turbo")
 
-            output = self.lm.generate(prompt)
+            if atom in cache:
+                is_supported = cache[atom]
+            else:
+                output = self.lm.generate(prompt)
 
-            if type(output[1])==np.ndarray:# when logits are available
-                logits = np.array(output[1])
-                assert logits.shape[0] in [32000, 32001]
-                true_score = logits[5852]
-                false_score = logits[7700]
-                is_supported = true_score > false_score
-            else:# when logits are unavailable
-                generated_answer = output[0].lower()
-                if "true" in generated_answer or "false" in generated_answer:
-                    if "true" in generated_answer and "false" not in generated_answer:
-                        is_supported = True
-                    elif "false" in generated_answer and "true" not in generated_answer:
-                        is_supported = False
+                if type(output[1])==np.ndarray:# when logits are available
+                    logits = np.array(output[1])
+                    assert logits.shape[0] in [32000, 32001]
+                    true_score = logits[5852]
+                    false_score = logits[7700]
+                    is_supported = true_score > false_score
+                else:# when logits are unavailable
+                    generated_answer = output[0].lower()
+                    if "true" in generated_answer or "false" in generated_answer:
+                        if "true" in generated_answer and "false" not in generated_answer:
+                            is_supported = True
+                        elif "false" in generated_answer and "true" not in generated_answer:
+                            is_supported = False
+                        else:
+                            is_supported = generated_answer.index("true") > generated_answer.index("false")
                     else:
-                        is_supported = generated_answer.index("true") > generated_answer.index("false")
-                else:
-                    is_supported = all([kw not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for kw in ["not", "cannot", "unknown", "information"]])
+                        is_supported = all([kw not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for kw in ["not", "cannot", "unknown", "information"]])
+                cache[atom] = bool(is_supported)
 
             decisions.append({"atom": atom, "is_supported": is_supported})
 
+        with open(cache_path, 'w') as f:
+            json.dump(cache, f)
         if cost_estimate:
             return total_words
         else:
@@ -253,6 +273,6 @@ if __name__ == '__main__':
     logging.critical("# Atomic facts per valid response = %.1f" % (out["num_facts_per_response"]))
 
     # Save out as a json file
-    with open(args.input_path.replace(".jsonl", f"_factscore_output.json"), 'w') as f:
+    with open(args.input_path.replace(".jsonl", "_factscore_output.json"), 'w') as f:
         f.write(json.dumps(out) + "\n")
 
