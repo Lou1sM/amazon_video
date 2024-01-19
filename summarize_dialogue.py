@@ -408,7 +408,6 @@ def tfidf_sims(docs):
     sims = vec_arr @ np.transpose(vec_arr)
 
 
-
 if __name__ == '__main__':
     import openai
     import argparse
