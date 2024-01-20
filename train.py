@@ -8,7 +8,7 @@ import os
 from os.path import join
 from summarize_dialogue import SoapSummer
 import sys
-from utils import get_fn
+from utils import get_fn, display_rouges
 
 
 parser = argparse.ArgumentParser()
@@ -145,9 +145,6 @@ if ARGS.eval_first:
     print(f'Mean Rouge: {rouges_arr}')
 
 test_rouges, best_val_rouges, all_val_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.no_pbar, ARGS.early_stop_metric)
-
-def display_rouges(r):
-    return list(zip(['r1','r2','rL','rLsum'],r))
 
 print(display_rouges(test_rouges))
 

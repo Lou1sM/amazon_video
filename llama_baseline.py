@@ -1,11 +1,10 @@
 from tqdm import tqdm
-from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training
+from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, PeftModel, PeftConfig
 from dl_utils.misc import check_dir
 from dl_utils.tensor_funcs import cudify
 from utils import rouge_from_multiple_refs
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from factscore.utils import convert_model_to_int8_on_gpu
 import numpy as np
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq, get_scheduler
 from dl_utils.misc import set_experiment_dir
@@ -15,42 +14,26 @@ import torch
 import os
 from os.path import join
 import sys
+from utils import display_rouges
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--bs',type=int,default=1)
-parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions','kosmos-only','swinbert-only'], default='nocaptions')
-parser.add_argument('--expname',type=str)
-parser.add_argument('--expdir_prefix',type=str,default='experiments')
-parser.add_argument('--n_dpoints',type=int,default=-1)
-parser.add_argument('--n_epochs',type=int,default=10)
-parser.add_argument('--reload_from',type=str, default='none')
-parser.add_argument('-t','--is_test',action='store_true')
-parser.add_argument('--overwrite',action='store_true')
-parser.add_argument('--retokenize',action='store_true')
-ARGS = parser.parse_args()
-
-if ARGS.expname is None and not ARGS.is_test:
-    sys.exit('must set explicit expname when not in test mode')
-elif ARGS.is_test:
-    ARGS.expname='llamatmp'
-    ARGS.n_epochs = 2
-    ARGS.n_dpoints = 10
-if not ARGS.expname.startswith('llama'):
-    ARGS.expname = 'llama'+ARGS.expname
-
-expdir = join(ARGS.expdir_prefix,ARGS.expname)
-if ARGS.reload_from != 'none':
-    assert os.path.exists(expdir)
-else:
-    set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
-if ARGS.reload_from=='none':
-    chkpt_path = 'huggyllama/llama-13b'
-else:
-    chkpt_path = f'./{expdir}/checkpoints/{ARGS.reload_from}'
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
+def load_peft_model(base_model_name_or_path, chkpt_path):
+    print('loading model from', base_model_name_or_path)
+    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
+    if chkpt_path is None:
+        print('no peft chkpt to update from')
+        model = prepare_model_for_int8_training(model)
+        lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
+        model = get_peft_model(model,lora_config)
+    else:
+        print('updating model with peft chkpt from', chkpt_path)
+        config = PeftConfig.from_pretrained(chkpt_path)
+        assert config.base_model_name_or_path==base_model_name_or_path
+        model.enable_input_require_grads()
+        model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
+        model._mark_only_adapters_as_trainable()
+        assert any([x.requires_grad for x in model.parameters()])
+    return model
 
 def train_preproc_fn(examples):
     inputs = tokenizer(['Summarize the following TV show:' + dpoint for dpoint in examples['input']])
@@ -93,54 +76,78 @@ def get_maybe_cached_dset(fragment, preproc_fn):
         tokenized_dset.save_to_disk(cache_path)
     return tokenized_dset
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--bs',type=int,default=1)
+parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions','kosmos-only','swinbert-only'], default='nocaptions')
+parser.add_argument('--expname',type=str)
+parser.add_argument('--expdir_prefix',type=str,default='experiments')
+parser.add_argument('--n_dpoints',type=int,default=-1)
+parser.add_argument('--n_epochs',type=int,default=10)
+parser.add_argument('--reload_from',type=str, default=None)
+parser.add_argument('-t','--is_test',action='store_true')
+parser.add_argument('--overwrite',action='store_true')
+parser.add_argument('--retokenize',action='store_true')
+ARGS = parser.parse_args()
+
+if ARGS.expname is None and not ARGS.is_test:
+    sys.exit('must set explicit expname when not in test mode')
+elif ARGS.is_test:
+    ARGS.expname='llamatmp'
+    ARGS.n_epochs = 2
+    ARGS.n_dpoints = 10
+if not ARGS.expname.startswith('llama'):
+    ARGS.expname = 'llama'+ARGS.expname
+
+expdir = join(ARGS.expdir_prefix,ARGS.expname)
+base_model_name = 'seanmor5/tiny-llama-test' if ARGS.is_test else 'huggyllama/llama-7b'
+reload_chkpt_path = None if ARGS.reload_from is None else f'./{expdir}/checkpoints/{ARGS.reload_from}'
+if ARGS.reload_from is None:
+    set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
+else:
+    assert os.path.exists(expdir)
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
+
 tokenized_trainset = get_maybe_cached_dset('train', train_preproc_fn)
 tokenized_valset = get_maybe_cached_dset('val', test_preproc_fn)
 tokenized_testset = get_maybe_cached_dset('test', test_preproc_fn)
 
-def load_peft_model(chkpt_path_for_peft):
-    model = AutoModelForCausalLM.from_pretrained('seanmor5/tiny-llama-test' if ARGS.is_test else chkpt_path, load_in_8bit=True)
-    model = prepare_model_for_int8_training(model)
-
-    lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
-    model = get_peft_model(model,lora_config)
-    #model = convert_model_to_int8_on_gpu(model, device='cuda')
-    return model
-
-model = load_peft_model(chkpt_path)
+model = load_peft_model(base_model_name, reload_chkpt_path)
 dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 trainloader = DataLoader(tokenized_trainset, batch_size=ARGS.bs, shuffle=True, collate_fn=dc)
 tokenizer.pad_token = tokenizer.eos_token
-#trainloader = DataLoader(tokenized_trainset, batch_size=4, shuffle=True)
 
 def inference_epoch(dset,fragment):
     rouges = []
     prev = ''
     epoch_rouge = np.zeros(4)
     check_dir(generations_dir := join(expdir, f'generations_{fragment}'))
-    for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
-        preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]))
-        nl_outputs_ = tokenizer.batch_decode(preds)
-        assert len(nl_outputs_) == 1
-        nl_outputs = nl_outputs_[0]
-        if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
-            print('repeat output')
-        prev = nl_outputs
-        references = [v for k,v in batch.items() if k not in ('input_ids','attention_mask') and v is not None]
-        best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
+    with torch.no_grad():
+        for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
+            preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]))
+            nl_outputs_ = tokenizer.batch_decode(preds)
+            assert len(nl_outputs_) == 1
+            nl_outputs = nl_outputs_[0]
+            if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
+                print('repeat output')
+            prev = nl_outputs
+            references = [v for k,v in batch.items() if k not in ('input_ids','attention_mask') and v is not None]
+            best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
 
-        rouges.append(best_rouge)
-        epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg
-        pbar.set_description(f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
-                         f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
-        epname = batch['epname']
-        with open(f'{generations_dir}/{epname}.txt','w') as f:
-            f.write(nl_outputs)
-        if j==2 and ARGS.is_test:
-            break
+            rouges.append(best_rouge)
+            epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg
+            pbar.set_description(f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
+                             f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
+            epname = batch['epname']
+            with open(f'{generations_dir}/{epname}.txt','w') as f:
+                f.write(nl_outputs)
+            if j==2 and ARGS.is_test:
+                break
     return np.array(rouges)
 
-to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[32:].parameters()
-for p in model.model.model.layers[:32].parameters():
+to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
+for p in model.model.model.layers[:24].parameters():
     p.require_grad = False
 
 opt = AdamW(to_opt,lr=1e-6)
@@ -148,9 +155,9 @@ num_training_steps = ARGS.n_epochs * len(trainloader)
 lr_scheduler = get_scheduler(name="linear", optimizer=opt, num_warmup_steps=0, num_training_steps=num_training_steps)
 
 def save_model(save_path):
-    print('saving to {save_path}')
-    model.model.save_pretrained(save_path)
-best_val_rl = 0
+    print(f'saving to {save_path}')
+    model.save_pretrained(save_path)
+best_val_rouges = np.zeros(4)
 patience = 0
 epoch_loss = 0
 best_chkpt_path = f'{expdir}/checkpoints/best'
@@ -173,8 +180,8 @@ for en in range(ARGS.n_epochs):
             break
     save_model(f'{expdir}/checkpoints/epoch{en}')
     val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
-    if val_rouges[2] > best_val_rl:
-        best_val_rl = val_rouges[2]
+    if val_rouges[2] > best_val_rouges[2]:
+        best_val_rouges = val_rouges
         save_model(f'{expdir}/checkpoints/best')
     else:
         patience += 1
@@ -183,7 +190,12 @@ for en in range(ARGS.n_epochs):
         break
 
 if os.path.exists(best_chkpt_path):
-    model = load_peft_model(best_chkpt_path)
+    model = load_peft_model(base_model_name, best_chkpt_path)
 else:
-    assert best_val_rl==0 # should only happen if all rouges remained zero for some reason
+    assert best_val_rouges[2]==0 # should only happen if all rouges remained zero for some reason
 test_rouges = inference_epoch(tokenized_testset, 'test').mean(axis=0)
+results_path = join(expdir,'results.txt')
+with open(results_path,'w') as f:
+    f.write('\nTEST ROUGES:\n')
+    for rname,rscore in display_rouges(test_rouges):
+        f.write(f'{rname}: {rscore:.5f}\n')

@@ -10,6 +10,9 @@ rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
                                                  alpha=0.5, # Default F1_score
                                                  stemming=False)
 
+def display_rouges(r):
+    return list(zip(['r1','r2','rL','rLsum'],r))
+
 def rouge_preprocess(text):
     text = rouge.Rouge.REMOVE_CHAR_PATTERN.sub(' ', text.lower()).strip()
     tokens = rouge.Rouge.tokenize_text(rouge.Rouge.KEEP_CANNOT_IN_ONE_WORD.sub('_cannot_', text))
