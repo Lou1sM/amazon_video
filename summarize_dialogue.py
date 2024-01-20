@@ -353,7 +353,7 @@ class SoapSummer():
                 f.write(nl_outputs)
             if j==2 and self.is_test:
                 break
-        return rouges
+        return np.array(rouges).mean(axis=0)
 
     def train_epochs(self, n_epochs, trainset, valset, testset, no_pbar, early_stop_metric):
         self.opt = AdamW(self.model.model.decoder.parameters(),lr=1e-6)
@@ -388,8 +388,8 @@ class SoapSummer():
         best_chkpt = f'{self.expdir}/checkpoints/best'
         print('reloading', best_chkpt)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
-        self.inference_epoch(self.n_epochs, testset, 'test')
-        return alltime_best_rouges, all_rouges
+        test_rouges = self.inference_epoch(self.n_epochs, testset, 'test')
+        return test_rouges, alltime_best_rouges, all_rouges
 
 def tfidf_sims(docs):
     all_words = ' '.join(docs).split()

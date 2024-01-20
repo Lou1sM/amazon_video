@@ -57,7 +57,11 @@ elif ARGS.is_test:
     ARGS.n_dpoints = 10
 
 
-expdir = set_experiment_dir(join(ARGS.expdir_prefix,ARGS.expname), ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'tmp'))
+expdir = join(ARGS.expdir_prefix,ARGS.expname)
+if ARGS.reload_from != 'none':
+    assert os.path.isdir(expdir)
+else:
+    set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'tmp'))
 
 device = torch.device('cuda' if torch.cuda.is_available() and not ARGS.cpu else 'cpu')
 
@@ -68,7 +72,7 @@ print(f'using model {model_name}')
 if ARGS.reload_from=='none':
     chkpt_path = model_name
 else:
-    chkpt_path = f'./experiments/{ARGS.expname}/checkpoints/epoch{ARGS.reload_from}'
+    chkpt_path = f'./experiments/{ARGS.expname}/checkpoints/{ARGS.reload_from}'
 
 print(f'loading model from {chkpt_path}')
 if ARGS.startendscenes or ARGS.centralscenes:
@@ -140,19 +144,23 @@ if ARGS.eval_first:
     rouges_arr = np.array(rouges).mean(axis=0)
     print(f'Mean Rouge: {rouges_arr}')
 
-alltime_best_rouges, all_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.no_pbar, ARGS.early_stop_metric)
+test_rouges, val_best_rouges, all_val_rouges = ss.train_epochs(ARGS.n_epochs, trainset, valset, testset, ARGS.no_pbar, ARGS.early_stop_metric)
 
 def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
 
-print(display_rouges(alltime_best_rouges))
+print(display_rouges(test_rouges))
 
 results_path = join(expdir,'results.txt')
 with open(results_path,'w') as f:
-    for rname,rscore in display_rouges(alltime_best_rouges):
+    f.write('\nTEST ROUGES:\n')
+    for rname,rscore in display_rouges(test_rouges):
         f.write(f'{rname}: {rscore:.5f}\n')
-    f.write('\nALL ROUGES:\n')
-    for r in all_rouges:
+    f.write('\nBEST VAL ROUGES:\n')
+    for rname,rscore in display_rouges(all_val_rouges):
+        f.write(f'{rname}: {rscore:.5f}\n')
+    f.write('\nALL VAL ROUGES:\n')
+    for r in all_val_rouges:
         for rname, rscore in display_rouges(r):
             f.write(f'{rname}: {rscore:.5f}\t')
         f.write('\n')
