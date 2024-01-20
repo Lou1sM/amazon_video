@@ -144,6 +144,8 @@ class SoapSummer():
             return best_in_order
             #scene_sims = tfidf_sims(scenes)
 
+        if self.caps_only:
+            return combined_caps
         chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks

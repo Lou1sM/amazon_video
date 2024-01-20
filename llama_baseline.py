@@ -99,13 +99,12 @@ if not ARGS.expname.startswith('llama'):
 
 expdir = join(ARGS.expdir_prefix,ARGS.expname)
 base_model_name = 'seanmor5/tiny-llama-test' if ARGS.is_test else 'huggyllama/llama-7b'
-reload_chkpt_path = None if ARGS.reload_from is None else f'./{expdir}/checkpoints/{ARGS.reload_from}'
+reload_chkpt_path = None if ARGS.reload_from is None else f'{expdir}/checkpoints/{ARGS.reload_from}'
 if ARGS.reload_from is None:
     set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
 else:
     assert os.path.exists(expdir)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
 
 tokenized_trainset = get_maybe_cached_dset('train', train_preproc_fn)
@@ -141,7 +140,7 @@ def inference_epoch(dset,fragment):
             epname = batch['epname']
             with open(f'{generations_dir}/{epname}.txt','w') as f:
                 f.write(nl_outputs)
-            if j==2 and ARGS.is_test:
+            if (j==2 and ARGS.is_test) or (j==ARGS.n_dpoints-1):
                 break
     return np.array(rouges)
 
@@ -175,7 +174,7 @@ for en in range(ARGS.n_epochs):
         epoch_loss = ((i*epoch_loss) + loss.item()) / (i+1) # running avg
         pbar.set_description(f'Epoch: {en}/{ARGS.n_epochs}'
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
-        if ARGS.is_test:
+        if ARGS.is_test or (i*ARGS.bs >= ARGS.n_dpoints):
             break
     save_model(f'{expdir}/checkpoints/epoch{en}')
     val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
@@ -184,7 +183,7 @@ for en in range(ARGS.n_epochs):
         save_model(f'{expdir}/checkpoints/best')
     else:
         patience += 1
-    print(f'Mean Rouge: {val_rouges}\tPatience: {patience}')
+    print(f'Mean Rouge: {val_rouges}\tPatience: {patience}\t')
     if patience == 2:
         break
 
