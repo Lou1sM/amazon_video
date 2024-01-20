@@ -31,7 +31,6 @@ def load_peft_model(base_model_name_or_path, chkpt_path):
         assert config.base_model_name_or_path==base_model_name_or_path
         model.enable_input_require_grads()
         model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
-        model._mark_only_adapters_as_trainable()
         assert any([x.requires_grad for x in model.parameters()])
     return model
 
