@@ -39,11 +39,15 @@ elif ARGS.is_test:
 if not ARGS.expname.startswith('llama'):
     ARGS.expname = 'llama'+ARGS.expname
 
-expdir = set_experiment_dir(join(ARGS.expdir_prefix,ARGS.expname), ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
+expdir = join(ARGS.expdir_prefix,ARGS.expname)
+if ARGS.reload_from != 'none':
+    assert os.path.exists(expdir)
+else:
+    set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
 if ARGS.reload_from=='none':
     chkpt_path = 'huggyllama/llama-13b'
 else:
-    chkpt_path = f'./{expdir}/checkpoints/epoch{ARGS.reload_from}'
+    chkpt_path = f'./{expdir}/checkpoints/{ARGS.reload_from}'
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
@@ -93,13 +97,16 @@ tokenized_trainset = get_maybe_cached_dset('train', train_preproc_fn)
 tokenized_valset = get_maybe_cached_dset('val', test_preproc_fn)
 tokenized_testset = get_maybe_cached_dset('test', test_preproc_fn)
 
-model = AutoModelForCausalLM.from_pretrained('seanmor5/tiny-llama-test' if ARGS.is_test else chkpt_path, load_in_8bit=True)
-model = prepare_model_for_int8_training(model)
+def load_peft_model(chkpt_path_for_peft):
+    model = AutoModelForCausalLM.from_pretrained('seanmor5/tiny-llama-test' if ARGS.is_test else chkpt_path, load_in_8bit=True)
+    model = prepare_model_for_int8_training(model)
 
-lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
-model = get_peft_model(model,lora_config)
-#model = convert_model_to_int8_on_gpu(model, device='cuda')
+    lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
+    model = get_peft_model(model,lora_config)
+    #model = convert_model_to_int8_on_gpu(model, device='cuda')
+    return model
 
+model = load_peft_model(chkpt_path)
 dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 trainloader = DataLoader(tokenized_trainset, batch_size=ARGS.bs, shuffle=True, collate_fn=dc)
 tokenizer.pad_token = tokenizer.eos_token
@@ -140,9 +147,13 @@ opt = AdamW(to_opt,lr=1e-6)
 num_training_steps = ARGS.n_epochs * len(trainloader)
 lr_scheduler = get_scheduler(name="linear", optimizer=opt, num_warmup_steps=0, num_training_steps=num_training_steps)
 
+def save_model(save_path):
+    print('saving to {save_path}')
+    model.model.save_pretrained(save_path)
 best_val_rl = 0
 patience = 0
 epoch_loss = 0
+best_chkpt_path = f'{expdir}/checkpoints/best'
 for en in range(ARGS.n_epochs):
     print('Epoch',en)
     model.train()
@@ -160,12 +171,19 @@ for en in range(ARGS.n_epochs):
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
         if ARGS.is_test:
             break
+    save_model(f'{expdir}/checkpoints/epoch{en}')
     val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
     if val_rouges[2] > best_val_rl:
         best_val_rl = val_rouges[2]
+        save_model(f'{expdir}/checkpoints/best')
     else:
         patience += 1
     print(f'Mean Rouge: {val_rouges}\tPatience: {patience}')
     if patience == 2:
         break
+
+if os.path.exists(best_chkpt_path):
+    model = load_peft_model(best_chkpt_path)
+else:
+    assert best_val_rl==0 # should only happen if all rouges remained zero for some reason
 test_rouges = inference_epoch(tokenized_testset, 'test').mean(axis=0)

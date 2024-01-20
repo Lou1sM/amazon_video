@@ -369,8 +369,9 @@ class SoapSummer():
             print(f'training epoch {epoch}')
             epoch_loss = self.train_one_epoch(epoch, trainloader, no_pbar)
             print(f'Epoch: {epoch}\tLoss: {epoch_loss:.5f}')
-            rouges = self.inference_epoch(epoch, valset, 'val')
-            rouges_arr = np.array(rouges).mean(axis=0)
+            rouges_arr = self.inference_epoch(epoch, valset, 'val')
+            #rouges = self.inference_epoch(epoch, valset, 'val')
+            #rouges_arr = np.array(rouges).mean(axis=0)
             if len(all_rouges)>0 and (rouges_arr==all_rouges[-1]).all():
                 print('WARNING: rouge unchanged since last epoch')
             else:
