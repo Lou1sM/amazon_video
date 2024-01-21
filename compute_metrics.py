@@ -48,6 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite',action='store_true')
     parser.add_argument('--allow_bs_cache',action='store_true')
     parser.add_argument('--llama_size', type=str)
+    parser.add_argument('--expdir_prefix', type=str, default='experiments')
     parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all'], default=['all'])
     ARGS = parser.parse_args()
     #assert ARGS.llama_size in ('7B', '13B', '70B')
@@ -62,9 +63,9 @@ if __name__ == '__main__':
                     abstain_detection_type='generic')
 
 
-    #gendir = join(expdir:=join('experiments',ARGS.expname), 'generations_test')
     #expdir = f'/rds/user/co-maho1/hpc-work/experiments/{ARGS.expname}'
-    expdir = f'experiments/{ARGS.expname}'
+    #expdir = f'experiments/{ARGS.expname}'
+    expdir = join(ARGS.expdir_prefix, ARGS.expname)
     gendir = join(expdir, 'generations_test')
 
     if ARGS.metrics == ['all']:
