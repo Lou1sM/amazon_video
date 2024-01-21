@@ -66,11 +66,14 @@ def test_preproc_fn(examples):
     return results
 
 def get_maybe_cached_dset(fragment, preproc_fn):
-    cache_path = f'SummScreen/cached_tokenized/{fragment}set_for_baseline'
+    cache_path = f'SummScreen/cached_tokenized/{fragment}set_for_llama_baseline'
     if os.path.exists(cache_path) and not ARGS.retokenize:
+        print(f'dataset has been cached on disk at {cache_path}, loading from there')
         tokenized_dset = load_from_disk(cache_path)
     else:
-        dset = load_dataset('json', data_files=f'SummScreen/baseline_{fragment}set.json')
+        json_dset_path = f'SummScreen/baseline_{fragment}set.json'
+        print(f'no cached data found on disk at {cache_path}, loading json datset from {json_dset_path}')
+        dset = load_dataset('json', data_files=json_dset_path)
         tokenized_dset = dset['train'].map(preproc_fn, batched=True, num_proc=1, remove_columns=dset['train'].column_names)
         tokenized_dset.save_to_disk(cache_path)
     return tokenized_dset
@@ -174,7 +177,7 @@ for en in range(ARGS.n_epochs):
         epoch_loss = ((i*epoch_loss) + loss.item()) / (i+1) # running avg
         pbar.set_description(f'Epoch: {en}/{ARGS.n_epochs}'
                                  f'current loss: {loss.item():.4f}  epoch loss: {epoch_loss:.4f}')
-        if ARGS.is_test or (i*ARGS.bs >= ARGS.n_dpoints):
+        if ARGS.is_test or (ARGS.n_dpoints!=-1 and i*ARGS.bs >= ARGS.n_dpoints):
             break
     save_model(f'{expdir}/checkpoints/epoch{en}')
     val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
