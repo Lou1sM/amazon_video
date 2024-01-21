@@ -21,7 +21,7 @@ def get_maybe_cached_atomic_facts(maybe_cached_path, generator, nl_text=None, pa
     else:
         if nl_text is None:
             with open(path) as f:
-                pred = f.read()
+                nl_text = f.read()
         pred_facts_and_sources, para_breaks = generator.run(nl_text)
         pred_facts = [x for line in pred_facts_and_sources for x in line[1]]
         with open(maybe_cached_path,'w') as f:
@@ -46,20 +46,11 @@ if __name__ == '__main__':
     parser.add_argument('--expname',type=str,default='tmp')
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--overwrite',action='store_true')
-    parser.add_argument('--run_factscore',action='store_true')
-    parser.add_argument('--only_get_facts',action='store_true')
-    parser.add_argument('--is_reversed',action='store_true')
+    parser.add_argument('--allow_bs_cache',action='store_true')
     parser.add_argument('--llama_size', type=str)
     parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all'], default=['all'])
     ARGS = parser.parse_args()
     #assert ARGS.llama_size in ('7B', '13B', '70B')
-    if ARGS.metrics == ['all']:
-        ARGS.metrics = all_metrics
-    if 'rouge' in ARGS.metrics:
-        ARGS.metrics = [m for m in ARGS.metrics if m!='rouge']+['r1','r2','rl','rlsum']
-    if 'bertscore' in ARGS.metrics:
-        ARGS.metrics = [m for m in ARGS.metrics if m!='bertscore']+['bs-precision','bs-recall','bs-f1']
-
 
     llama_size = '7B' if ARGS.is_test else '13B'
     fs = FactScorer(model_name=f'retrieval+llama{llama_size}+npm',
@@ -75,6 +66,16 @@ if __name__ == '__main__':
     #expdir = f'/rds/user/co-maho1/hpc-work/experiments/{ARGS.expname}'
     expdir = f'experiments/{ARGS.expname}'
     gendir = join(expdir, 'generations_test')
+
+    if ARGS.metrics == ['all']:
+        ARGS.metrics = all_metrics
+    if 'rouge' in ARGS.metrics:
+        ARGS.metrics = [m for m in ARGS.metrics if m!='rouge']+['r1','r2','rl','rlsum']
+    if 'bertscore' in ARGS.metrics:
+        bertscore = load("bertscore")
+        ARGS.metrics = [m for m in ARGS.metrics if m!='bertscore']+['bs-precision','bs-recall','bs-f1']
+        check_dir(bs_cache_dir := join(expdir,'bertscore_cache'))
+
     all_epnames = os.listdir(gendir)
     full_results = {m:{} for m in ARGS.metrics}
     all_factscores = []
@@ -121,8 +122,14 @@ if __name__ == '__main__':
 
         if 'bs-f1' in ARGS.metrics:
             pbar.set_description(f'Computing bertscore for {epname}')
-            bertscore = load("bertscore")
-            all_bss = bertscore.compute(predictions=[pred_summ]*len(gt_summs), references=list(gt_summs.values()), lang="en")
+            maybe_bs_cache_path = join(bs_cache_dir,f'{epname}.json')
+            if os.path.exists(maybe_bs_cache_path) and ARGS.allow_bs_cache:
+                with open(maybe_bs_cache_path) as f:
+                    all_bss = json.load(f)
+            else:
+                all_bss = bertscore.compute(predictions=[pred_summ]*len(gt_summs), references=list(gt_summs.values()), lang="en")
+                with open(maybe_bs_cache_path,'w') as f:
+                    json.dump(all_bss,f)
             summ_idx_to_pick = np.array(all_bss['f1']).argmax()
             for k,v in all_bss.items():
                 if k!='hashcode':
@@ -140,7 +147,8 @@ if __name__ == '__main__':
         m_results = results_df[m].to_dict()
         #v['mean'] = sum(v.values())/len(v)
         #v['std'] = (sum((x-v['mean'])**2 for x in v.values())/len(v))**.5
-        with open(join(expdir, f'{k}-full-results.json'), 'w') as f:
+        check_dir(res_dir := join(expdir,'results_by_ep'))
+        with open(join(res_dir, f'{m}-full-results.json'), 'w') as f:
             json.dump(m_results,f)
 
     results_df.to_csv(join(expdir, 'full_results.csv'))
