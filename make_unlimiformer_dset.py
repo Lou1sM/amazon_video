@@ -60,7 +60,7 @@ for split in ('train','val','test'):
     with open(f'SummScreen/baseline_{split}set_small.json','w') as f:
         json.dump(dpoints[:10], f)
 
-    with open(f'SummScreen/baseline_{split}set.json','w') as f:
+    with open(f'SummScreen/capped_baseline_{split}set.json','w') as f:
         json.dump(capped_dpoints, f)
-    with open(f'SummScreen/baseline_{split}set_small.json','w') as f:
+    with open(f'SummScreen/capped_baseline_{split}set_small.json','w') as f:
         json.dump(capped_dpoints[:10], f)

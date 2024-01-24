@@ -17,6 +17,13 @@ import sys
 from utils import display_rouges
 
 
+tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
+
+prompt_prefix = 'Summarize the following TV show transcript.\n\n<Transcript Start>\n'
+prompt_suffix = '\n<Transcript End>\n\nSummary:'
+tok_pp = tokenizer(prompt_prefix)['input_ids']
+tok_ps = tokenizer(prompt_suffix)['input_ids'][1:]
+
 def load_peft_model(base_model_name_or_path, chkpt_path):
     print('loading model from', base_model_name_or_path)
     model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
@@ -34,21 +41,22 @@ def load_peft_model(base_model_name_or_path, chkpt_path):
         assert any([x.requires_grad for x in model.parameters()])
     return model
 
-prompt_prefix = 'Summarize the following TV show:' 
-
-def get_clipped(inputs, labels):
-    clipped_inputs = [x[:tokenizer.model_max_length-len(lab)]+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
-    clipped_labels = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab)))+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
+def get_clipped(inputs, labs):
+    # add [2] (eos_token_id) manually because not added by tokenizer for some reason
+    clipped_inputs = [tok_pp+x[1:tokenizer.model_max_length-len(lab+tok_pp+tok_ps)]+tok_ps+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<tokenizer.model_max_length]
+    clipped_labs = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab+tok_pp+tok_ps))+len(tok_pp+tok_ps)-1)+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<tokenizer.model_max_length]
     clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
-    return clipped_inputs, clipped_labels, clipped_attn_masks
+    for cinp, clab, x, lab in zip(clipped_inputs, clipped_labs, inputs['input_ids'], labs['input_ids']):
+        if len(cinp)!=len(clab):
+            print(len(cinp), len(clab), len(x), len(lab))
+            breakpoint()
+    return clipped_inputs, clipped_labs, clipped_attn_masks
 
 def train_preproc_fn(examples):
-    inputs = tokenizer([prompt_prefix + dpoint for dpoint in examples['input']])
+    inputs = tokenizer([dpoint for dpoint in examples['input']])
     assert all([x==1 for dp in inputs['attention_mask'] for x in dp])
-    labels = tokenizer([dpoint for dpoint in examples['output']])
+    labels = tokenizer([dpoint+tokenizer.eos_token for dpoint in examples['output']])
     assert all([x==1 for dp in labels['attention_mask'] for x in dp])
-    #clipped_inputs = [x[:tokenizer.model_max_length-len(lab)]+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
-    #clipped_labels = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab)))+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
     clipped_inputs, clipped_labels, clipped_attn_masks = get_clipped(inputs, labels)
     clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
     results = {}
@@ -60,17 +68,17 @@ def train_preproc_fn(examples):
     assert all(len(x)==len(y) for x,y in zip(results['labels'],results['attention_mask']))
     return results
 
+def first_n_tokens(text, n):
+    ts = text.split()
+    go_up_to_idx = len(' '.join(ts[:n*3//4]))
+    return text[:go_up_to_idx] #idx orig to keep whitespace right
+
 def test_preproc_fn(examples):
-    inputs = tokenizer([prompt_prefix + dpoint for dpoint in examples['transcript']])
-    assert all([x==1 for dp in inputs['attention_mask'] for x in dp])
-    labels = tokenizer([dpoint for dpoint in examples['output']])
-    assert all([x==1 for dp in labels['attention_mask'] for x in dp])
-    clipped_inputs, clipped_labels, clipped_attn_masks = get_clipped(inputs, labels)
-    #clipped_inputs = [x[:tokenizer.model_max_length] for x in inputs['input_ids']]
-    #clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
+    inputs = tokenizer([prompt_prefix + first_n_tokens(dpoint,1240) + prompt_suffix for dpoint in examples['transcript']])['input_ids']
+    attn_masks = [[1]*len(x) for x in inputs]
     results = {}
-    results['input_ids'] = clipped_inputs
-    results['attention_mask'] = clipped_attn_masks
+    results['input_ids'] = inputs
+    results['attention_mask'] = attn_masks
     for k in ('epname', 'soapcentral_condensed', 'tvmega_recap', 'imdb'):
         results[k] = examples[k]
 
@@ -107,7 +115,7 @@ if ARGS.expname is None and not ARGS.is_test:
     sys.exit('must set explicit expname when not in test mode')
 elif ARGS.is_test:
     ARGS.expname='llamatmp'
-    ARGS.n_epochs = 2
+    ARGS.n_epochs = min(ARGS.n_epochs,2)
     ARGS.n_dpoints = 10
 if not ARGS.expname.startswith('llama'):
     ARGS.expname = 'llama'+ARGS.expname
@@ -119,8 +127,6 @@ if ARGS.reload_from is None:
     set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
 else:
     assert os.path.exists(expdir)
-
-tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
 
 tokenized_trainset = get_maybe_cached_dset('train', train_preproc_fn)
 tokenized_valset = get_maybe_cached_dset('val', test_preproc_fn)
@@ -138,14 +144,14 @@ def inference_epoch(dset,fragment):
     check_dir(generations_dir := join(expdir, f'generations_{fragment}'))
     with torch.no_grad():
         for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            #preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]), min_length=2028, max_new_tokens=200)
-            preds = model.generate(input_ids=cudify([batch['input_ids'][:2000]]), min_length=2048, max_length=2048)
-            nl_outputs_ = tokenizer.batch_decode(preds[2000:])
-            breakpoint()
+            #preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]))
+            preds = model.generate(input_ids=cudify([batch['input_ids']]), min_length=2048, max_length=2048)
+            nl_outputs_ = tokenizer.batch_decode(preds[:,len(batch['input_ids']):], skip_special_tokens=True, cleanup_tokenization_spaces=True)
             assert len(nl_outputs_) == 1
             nl_outputs = nl_outputs_[0]
             print(len(preds[0]))
             print(nl_outputs)
+            breakpoint()
             if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
                 print('repeat output')
             prev = nl_outputs
@@ -164,8 +170,8 @@ def inference_epoch(dset,fragment):
     return np.array(rouges)
 
 to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
-for p in model.model.model.layers[:24].parameters():
-    p.require_grad = False
+#for p in model.model.model.layers[:24].parameters():
+    #p.require_grad = False
 
 opt = AdamW(to_opt,lr=1e-6)
 num_training_steps = ARGS.n_epochs * len(trainloader)
@@ -186,6 +192,8 @@ for en in range(ARGS.n_epochs):
         opt.zero_grad()
         cbatch = {k:cudify(v) for k,v in batch.items()}
         cbatch['labels'] = cbatch['labels'].contiguous()
+        breakpoint()
+        print(tokenizer.batch_decode(cbatch['input_ids'])[0])
         outputs = model(**cbatch)
         loss = outputs[0]
         loss.backward()
