@@ -41,12 +41,14 @@ def get_factscore(facts, knowledge_base_text, epname): #epname need for caching
 if __name__ == '__main__':
     generator = AtomicFactGenerator("factscore/api.key", "factscore/demos", gpt3_cache_file=None)
 
-    all_metrics = ['factscore', 'rev-factscore', 'rouge', 'bertscore']
+    #all_metrics = ['factscore', 'rev-factscore', 'rouge', 'bertscore']
+    all_metrics = ['factscore', 'rouge', 'bertscore']
     parser = argparse.ArgumentParser()
     parser.add_argument('--expname',type=str,default='tmp')
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--overwrite',action='store_true')
     parser.add_argument('--allow_bs_cache',action='store_true')
+    parser.add_argument('--print_results',action='store_true')
     parser.add_argument('--llama_size', type=str)
     parser.add_argument('--expdir_prefix', type=str, default='experiments')
     parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all'], default=['all'])
@@ -72,6 +74,8 @@ if __name__ == '__main__':
         ARGS.metrics = all_metrics
     if 'rouge' in ARGS.metrics:
         ARGS.metrics = [m for m in ARGS.metrics if m!='rouge']+['r1','r2','rl','rlsum']
+    if 'factscore' in ARGS.metrics:
+        ARGS.metrics.append('n_facts')
     if 'bertscore' in ARGS.metrics:
         bertscore = load("bertscore")
         ARGS.metrics = [m for m in ARGS.metrics if m!='bertscore']+['bs-precision','bs-recall','bs-f1']
@@ -85,7 +89,6 @@ if __name__ == '__main__':
         assert fn.endswith('.txt')
         epname = fn[:-4]
 
-        check_dir(epdir := join(expdir,epname))
         ep = episode_from_epname(epname)
         gt_summs = ep.summaries # this is a dict
 
@@ -101,6 +104,7 @@ if __name__ == '__main__':
             pred_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=pred_summ)
             fs_results = get_factscore(pred_facts, gt_summs, epname)
             full_results['factscore'][epname] = fs_results['score']
+            full_results['n_facts'][epname] = len(pred_facts)
 
         if 'rev-factscore' in ARGS.metrics:
             pbar.set_description(f'Computing rev-factscore for {epname}')
@@ -128,7 +132,7 @@ if __name__ == '__main__':
                 with open(maybe_bs_cache_path) as f:
                     all_bss = json.load(f)
             else:
-                all_bss = bertscore.compute(predictions=[pred_summ]*len(gt_summs), references=list(gt_summs.values()), lang="en")
+                all_bss = bertscore.compute(predictions=[pred_summ]*len(gt_summs), references=list(gt_summs.values()), lang="en", idf=True)
                 with open(maybe_bs_cache_path,'w') as f:
                     json.dump(all_bss,f)
             summ_idx_to_pick = np.array(all_bss['f1']).argmax()
@@ -148,8 +152,10 @@ if __name__ == '__main__':
         m_results = results_df[m].to_dict()
         #v['mean'] = sum(v.values())/len(v)
         #v['std'] = (sum((x-v['mean'])**2 for x in v.values())/len(v))**.5
-        check_dir(res_dir := join(expdir,'results_by_ep'))
+        check_dir(res_dir := join(expdir,'results_by_metric'))
         with open(join(res_dir, f'{m}-full-results.json'), 'w') as f:
             json.dump(m_results,f)
 
     results_df.to_csv(join(expdir, 'full_results.csv'))
+    if ARGS.print_results:
+        print(results_df)

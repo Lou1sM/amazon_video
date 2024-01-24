@@ -34,13 +34,22 @@ def load_peft_model(base_model_name_or_path, chkpt_path):
         assert any([x.requires_grad for x in model.parameters()])
     return model
 
+prompt_prefix = 'Summarize the following TV show:' 
+
+def get_clipped(inputs, labels):
+    clipped_inputs = [x[:tokenizer.model_max_length-len(lab)]+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
+    clipped_labels = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab)))+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
+    clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
+    return clipped_inputs, clipped_labels, clipped_attn_masks
+
 def train_preproc_fn(examples):
-    inputs = tokenizer(['Summarize the following TV show:' + dpoint for dpoint in examples['input']])
+    inputs = tokenizer([prompt_prefix + dpoint for dpoint in examples['input']])
     assert all([x==1 for dp in inputs['attention_mask'] for x in dp])
     labels = tokenizer([dpoint for dpoint in examples['output']])
     assert all([x==1 for dp in labels['attention_mask'] for x in dp])
-    clipped_inputs = [x[:tokenizer.model_max_length-len(lab)]+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
-    clipped_labels = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab)))+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
+    #clipped_inputs = [x[:tokenizer.model_max_length-len(lab)]+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
+    #clipped_labels = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab)))+lab for x,lab in zip(inputs['input_ids'],labels['input_ids']) if len(lab)<tokenizer.model_max_length]
+    clipped_inputs, clipped_labels, clipped_attn_masks = get_clipped(inputs, labels)
     clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
     results = {}
     results['input_ids'] = clipped_inputs
@@ -52,10 +61,13 @@ def train_preproc_fn(examples):
     return results
 
 def test_preproc_fn(examples):
-    inputs = tokenizer(['Summarize the following TV show:' + dpoint for dpoint in examples['transcript']])
+    inputs = tokenizer([prompt_prefix + dpoint for dpoint in examples['transcript']])
     assert all([x==1 for dp in inputs['attention_mask'] for x in dp])
-    clipped_inputs = [x[:tokenizer.model_max_length] for x in inputs['input_ids']]
-    clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
+    labels = tokenizer([dpoint for dpoint in examples['output']])
+    assert all([x==1 for dp in labels['attention_mask'] for x in dp])
+    clipped_inputs, clipped_labels, clipped_attn_masks = get_clipped(inputs, labels)
+    #clipped_inputs = [x[:tokenizer.model_max_length] for x in inputs['input_ids']]
+    #clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
     results = {}
     results['input_ids'] = clipped_inputs
     results['attention_mask'] = clipped_attn_masks
@@ -126,10 +138,14 @@ def inference_epoch(dset,fragment):
     check_dir(generations_dir := join(expdir, f'generations_{fragment}'))
     with torch.no_grad():
         for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]))
-            nl_outputs_ = tokenizer.batch_decode(preds)
+            #preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]), min_length=2028, max_new_tokens=200)
+            preds = model.generate(input_ids=cudify([batch['input_ids'][:2000]]), min_length=2048, max_length=2048)
+            nl_outputs_ = tokenizer.batch_decode(preds[2000:])
+            breakpoint()
             assert len(nl_outputs_) == 1
             nl_outputs = nl_outputs_[0]
+            print(len(preds[0]))
+            print(nl_outputs)
             if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
                 print('repeat output')
             prev = nl_outputs
