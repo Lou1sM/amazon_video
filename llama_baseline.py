@@ -149,9 +149,6 @@ def inference_epoch(dset,fragment):
             nl_outputs_ = tokenizer.batch_decode(preds[:,len(batch['input_ids']):], skip_special_tokens=True, cleanup_tokenization_spaces=True)
             assert len(nl_outputs_) == 1
             nl_outputs = nl_outputs_[0]
-            print(len(preds[0]))
-            print(nl_outputs)
-            breakpoint()
             if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
                 print('repeat output')
             prev = nl_outputs
@@ -169,11 +166,11 @@ def inference_epoch(dset,fragment):
                 break
     return np.array(rouges)
 
-to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
+#to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
 #for p in model.model.model.layers[:24].parameters():
     #p.require_grad = False
 
-opt = AdamW(to_opt,lr=1e-6)
+opt = AdamW(model.parameters(),lr=1e-6)
 num_training_steps = ARGS.n_epochs * len(trainloader)
 lr_scheduler = get_scheduler(name="linear", optimizer=opt, num_warmup_steps=0, num_training_steps=num_training_steps)
 
@@ -192,8 +189,6 @@ for en in range(ARGS.n_epochs):
         opt.zero_grad()
         cbatch = {k:cudify(v) for k,v in batch.items()}
         cbatch['labels'] = cbatch['labels'].contiguous()
-        breakpoint()
-        print(tokenizer.batch_decode(cbatch['input_ids'])[0])
         outputs = model(**cbatch)
         loss = outputs[0]
         loss.backward()
