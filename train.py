@@ -34,6 +34,7 @@ parser.add_argument('--n_iter',type=int,default=-1)
 parser.add_argument('--overwrite',action='store_true')
 parser.add_argument('--reload_from',type=str,default='none')
 parser.add_argument('--retokenize',action='store_true')
+parser.add_argument('--infer_splits_at_test',action='store_true')
 parser.add_argument('--save_every',action='store_true')
 parser.add_argument('--no_pbar',action='store_true')
 parser.add_argument('--dont_save_new_scenes',action='store_true')
@@ -54,7 +55,8 @@ if ARGS.expname is None and not ARGS.is_test:
     sys.exit('must set explicit expname when not in test mode')
 elif ARGS.is_test:
     ARGS.expname='tmp'
-    ARGS.n_dpoints = 10
+    if ARGS.n_dpoints == -1:
+        ARGS.n_dpoints = 10
 
 
 expdir = join(ARGS.expdir_prefix,ARGS.expname)
@@ -109,7 +111,7 @@ def train_preproc_fn(dpoint):
 
 def get_dsets():
     dsets = []
-    splits = ('train', 'val', 'test')
+    splits = ('train','val','test-inferred') if ARGS.infer_splits_at_test else ('train','val','test')
     maybe_cache_paths = [f'SummScreen/cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{s}_cache' for s in splits]
     if all(os.path.exists(p) for p in maybe_cache_paths) and not ARGS.retokenize:
         print(maybe_cache_paths[0], 'exists, loading from there')
@@ -118,7 +120,10 @@ def get_dsets():
     json_paths = [f'SummScreen/json_datasets/{fn}_{ARGS.n_dpoints}dps_{s}_dset.json' for s in splits]
     if any(not os.path.exists(jp) for jp in json_paths) or ARGS.retokenize:
         print('building new dataset')
-        ss.build_dset(ARGS.caps, ARGS.n_dpoints)
+        for spl in splits:
+            ss.build_dset(ARGS.caps, ARGS.n_dpoints, spl)
+
+
     assert all(os.path.exists(jp) for jp in json_paths)
     for split,jp,cp in zip(splits,json_paths,maybe_cache_paths):
         dset = load_dataset('json', data_files=jp, split='train')
@@ -130,8 +135,6 @@ def get_dsets():
     return dsets
 
 trainset, valset, testset = get_dsets()
-
-    #tokenized_trainset = trainset.map(train_preprocess_function, batched=True, num_proc=1, remove_columns=trainset.column_names)
 
 
 def save_to(fname):

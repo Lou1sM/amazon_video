@@ -7,15 +7,15 @@ import numpy as np
 from dl_utils.label_funcs import accuracy
 
 
-def episode_from_epname(epname):
+def episode_from_epname(epname, infer_splits):
     with open(f'SummScreen/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
     with open(f'SummScreen/summaries/{epname}.json') as f:
         summary_data = json.load(f)
-    return Episode(epname, transcript_data, summary_data)
+    return Episode(epname, transcript_data, summary_data, infer=infer_splits)
 
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
-    def __init__(self,epname,transcript_data,summary_data):
+    def __init__(self, epname, transcript_data, summary_data, infer=False, force_infer=False):
         self.transcript = [x.replace('\r\n','') for x in transcript_data['Transcript']]
         self.epname = epname
         self.summaries = summary_data
@@ -30,41 +30,34 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 
-        #self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
-        self.scenes, _, had_markers = infer_scene_splits(self.transcript, force_infer=False)
-        if not had_markers:
-            with_explicit_breaks = '£[SCENE_BREAK]£'.join(self.scenes).split('£')
-            assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
-            os.rename(f'SummScreen/transcripts/{epname}.json',f'SummScreen/transcripts/{epname}-without-explicit-breaks.json')
-            with open(f'SummScreen/transcripts/{epname}.json','w') as f:
-                json.dump(dict(transcript_data, Transcript=with_explicit_breaks),f)
+        if infer:
+            if os.path.exists(maybe_cached_infer_path:=f'SummScreen/transcripts/{epname}-inferred-scene-breaks.json'):
+                print(f'loading cached inferred splits from {maybe_cached_infer_path}')
+                with open(maybe_cached_infer_path) as f:
+                    self.scenes = f.readlines()
+            else:
+                print(f'no cached found at {maybe_cached_infer_path}, inferring from scratch')
+                self.scenes, _, had_markers = infer_scene_splits(self.transcript, force_infer=True)
+                with open(maybe_cached_infer_path,'w') as f:
+                    for sc in self.scenes:
+                        f.write(sc+'\n')
+        else:
+            self.scenes, _, had_markers = infer_scene_splits(self.transcript, force_infer=force_infer)
+            if not had_markers:
+                with_explicit_breaks = '£[SCENE_BREAK]£'.join(self.scenes).split('£')
+                assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
+                os.rename(f'SummScreen/transcripts/{epname}.json',f'SummScreen/transcripts/{epname}-without-explicit-breaks.json')
+                with open(f'SummScreen/transcripts/{epname}.json','w') as f:
+                    json.dump(dict(transcript_data, Transcript=with_explicit_breaks),f)
+
+    def transcript_from_scenes(self):
+        with_explicit_breaks = '£[SCENE_BREAK]£'.join(self.scenes).split('£')
+        assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
+        return with_explicit_breaks
 
     def calc_rouge(self,pred):
         references = self.summaries.values()
         return rouge_from_multiple_refs(pred, references, return_full=True)
-
-    def print_recap(self):
-        for summ in self.summaries:
-            for line in summ.split(' . '):
-                print(line)
-            print()
-
-    def __repr__(self):
-        return f'Episode object for {self.title}'
-
-    def print_transcript(self):
-        for line in self.transcript:
-            print(line)
-
-class SSEpisode(): # orig SummScreen stored transcripts and summaries as a single json
-    def __init__(self,data_dict):
-        self.transcript = data_dict['Transcript']
-        self.summaries = data_dict['Recap']
-        self.title = data_dict['filename'][:-5]
-        self.show_name = self.title.split('-')[0]
-        self.data_dict = data_dict
-
-        self.scenes = '\n'.join(self.transcript).split('[SCENE_BREAK]')
 
     def print_recap(self):
         for summ in self.summaries:
@@ -89,9 +82,9 @@ def split_by_marker(tlines, marker):
 def infer_scene_splits(tlines, force_infer):
     if '[SCENE_BREAK]' in tlines and not force_infer:
         return split_by_marker(tlines, '[SCENE_BREAK]')
-    if '--------' in ''.join(tlines):
-        tlines = ['£' if re.search(r'-{8,20}',x) else x for x in tlines]
-        return split_by_marker(tlines, '£')
+    if '--------' in ''.join(tlines) and not force_infer:
+        tlines = ['£' if re.search(r'-{8,20}',x) else x for x in tlines] # number of -'s can vary
+        return split_by_marker(tlines, '£') # so replace all - sequences with £ and split on that
     if '' in tlines and not force_infer:
         tlines = ['£' if x=='' else x for x in tlines]
         return split_by_marker(tlines, '£')
@@ -194,5 +187,5 @@ if __name__ == '__main__':
         rand_acc = accuracy(rand_labels, gts)
         all_accs.append(acc); all_ro_accs.append(ro_acc); all_rand_accs.append(rand_acc)
     print('mine:', np.array(all_accs).mean())
-    print('rand oracle:', np.array(all_ro_accs).mean())
+    print('rand oracle:', np.array(all_ro_accs).mean()) # rand oracle means knows gt num scenes
     print('rand:', np.array(all_rand_accs).mean())

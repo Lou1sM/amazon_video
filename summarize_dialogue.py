@@ -59,8 +59,8 @@ class SoapSummer():
         assert padded.shape == attention_mask.shape
         return padded, attention_mask
 
-    def summ_scenes(self, epname):
-        ep = episode_from_epname(epname)
+    def summ_scenes(self, epname, infer_splits):
+        ep = episode_from_epname(epname, infer_splits)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
         if len(scenes) == 1:
             print(f'no scene breaks for {epname}')
@@ -196,15 +196,16 @@ class SoapSummer():
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
-    def get_scene_summs(self, epname):
-        maybe_scene_summ_path = f'SummScreen/scene_summs/{epname}_{self.fn}.txt'
+    def get_scene_summs(self, epname, infer_splits):
+        epname_ = f'{epname}-inferred' if infer_splits else epname
+        maybe_scene_summ_path = f'SummScreen/scene_summs/{epname_}_{self.fn}.txt'
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = [x.strip() for x in f.readlines()]
         else:
-            ss = self.summ_scenes(epname)
+            ss = self.summ_scenes(epname, infer_splits)
             if self.do_save_new_scenes:
-                with open(fpath:=f'SummScreen/scene_summs/{epname}_{self.fn}.txt','w') as f:
+                with open(f'SummScreen/scene_summs/{epname_}_{self.fn}.txt','w') as f:
                     f.write('\n'.join(ss))
                 #print('saving to',fpath)
         return ss
@@ -230,12 +231,14 @@ class SoapSummer():
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
         return concatted_scene_summs, final_summ
 
-    def dpoints_from_epnames(self, epname_list, scene_caps):
+    def dpoints_from_epnames(self, epname_list, scene_caps, infer_splits):
         assert not any(['reordered' in x for x in epname_list])
         data_list = []
         summ_dir = 'SummScreen/summaries'
-        for epname in tqdm(epname_list):
-            ss = '\n'.join(self.get_scene_summs(epname))
+        pbar = tqdm(epname_list)
+        for epname in pbar:
+            pbar.set_description(epname)
+            ss = '\n'.join(self.get_scene_summs(epname, infer_splits))
             with open(os.path.join(summ_dir, f'{epname}.json')) as f:
                 d = json.load(f)
             if len(d.items())==0:
@@ -248,42 +251,53 @@ class SoapSummer():
                     data_list.append({'scene_summs':ss, 'summ':v, 'summ_name':k, 'epname':epname})
         return data_list
 
-    def build_dset(self, scene_caps, n_dpoints):
-        assert type(n_dpoints)==int
+    #def build_dset(self, scene_caps, n_dpoints, dset_fragment_name):
+    #    assert type(n_dpoints)==int
+    #    dset_info = pd.read_csv('dset_info.csv', index_col=0)
+    #    #print(len(epnames),len(os.listdir('SummScreen/summaries')))
+    #    epname_to_be_first = 'oltl-10-18-10'
+    #    n_points_split = {}
+    #    if n_dpoints != -1:
+    #        n_points_split['val'] = max(2,int(n_dpoints/10))
+    #        n_points_split['test'] = max(2,int(n_dpoints/10))
+    #        n_points_split['train'] = n_dpoints - n_points_split['val'] - n_points_split['test']
+    #        assert n_points_split['train'] >= 2
+    #    for split in ('train','val','test'):
+    def build_dset(self, scene_caps, n_dpoints, dset_fragment_name):
         dset_info = pd.read_csv('dset_info.csv', index_col=0)
-        #print(len(epnames),len(os.listdir('SummScreen/summaries')))
+        base_dset_fragment_name = dset_fragment_name.removesuffix('-inferred')
+        mask = dset_info['usable'] & (dset_info['split']==base_dset_fragment_name)
+        epnames = dset_info.index[mask]
         epname_to_be_first = 'oltl-10-18-10'
-        n_points_split = {}
         if n_dpoints != -1:
-            n_points_split['val'] = max(2,int(n_dpoints/10))
-            n_points_split['test'] = max(2,int(n_dpoints/10))
-            n_points_split['train'] = n_dpoints - n_points_split['val'] - n_points_split['test']
-            assert n_points_split['train'] >= 2
-        for split in ('train','val','test'):
-            mask = dset_info['usable'] & (dset_info['split']==split)
-            epnames = dset_info.index[mask]
-            if n_dpoints != -1:
-                epnames = epnames[:n_points_split[split]]
-            if split == 'test':
-                epnames.insert(0, epname_to_be_first)
+            if base_dset_fragment_name in ('val', 'test'):
+                ndps_to_use = max(2,int(n_dpoints/10))
             else:
-                epnames = [x for x in epnames if x!=epname_to_be_first]
+                assert dset_fragment_name == 'train'
+                ndps_to_use = n_dpoints - 2*max(2,int(n_dpoints/10))
+            assert ndps_to_use >= 2
+            epnames = epnames[:ndps_to_use]
+        if base_dset_fragment_name == 'test':
+            epnames.insert(0, epname_to_be_first)
+        else:
+            epnames = [x for x in epnames if x!=epname_to_be_first]
 
-            assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
-            dpoints = self.dpoints_from_epnames(epnames, scene_caps)
-            if split in ('val', 'test'):
-                todump = []
-                for tepn in epnames:
-                    dps_with_name = [t for t in dpoints if t['epname']==tepn]
-                    assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
-                    combined = {'epname':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
-                    for dpsn in dps_with_name:
-                        combined[dpsn['summ_name']] = dpsn['summ']
-                    todump.append(combined)
-            else:
-                todump = dpoints
-            with open(f'SummScreen/json_datasets/{self.fn}_{n_dpoints}dps_{split}_dset.json','w') as f:
-                json.dump(todump, f)
+        assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
+        infer_splits = dset_fragment_name.endswith('-inferred')
+        dpoints = self.dpoints_from_epnames(epnames, scene_caps, infer_splits)
+        if base_dset_fragment_name in ('val', 'test'):
+            todump = []
+            for tepn in epnames:
+                dps_with_name = [t for t in dpoints if t['epname']==tepn]
+                assert all(d['scene_summs']==dps_with_name[0]['scene_summs'] for d in dps_with_name[1:])
+                combined = {'epname':tepn, 'scene_summs': dps_with_name[0]['scene_summs']}
+                for dpsn in dps_with_name:
+                    combined[dpsn['summ_name']] = dpsn['summ']
+                todump.append(combined)
+        else:
+            todump = dpoints
+        with open(f'SummScreen/json_datasets/{self.fn}_{n_dpoints}dps_{dset_fragment_name}_dset.json','w') as f:
+            json.dump(todump, f)
 
     def train_one_epoch(self, epoch, trainloader, no_pbar):
         self.model.train()
@@ -393,22 +407,6 @@ class SoapSummer():
         self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
         test_rouges = self.inference_epoch(self.n_epochs, testset, 'test')
         return test_rouges, alltime_best_rouges, all_rouges
-
-def tfidf_sims(docs):
-    all_words = ' '.join(docs).split()
-    vocab, counts = np.unique(all_words, return_counts=True)
-    idfs = np.log2(len(vocab)) - np.log2(counts)
-    word2idf = dict(zip(vocab, idfs))
-    vecs = []
-    breakpoint()
-    for d in docs:
-        dvocab, dcounts = np.unique(d.split(), return_counts=True)
-        word2tf = dict(zip(dvocab, np.log2(dcounts)))
-        v = [word2tf.get(w,0)*v for w,v in word2idf.items()]
-        vecs.append(v)
-
-    vec_arr = np.stack(vecs)
-    sims = vec_arr @ np.transpose(vec_arr)
 
 
 if __name__ == '__main__':
