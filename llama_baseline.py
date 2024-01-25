@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import torch
 from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, PeftModel, PeftConfig
 from dl_utils.misc import check_dir
 from dl_utils.tensor_funcs import cudify
@@ -10,7 +11,6 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq
 from dl_utils.misc import set_experiment_dir
 from datasets import load_dataset, load_from_disk
 import argparse
-import torch
 import os
 from os.path import join
 import sys
@@ -142,33 +142,34 @@ def inference_epoch(dset,fragment):
     prev = ''
     epoch_rouge = np.zeros(4)
     check_dir(generations_dir := join(expdir, f'generations_{fragment}'))
-    with torch.no_grad():
-        for j,batch in enumerate(pbar := tqdm(dset, dynamic_ncols=True, smoothing=0.01, leave=False)):
-            #preds = model.generate(input_ids=cudify([batch['input_ids']]),attention_mask=cudify([batch['attention_mask']]))
-            preds = model.generate(input_ids=cudify([batch['input_ids']]), min_length=2048, max_length=2048)
-            nl_outputs_ = tokenizer.batch_decode(preds[:,len(batch['input_ids']):], skip_special_tokens=True, cleanup_tokenization_spaces=True)
-            assert len(nl_outputs_) == 1
-            nl_outputs = nl_outputs_[0]
-            if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
-                print('repeat output')
-            prev = nl_outputs
-            references = [v for k,v in batch.items() if k not in ('input_ids','attention_mask') and v is not None]
+    pbar = tqdm(range(0,len(dset),ARGS.bs))
+    model.eval()
+    for j in pbar:
+        batch = dset[j*ARGS.bs:(j+1)*ARGS.bs]
+        pad_len = max(len(x) for x in batch['input_ids'])
+        padded_inputs = [x+[tokenizer.pad_token_id]*(pad_len-len(x)) for x in batch['input_ids']]
+        padded_inputs = cudify(padded_inputs)
+        with torch.no_grad():
+            preds = model.generate(input_ids=padded_inputs, min_length=2048, max_length=2048)
+        nl_outputs_ = tokenizer.batch_decode(preds[:,len(batch['input_ids']):], skip_special_tokens=True, cleanup_tokenization_spaces=True)
+        assert len(nl_outputs_) == ARGS.bs
+        nl_outputs = nl_outputs_[0]
+        if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
+            print('repeat output')
+        prev = nl_outputs
+        for i, nlo in enumerate(nl_outputs_):
+            references = [v[i] for k,v in batch.items() if k not in ('input_ids','attention_mask') and v[i] is not None]
             best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
-
             rouges.append(best_rouge)
-            epoch_rouge = ((j*epoch_rouge) + best_rouge) / (j+1) # running avg
-            pbar.set_description(f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
-                             f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
-            epname = batch['epname']
-            with open(f'{generations_dir}/{epname}.txt','w') as f:
-                f.write(nl_outputs)
-            if (j==2 and ARGS.is_test) or (j==ARGS.n_dpoints-1):
-                break
+        epoch_rouge = (((j+i)*epoch_rouge) + best_rouge) / (j+i+1) # running avg
+        pbar.set_description(f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
+                         f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
+        epname = batch['epname']
+        with open(f'{generations_dir}/{epname}.txt','w') as f:
+            f.write(nl_outputs)
+        if (j==2 and ARGS.is_test) or (j==ARGS.n_dpoints-1):
+            break
     return np.array(rouges)
-
-#to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
-#for p in model.model.model.layers[:24].parameters():
-    #p.require_grad = False
 
 opt = AdamW(model.parameters(),lr=1e-6)
 num_training_steps = ARGS.n_epochs * len(trainloader)
@@ -199,20 +200,21 @@ for en in range(ARGS.n_epochs):
         if ARGS.is_test or (ARGS.n_dpoints!=-1 and i*ARGS.bs >= ARGS.n_dpoints):
             break
     save_model(f'{expdir}/checkpoints/epoch{en}')
-    val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
-    if val_rouges[2] > best_val_rouges[2]:
-        best_val_rouges = val_rouges
-        save_model(f'{expdir}/checkpoints/best')
-    else:
-        patience += 1
-    print(f'Mean Rouge: {val_rouges}\tPatience: {patience}\t')
+    save_model(f'{expdir}/checkpoints/best')
+    #val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
+    #if val_rouges[2] > best_val_rouges[2]:
+    #    best_val_rouges = val_rouges
+    #    save_model(f'{expdir}/checkpoints/best')
+    #else:
+    #    patience += 1
+    #print(f'Mean Rouge: {val_rouges}\tPatience: {patience}\t')
     if patience == 2:
         break
 
-if os.path.exists(best_chkpt_path):
-    model = load_peft_model(base_model_name, best_chkpt_path)
-else:
-    assert best_val_rouges[2]==0 # should only happen if all rouges remained zero for some reason
+#if os.path.exists(best_chkpt_path):
+    #model = load_peft_model(base_model_name, best_chkpt_path)
+#else:
+    #assert best_val_rouges[2]==0 # should only happen if all rouges remained zero for some reason
 test_rouges = inference_epoch(tokenized_testset, 'test').mean(axis=0)
 results_path = join(expdir,'results.txt')
 with open(results_path,'w') as f:
