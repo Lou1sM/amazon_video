@@ -89,7 +89,7 @@ if __name__ == '__main__':
         assert fn.endswith('.txt')
         epname = fn[:-4]
 
-        ep = episode_from_epname(epname)
+        ep = episode_from_epname(epname, False)
         gt_summs = ep.summaries # this is a dict
 
         with open(f'{gendir}/{epname}.txt') as f:
