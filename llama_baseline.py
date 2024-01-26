@@ -151,22 +151,24 @@ def inference_epoch(dset,fragment):
         padded_inputs = cudify(padded_inputs)
         with torch.no_grad():
             preds = model.generate(input_ids=padded_inputs, min_length=2048, max_length=2048)
-        nl_outputs_ = tokenizer.batch_decode(preds[:,len(batch['input_ids']):], skip_special_tokens=True, cleanup_tokenization_spaces=True)
-        assert len(nl_outputs_) == ARGS.bs
-        nl_outputs = nl_outputs_[0]
+        nl_outputs = tokenizer.batch_decode([p[len(binp):]  for p,binp in zip(preds,batch['input_ids'])], skip_special_tokens=True, cleanup_tokenization_spaces=True)
+        assert len(nl_outputs) == ARGS.bs
+        #nl_outputs = nl_outputs_[0]
         if (nl_outputs[:100] == prev[:100]):# and not (prev_inp[:100] == batch['input_ids'][:100]):
             print('repeat output')
         prev = nl_outputs
-        for i, nlo in enumerate(nl_outputs_):
+        for i, nlo in enumerate(nl_outputs):
+            print(nlo)
             references = [v[i] for k,v in batch.items() if k not in ('input_ids','attention_mask') and v[i] is not None]
-            best_rouge = rouge_from_multiple_refs(nl_outputs, references, return_full=False, benchmark_rl=True)
+            best_rouge = rouge_from_multiple_refs(nlo, references, return_full=False, benchmark_rl=True)
             rouges.append(best_rouge)
         epoch_rouge = (((j+i)*epoch_rouge) + best_rouge) / (j+i+1) # running avg
         pbar.set_description(f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
                          f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
         epname = batch['epname']
-        with open(f'{generations_dir}/{epname}.txt','w') as f:
-            f.write(nl_outputs)
+        for en, nlo in zip(batch['epname'], nl_outputs):
+            with open(f'{generations_dir}/{en}.txt','w') as f:
+                f.write(nlo)
         if (j==2 and ARGS.is_test) or (j==ARGS.n_dpoints-1):
             break
     return np.array(rouges)
