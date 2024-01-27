@@ -1,6 +1,6 @@
 import numpy as np
+import sys
 import pandas as pd
-from evaluate import load
 import json
 from factscore.factscorer import FactScorer
 from dl_utils.misc import check_dir
@@ -42,21 +42,33 @@ if __name__ == '__main__':
     generator = AtomicFactGenerator("factscore/api.key", "factscore/demos", gpt3_cache_file=None)
 
     #all_metrics = ['factscore', 'rev-factscore', 'rouge', 'bertscore']
-    all_metrics = ['factscore', 'rouge', 'bertscore']
+    default_metrics = ['factscore', 'rouge']
+    all_metrics = ['factscore', 'rouge', 'bertscore', 'rev-factscore']
     parser = argparse.ArgumentParser()
     parser.add_argument('--expname',type=str,default='tmp')
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--overwrite',action='store_true')
     parser.add_argument('--allow_bs_cache',action='store_true')
     parser.add_argument('--print_results',action='store_true')
-    parser.add_argument('--llama_size', type=str)
+    parser.add_argument('--scorer_model', type=str, required=True)
     parser.add_argument('--expdir_prefix', type=str, default='experiments')
     parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all','just-get-facts'], default=['all'])
+    parser.add_argument('--n_dpoints', type=int, default=-1)
     ARGS = parser.parse_args()
-    #assert ARGS.llama_size in ('7B', '13B', '70B')
 
+    if ARGS.scorer_model in ['llama7b', 'llama7B']:
+        scorer_model = 'retrieval+llama7B+npm'
+    elif ARGS.scorer_model in ['llama13b', 'llama13B']:
+        scorer_model = 'retrieval+llama13B+npm'
+    elif ARGS.scorer_model =='gpt3.5':
+        scorer_model = 'gpt-3.5-turbo-instruct'
+    elif ARGS.scorer_model =='gpt4':
+        scorer_model = 'gpt-4-turbo-preview'
+    else:
+        sys.exit(f'unrecognized scorer_model: {ARGS.scorer_model}')
     llama_size = '7B' if ARGS.is_test else '13B'
-    fs = FactScorer(model_name=f'retrieval+llama{llama_size}+npm',
+    #fs = FactScorer(model_name=f'retrieval+llama{llama_size}+npm',
+    fs = FactScorer(model_name=scorer_model,
                     data_dir=".cache/factscore/",
                     model_dir="huggyllama",
                     cache_dir=".cache/factscore/",
@@ -77,11 +89,14 @@ if __name__ == '__main__':
     if 'factscore' in ARGS.metrics:
         ARGS.metrics.append('n_facts')
     if 'bertscore' in ARGS.metrics:
+        from evaluate import load
         bertscore = load("bertscore")
         ARGS.metrics = [m for m in ARGS.metrics if m!='bertscore']+['bs-precision','bs-recall','bs-f1']
         check_dir(bs_cache_dir := join(expdir,'bertscore_cache'))
 
     all_epnames = os.listdir(gendir)
+    if ARGS.n_dpoints != -1:
+        all_epnames = all_epnames[:ARGS.n_dpoints]
     full_results = {m:{} for m in ARGS.metrics}
     all_factscores = []
     all_rouges = []
@@ -99,7 +114,7 @@ if __name__ == '__main__':
         # Now compute specified metrics
         if 'factscore' in ARGS.metrics or ARGS.metrics==['just-get-facts']:
             pbar.set_description(f'Computing factscore for {epname}')
-            check_dir(cache_dir := f'../gpt-3.5-turbo-instruct-facts/{ARGS.expname}')
+            check_dir(cache_dir := f'gpt-extracted-facts/{ARGS.expname}')
             cache_fpath = f'{cache_dir}/{epname}'
             pred_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=pred_summ)
             breakpoint()
@@ -110,7 +125,7 @@ if __name__ == '__main__':
 
         if 'rev-factscore' in ARGS.metrics:
             pbar.set_description(f'Computing rev-factscore for {epname}')
-            check_dir(cache_dir := '../gpt-3.5-turbo-instruct-facts/gt_summ_facts')
+            check_dir(cache_dir := 'gpt-extracted-facts/gt_summ_facts')
             facts_by_summ_name = {}
             gt_facts = []
             for k,v in gt_summs.items():

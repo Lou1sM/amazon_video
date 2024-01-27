@@ -44,7 +44,7 @@ class FactScorer(object):
             self.lm = CLM(f"inst-llama-{size}B",
                           model_dir=os.path.join(model_dir, f"llama-{size}b"),
                           cache_file=os.path.join(cache_dir, f"llama-{size}b.pkl"))
-        elif "ChatGPT" in model_name:
+        elif model_name == 'gpt-4-turbo-preview':
             self.lm = OpenAIModel(cache_file=os.path.join(cache_dir, "ChatGPT.pkl"),
                                   key_path=openai_key)
         else:
@@ -155,7 +155,7 @@ class FactScorer(object):
     def _get_score(self, epname, topic, atomic_facts, summaries_dict, cost_estimate=None):
         decisions = []
         total_words = 0
-        cache_dir = '../factscore_is_supporteds_caches/'
+        cache_dir = 'is_supported_factscore_caches/'
         cache_path = os.path.join(cache_dir,f'{epname}-{self.model_name}.json')
         if check_dir(cache_dir) and os.path.exists(cache_path):
             with open(cache_path) as f:
@@ -178,6 +178,7 @@ class FactScorer(object):
                 self.print_cost_estimates(n, task="factscore evaluation", model="gpt-3.5-turbo")
 
             if atom in cache:
+                print('using cache', cache_path)
                 is_supported = cache[atom]
             else:
                 output = self.lm.generate(prompt)
@@ -189,7 +190,10 @@ class FactScorer(object):
                     false_score = logits[7700]
                     is_supported = true_score > false_score
                 else:# when logits are unavailable
-                    generated_answer = output[0].lower()
+                    if isinstance(output, list):
+                        assert len(output)==1
+                        output = output[0]
+                    generated_answer = output.lower()
                     if "true" in generated_answer or "false" in generated_answer:
                         if "true" in generated_answer and "false" not in generated_answer:
                             is_supported = True
@@ -209,69 +213,3 @@ class FactScorer(object):
             return total_words
         else:
             return decisions
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input_path', type=str, default="data/labeled/InstructGPT.jsonl")('--model_name', type=str, default="retrieval+ChatGPT")
-    parser.add_argument('--gamma', type=int, default=10, help="hyperparameter for length penalty")
-    parser.add_argument('--openai_key', type=str, default="api.key")
-    parser.add_argument('--data_dir', type=str, default=".cache/factscore/")
-    parser.add_argument('--model_dir', type=str, default=".cache/factscore/")
-    parser.add_argument('--cache_dir', type=str, default=".cache/factscore/")
-    parser.add_argument('--knowledge_source', type=str, default=None)
-    parser.add_argument('--cost_estimate', type=str, default="consider_cache", choices=["consider_cache", "ignore_cache"])
-    parser.add_argument('--abstain_detection_type', type=str, default=None, choices=["perplexity_ai", "generic", "none"])
-    parser.add_argument('--use_atomic_facts', action="store_true")
-    parser.add_argument('--verbose', action="store_true", help="for printing out the progress bar")
-    parser.add_argument('--print_rate_limit_error', action="store_true", help="for printing out rate limit error when using OpenAI keys")
-    parser.add_argument('--n_samples', type=int, default=None)
-
-    args = parser.parse_args()
-
-    logging.basicConfig(format='%(asctime)s - %(name)s - %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.ERROR if args.print_rate_limit_error else logging.CRITICAL)
-
-    fs = FactScorer(model_name=args.model_name,
-                    data_dir=args.data_dir,
-                    model_dir=args.model_dir,
-                    cache_dir=args.cache_dir,
-                    openai_key=args.openai_key,
-                    cost_estimate=args.cost_estimate,
-                    abstain_detection_type=args.abstain_detection_type)
-
-    tot = 0
-    topics, generations, atomic_facts = [], [], []
-    with open(args.input_path) as f:
-        for line in f:
-            dp = json.loads(line)
-            tot += 1
-            if args.use_atomic_facts:
-                assert "annotations" in dp, "You can specify `--use_atomic_facts` only when atomic facts are available in the input data already."
-                if dp["annotations"] is None:
-                    continue
-                topics.append(dp["topic"])
-                generations.append(dp["output"])
-                atomic_facts.append([atom["text"] for sent in dp["annotations"] for atom in sent["model-atomic-facts"]])
-            else:
-                topics.append(dp["topic"])
-                generations.append(dp["output"])
-            if args.n_samples is not None and tot==args.n_samples:
-                break
-    out = fs.get_score(topics=topics,
-                       generations=generations,
-                       passages=passages,
-                       gamma=args.gamma,
-                       atomic_facts=atomic_facts if args.use_atomic_facts else None,
-                       knowledge_source=args.knowledge_source,
-                       verbose=args.verbose)
-    logging.critical("FActScore = %.1f%%" % (100*out["score"]))
-    if "init_score" in out:
-        logging.critical("FActScore w/o length penalty = %.1f%%" % (100*out["init_score"]))
-    logging.critical("Respond ratio = %.1f%%" % (100*out["respond_ratio"]))
-    logging.critical("# Atomic facts per valid response = %.1f" % (out["num_facts_per_response"]))
-
-    # Save out as a json file
-    with open(args.input_path.replace(".jsonl", "_factscore_output.json"), 'w') as f:
-        f.write(json.dumps(out) + "\n")
-
