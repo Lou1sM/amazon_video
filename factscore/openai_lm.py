@@ -11,6 +11,7 @@ class OpenAIModel(LM):
         self.key_path = key_path
         self.temp = 0.7
         self.save_interval = 100
+        self.sent_cache = {}
         super().__init__(cache_file)
 
     def load_model(self):
@@ -24,13 +25,20 @@ class OpenAIModel(LM):
     def _generate(self, prompt, max_output_length=128):
         to_send = [{'role':'user', 'content':prompt}]
         client = openai.OpenAI(api_key=self.api_key)
-        response = client.chat.completions.create(
-              messages = to_send,
-              model='gpt-4-turbo-preview',
-              max_tokens=512,
-              temperature=self.temp,
-              top_p=0.9,
-              )
-        output = response.choices[0].message.content
-        print(output)
+        prompt_end = prompt.split('\n\n')[-1]
+        if not ( prompt_end.startswith('Please breakdown the following sentence into independent facts: ')):
+            breakpoint()
+        sent = prompt_end[64:]
+        if sent in self.sent_cache:
+            return self.sent_cache[sent]
+        else:
+            response = client.chat.completions.create(
+                  messages = to_send,
+                  model='gpt-4-turbo-preview',
+                  max_tokens=512,
+                  temperature=self.temp,
+                  top_p=0.9,
+                  )
+            output = response.choices[0].message.content
+            self.sent_cache[sent] = output
         return output
