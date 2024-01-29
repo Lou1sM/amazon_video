@@ -136,12 +136,15 @@ class FactScorer(object):
                 decisions.append(None)
             else:
                 decision = self._get_score(epname, topic, facts, ep_ref_summs)
-                score = np.mean([d["is_supported"] for d in decision])
+                if decision is None:
+                    decisions.append(None)
+                else:
+                    score = np.mean([d["is_supported"] for d in decision])
 
-                decisions.append(decision)
-                scores.append(score)
-                if len(scores) % 10 == 0:
-                    self.save_cache()
+                    decisions.append(decision)
+                    scores.append(score)
+                    if len(scores) % 10 == 0:
+                        self.save_cache()
 
         self.save_cache()
 
@@ -156,13 +159,15 @@ class FactScorer(object):
         decisions = []
         total_words = 0
         cache_dir = 'is_supported_factscore_caches/'
+        print(f'\nScoring facts for {epname}\n')
         cache_path = os.path.join(cache_dir,f'{epname}-{self.model_name}.json')
-        if check_dir(cache_dir) and os.path.exists(cache_path):
+        if (had_cache:=(check_dir(cache_dir) and os.path.exists(cache_path))):
             with open(cache_path) as f:
                 cache = json.load(f)
         else:
+            print('no is-supported cached found at', cache_path)
             cache = {}
-        for atom in atomic_facts:
+        for i,atom in enumerate(atomic_facts):
             atom = atom.strip()
             definition = f'Answer the question about {topic} based on the given context.\n\n'
             for k,v in summaries_dict.items():
@@ -177,10 +182,15 @@ class FactScorer(object):
                 n = len(prompt.split())
                 self.print_cost_estimates(n, task="factscore evaluation", model="gpt-3.5-turbo")
 
-            if atom in cache:
-                print('using cache', cache_path)
+            if atom in atomic_facts[:i]: # mark repeated facts as wrong
+                is_supported = False
+            elif atom =='<MALFORMED SENTENCE>':
+                is_supported = False
+            elif atom in cache:
                 is_supported = cache[atom]
             else:
+                if had_cache:
+                    print('atom:', atom, 'not in cache at', cache_path)
                 output = self.lm.generate(prompt)
 
                 if type(output[1])==np.ndarray:# when logits are available
@@ -207,7 +217,14 @@ class FactScorer(object):
 
             decisions.append({"atom": atom, "is_supported": is_supported})
 
+        if had_cache:
+            with open(cache_path) as f:
+                orig_cache = json.load(f)
+            for k,v in orig_cache.items():
+                assert cache[k] == v
+
         with open(cache_path, 'w') as f:
+            #print('saving cache to', cache_path)
             json.dump(cache, f)
         if cost_estimate:
             return total_words

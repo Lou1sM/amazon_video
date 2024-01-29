@@ -13,21 +13,30 @@ from factscore.atomic_facts import AtomicFactGenerator
 from tqdm import tqdm
 
 
+def filter_facts(facts):
+    return [f for f in facts if f=='<MALFORMED SENTENCE>' or (not any(x in f for x in ['someone','something','somebody','is a person','is a character', 'are people', 'are characters']) and len(f.split())>2)]
+
 def get_maybe_cached_atomic_facts(maybe_cached_path, generator, nl_text=None, path=None):
     assert (nl_text is None) != (path is None)
     if os.path.exists(maybe_cached_path):
+        print('using extraction cache at', maybe_cached_path)
         with open(maybe_cached_path) as f:
-            pred_facts = f.readlines()
+            facts = f.read().split('\n')
     else:
+        print('no extraction cache found at', maybe_cached_path)
         if nl_text is None:
             with open(path) as f:
                 nl_text = f.read()
-        pred_facts_and_sources, para_breaks = generator.run(nl_text)
-        pred_facts = [x for line in pred_facts_and_sources for x in line[1]]
+        facts_and_sources, para_breaks = generator.run(nl_text)
+        facts = [x for line in facts_and_sources for x in line[1]]
         with open(maybe_cached_path,'w') as f:
-            f.write('\n'.join([pf for pf in pred_facts]))
+            f.write('\n'.join([pf for pf in facts]))
 
-    return pred_facts
+    filtered_facts = filter_facts(facts)
+    print('filtering:', [x for x in facts if x not in filtered_facts])
+    if ARGS.is_test:
+        filtered_facts = filtered_facts[:3]
+    return filtered_facts
 
 
 def get_factscore(facts, knowledge_base_text, epname): #epname need for caching
@@ -46,6 +55,7 @@ if __name__ == '__main__':
     all_metrics = ['factscore', 'rouge', 'bertscore', 'rev-factscore']
     parser = argparse.ArgumentParser()
     parser.add_argument('--expname',type=str,default='tmp')
+    parser.add_argument('--ep',type=str,default='none')
     parser.add_argument('-t','--is_test',action='store_true')
     parser.add_argument('--overwrite',action='store_true')
     parser.add_argument('--allow_bs_cache',action='store_true')
@@ -94,13 +104,14 @@ if __name__ == '__main__':
         ARGS.metrics = [m for m in ARGS.metrics if m!='bertscore']+['bs-precision','bs-recall','bs-f1']
         check_dir(bs_cache_dir := join(expdir,'bertscore_cache'))
 
-    all_epnames = os.listdir(gendir)
+    all_epnames = [f'{ARGS.ep}.txt'] if ARGS.ep != 'none' else os.listdir(gendir)
     if ARGS.n_dpoints != -1:
         all_epnames = all_epnames[:ARGS.n_dpoints]
     full_results = {m:{} for m in ARGS.metrics}
     all_factscores = []
     all_rouges = []
     for i,fn in enumerate(pbar := tqdm(all_epnames)):
+    #for i,fn in enumerate(all_epnames):
         assert fn.endswith('.txt')
         epname = fn[:-4]
 
@@ -117,7 +128,6 @@ if __name__ == '__main__':
             check_dir(cache_dir := f'gpt-extracted-facts/{ARGS.expname}')
             cache_fpath = f'{cache_dir}/{epname}'
             pred_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=pred_summ)
-            breakpoint()
             if 'factscore' in ARGS.metrics:
                 fs_results = get_factscore(pred_facts, gt_summs, epname)
                 full_results['factscore'][epname] = fs_results['score']

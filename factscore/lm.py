@@ -14,7 +14,7 @@ class LM(object):
         # load the model and put it as self.model
         raise NotImplementedError()
 
-    def generate(self, pred=None, path=None, sample_idx=0, max_output_length=128):
+    def generate(self, pred=None, path=None, sample_idx=0, max_output_tokens=128):
         assert (pred is None) != (path is None)
         if pred is None:
             with open(path) as f:
@@ -22,9 +22,9 @@ class LM(object):
         if self.model is None:
             self.load_model()
 
-        max_output_length = 1 if pred.endswith(" True or False?\nOutput:") else max_output_length
+        max_output_tokens = 1 if pred.endswith(" True or False?\nOutput:") else max_output_tokens
         pred = pred.strip() # it's important not to end with a whitespace
-        return self._generate(pred, max_output_length=max_output_length)
+        return self._generate(pred, max_output_tokens=max_output_tokens)
 
     def save_cache(self):
         if self.add_n == 0:

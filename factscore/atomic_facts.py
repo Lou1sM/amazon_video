@@ -50,6 +50,7 @@ class AtomicFactGenerator(object):
         for para_idx, paragraph in enumerate(paragraphs):
             if para_idx > 0 :
                 para_breaks.append(len(sentences))
+            paragraph = re.sub(r'\.\.+','<ellipsis>. ',paragraph)
 
             initials = detect_initials(paragraph)
 
@@ -62,6 +63,7 @@ class AtomicFactGenerator(object):
             # check to ensure the crediability of the sentence splitter fixing algorithm
             assert curr_sentences == curr_sentences_2, (paragraph, curr_sentences, curr_sentences_2)
 
+            sentences = [s.replace('<ellipsis>','...') for s in sentences]
             sentences += curr_sentences
 
         atoms_or_estimate = self.get_init_atomic_facts_from_sentence(sentences)
@@ -108,7 +110,7 @@ class AtomicFactGenerator(object):
         prompts = []
         prompt_to_sent = {}
         atoms = {}
-        for sentence in sentences:
+        for i,sentence in enumerate(sentences):
             if sentence in atoms:
                 continue
             top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
@@ -125,22 +127,31 @@ class AtomicFactGenerator(object):
                 for fact in demons[match]:
                     prompt = prompt + "- {}\n".format(fact)
                 prompt = prompt + "\n"
-            prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
-            prompts.append(prompt)
-            prompt_to_sent[prompt] = sentence
+            if sentence.split()[0] in ('The', 'A') and len(sentence.split())==2:
+                atoms[sentence] = ['<MALFORMED SENTENCE>']
+            else:
+                prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
+                output = self.openai_lm.generate(pred=prompt, max_output_tokens=50)
+                #if 'incomplete' in output or ('not' in output and 'complete' in output) or 'incoherent' in output or ('not' in output and 'coherent' in output) or 'insufficient' in output or 'does not contain' in output or 'doesn\'t contain' in output or 'cut off' in output or 'typographical error' in output or 'grammatical error' in output or ('not' in output and 'down into independent facts' in output) or 'is too vague' in output or ('lacks' in output and 'information' in output) or ('not' in output and 'information' in output) or 'does not provide enough information' in output or 'is too brief' in output or 'Please provide' in output or 'Could you provide' in output or 'contains errors' in output or ('seems' in output and 'unclear' in output) or 'typo' in output or 'the text you provided' in output or 'is very brief' in output or 'is quite brief' in output or 'fragment' in output or 'missing information' in output or 'it seems the sentence' in output or ('enough' in output and 'information' in output) or ('limited' in output and 'information' in output) or ('lacks' in output and 'information' in output) or ('However' in output and 'attempt' in output) or ('I\'m sorry' in output and 'lease provide' in output):
+                if not output.startswith('-'):
+                    print(sentence)
+                    if i==len(sentences)-1: # just because context size output ran out
+                        atoms[sentence] = []
+                    else:
+                        atoms[sentence] = ['<MALFORMED SENTENCE>']
+                else:
+                    if '...' in sentence:
+                        breakpoint()
+                    maybe_facts = text_to_sentences(output)
+                    if maybe_facts == []:
+                        breakpoint()
+                    atoms[sentence] = maybe_facts
+            #prompts.append(prompt)
+            #prompt_to_sent[prompt] = sentence
 
-        #if cost_estimate:
-            #total_words_estimate = 0
-            #for prompt in prompts:
-            #    #if cost_estimate == "consider_cache" and (prompt.strip() + "_0") in self.openai_lm.cache_dict:
-            #        #continue
-            #    total_words_estimate += len(prompt.split())
-            #return total_words_estimate
-        #else:
-        for prompt in prompts:
-            output = self.openai_lm.generate(pred=prompt)
-            atoms[prompt_to_sent[prompt]] = text_to_sentences(output)
+        #for prompt in prompts:
 
+        print(atoms)
         for key, value in demons.items():
             if key not in atoms:
                 atoms[key] = value

@@ -1,10 +1,8 @@
 from .lm import LM
 import openai
-import sys
 import time
 import os
 import numpy as np
-import logging
 
 class OpenAIModel(LM):
     def __init__(self, cache_file=None, key_path="api.key"):
@@ -22,23 +20,32 @@ class OpenAIModel(LM):
         self.api_key = api_key.strip()
         #self.model = self.model_name
 
-    def _generate(self, prompt, max_output_length=128):
+    def _generate(self, prompt, max_output_tokens):
         to_send = [{'role':'user', 'content':prompt}]
         client = openai.OpenAI(api_key=self.api_key)
         prompt_end = prompt.split('\n\n')[-1]
-        if not ( prompt_end.startswith('Please breakdown the following sentence into independent facts: ')):
-            breakpoint()
-        sent = prompt_end[64:]
-        if sent in self.sent_cache:
-            return self.sent_cache[sent]
-        else:
-            response = client.chat.completions.create(
+        if (is_extration:=prompt_end.startswith('Please breakdown the following sentence into independent facts: ')):
+            sent = prompt_end[64:]
+            if sent in self.sent_cache:
+                print('using cache for', prompt)
+                return self.sent_cache[sent]
+        waittime = 2
+        while True:
+            try:
+                response = client.chat.completions.create(
                   messages = to_send,
                   model='gpt-4-turbo-preview',
-                  max_tokens=512,
+                  max_tokens=max_output_tokens,
                   temperature=self.temp,
                   top_p=0.9,
                   )
-            output = response.choices[0].message.content
+                break
+            except openai.RateLimitError as e:
+                print(f'{e}: waiting {waittime}')
+                time.sleep(waittime)
+                waittime = min(waittime*2, waittime+30)
+        output = response.choices[0].message.content
+        if is_extration:
             self.sent_cache[sent] = output
+        print(output)
         return output
