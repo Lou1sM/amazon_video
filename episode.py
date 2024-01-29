@@ -10,6 +10,12 @@ from dl_utils.label_funcs import accuracy
 def episode_from_epname(epname, infer_splits):
     with open(f'SummScreen/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
+    tdata = transcript_data['Transcript']
+    if tdata[0].count(':') > 1 and len(tdata)<150:
+        print(f'Seems transcript stored as scene list instead of line list for {epname}, fixing')
+        transcript_data['Transcript'] = '\n'.join(tdata).split('\n')
+        with open(f'SummScreen/transcripts/{epname}.json','w') as f:
+            json.dump(transcript_data,f)
     with open(f'SummScreen/summaries/{epname}.json') as f:
         summary_data = json.load(f)
     return Episode(epname, transcript_data, summary_data, infer=infer_splits)

@@ -51,7 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--print_results',action='store_true')
     parser.add_argument('--llama_size', type=str)
     parser.add_argument('--expdir_prefix', type=str, default='experiments')
-    parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all'], default=['all'])
+    parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all','just-get-facts'], default=['all'])
     ARGS = parser.parse_args()
     #assert ARGS.llama_size in ('7B', '13B', '70B')
 
@@ -97,14 +97,16 @@ if __name__ == '__main__':
 
 
         # Now compute specified metrics
-        if 'factscore' in ARGS.metrics:
+        if 'factscore' in ARGS.metrics or ARGS.metrics==['just-get-facts']:
             pbar.set_description(f'Computing factscore for {epname}')
             check_dir(cache_dir := f'../gpt-3.5-turbo-instruct-facts/{ARGS.expname}')
             cache_fpath = f'{cache_dir}/{epname}'
             pred_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=pred_summ)
-            fs_results = get_factscore(pred_facts, gt_summs, epname)
-            full_results['factscore'][epname] = fs_results['score']
-            full_results['n_facts'][epname] = len(pred_facts)
+            breakpoint()
+            if 'factscore' in ARGS.metrics:
+                fs_results = get_factscore(pred_facts, gt_summs, epname)
+                full_results['factscore'][epname] = fs_results['score']
+                full_results['n_facts'][epname] = len(pred_facts)
 
         if 'rev-factscore' in ARGS.metrics:
             pbar.set_description(f'Computing rev-factscore for {epname}')
