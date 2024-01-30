@@ -216,6 +216,7 @@ class SoapSummer():
 
     def summarize_scene_summs(self, concatted_scene_summs):
         chunks = chunkify(concatted_scene_summs,self.tokenizer.model_max_length)
+        print(len(chunks))
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         #if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
@@ -225,10 +226,11 @@ class SoapSummer():
             min_len = 80
             max_len = 100
         else:
-            min_len = 180
-            max_len = 200
+            min_len = 360//len(chunks)
+            max_len = 400//len(chunks)
         meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=min_len, max_length=max_len)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
+        print(len(self.tokenizer(final_summ)['input_ids']))
         return concatted_scene_summs, final_summ
 
     def dpoints_from_epnames(self, epname_list, scene_caps, infer_splits):
@@ -251,18 +253,6 @@ class SoapSummer():
                     data_list.append({'scene_summs':ss, 'summ':v, 'summ_name':k, 'epname':epname})
         return data_list
 
-    #def build_dset(self, scene_caps, n_dpoints, dset_fragment_name):
-    #    assert type(n_dpoints)==int
-    #    dset_info = pd.read_csv('dset_info.csv', index_col=0)
-    #    #print(len(epnames),len(os.listdir('SummScreen/summaries')))
-    #    epname_to_be_first = 'oltl-10-18-10'
-    #    n_points_split = {}
-    #    if n_dpoints != -1:
-    #        n_points_split['val'] = max(2,int(n_dpoints/10))
-    #        n_points_split['test'] = max(2,int(n_dpoints/10))
-    #        n_points_split['train'] = n_dpoints - n_points_split['val'] - n_points_split['test']
-    #        assert n_points_split['train'] >= 2
-    #    for split in ('train','val','test'):
     def build_dset(self, scene_caps, n_dpoints, dset_fragment_name):
         dset_info = pd.read_csv('dset_info.csv', index_col=0)
         base_dset_fragment_name = dset_fragment_name.removesuffix('-inferred')
@@ -402,9 +392,10 @@ class SoapSummer():
             print(f'Mean Rouge: {rouges_arr}\tPatience: {patience}')
             if patience == 2:
                 break
-        best_chkpt = f'{self.expdir}/checkpoints/best'
-        print('reloading', best_chkpt)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
+        if self.n_epochs>0:
+            best_chkpt = f'{self.expdir}/checkpoints/best'
+            print('reloading', best_chkpt)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
         test_rouges = self.inference_epoch(self.n_epochs, testset, 'test')
         return test_rouges, alltime_best_rouges, all_rouges
 
