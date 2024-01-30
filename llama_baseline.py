@@ -17,7 +17,8 @@ import sys
 from utils import display_rouges
 
 
-tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
+#tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
+tokenizer = AutoTokenizer.from_pretrained('TheBloke/Mistral-7B-v0.1-GGUF') # always load this even if is_test
 
 prompt_prefix = 'Summarize the following TV show transcript.\n\n<Transcript Start>\n'
 prompt_suffix = '\n<Transcript End>\n\nSummary:'
@@ -26,7 +27,10 @@ tok_ps = tokenizer(prompt_suffix)['input_ids'][1:]
 
 def load_peft_model(base_model_name_or_path, chkpt_path):
     print('loading model from', base_model_name_or_path)
-    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
+    #model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
+    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path)
+    model.cuda()
+    return model
     if chkpt_path is None:
         print('no peft chkpt to update from')
         model = prepare_model_for_int8_training(model)
@@ -121,7 +125,9 @@ if not ARGS.expname.startswith('llama'):
     ARGS.expname = 'llama'+ARGS.expname
 
 expdir = join(ARGS.expdir_prefix,ARGS.expname)
-base_model_name = 'seanmor5/tiny-llama-test' if ARGS.is_test else 'huggyllama/llama-7b'
+#base_model_name = 'seanmor5/tiny-llama-test' if ARGS.is_test else 'huggyllama/llama-7b'
+#base_model_name = 'mistralai/Mistral-7B-v0.1'
+base_model_name = 'TheBloke/Mistral-7B-v0.1-GGUF'
 reload_chkpt_path = None if ARGS.reload_from is None else f'{expdir}/checkpoints/{ARGS.reload_from}'
 if ARGS.reload_from is None:
     set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
