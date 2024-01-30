@@ -33,6 +33,7 @@ parser.add_argument('--early_stop_metric',type=int,default=2)
 parser.add_argument('--n_iter',type=int,default=-1)
 parser.add_argument('--overwrite',action='store_true')
 parser.add_argument('--reload_from',type=str,default='none')
+parser.add_argument('--chkpt_path_reload_from',type=str,default='none')
 parser.add_argument('--retokenize',action='store_true')
 parser.add_argument('--infer_splits_at_test',action='store_true')
 parser.add_argument('--save_every',action='store_true')
@@ -58,6 +59,7 @@ elif ARGS.is_test:
     if ARGS.n_dpoints == -1:
         ARGS.n_dpoints = 10
 
+assert not (ARGS.reload_from!='none' and ARGS.chkpt_path_reload_from!='none'), "can't use two reload options"
 
 expdir = join(ARGS.expdir_prefix,ARGS.expname)
 if ARGS.reload_from != 'none':
@@ -71,10 +73,12 @@ model_name = 'lucadiliello/bart-small' if ARGS.is_test and not ARGS.is_test_big_
 
 print(f'using model {model_name}')
 
-if ARGS.reload_from=='none':
-    chkpt_path = model_name
+if ARGS.reload_from!='none':
+    chkpt_path = join(expdir,'checkpoints',ARGS.reload_from)
+elif ARGS.chkpt_path_reload_from!='none':
+    chkpt_path = join(ARGS.expdir_prefix, ARGS.chkpt_path_reload_from)
 else:
-    chkpt_path = f'./experiments/{ARGS.expname}/checkpoints/{ARGS.reload_from}'
+    chkpt_path = model_name
 
 print(f'loading model from {chkpt_path}')
 if ARGS.startendscenes or ARGS.centralscenes:

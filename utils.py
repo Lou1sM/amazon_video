@@ -14,6 +14,7 @@ def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
 
 def rouge_preprocess(text):
+    text = text.replace('...',' <eplipsis> ')
     text = rouge.Rouge.REMOVE_CHAR_PATTERN.sub(' ', text.lower()).strip()
     tokens = rouge.Rouge.tokenize_text(rouge.Rouge.KEEP_CANNOT_IN_ONE_WORD.sub('_cannot_', text))
     rouge.Rouge.stem_tokens(tokens)
