@@ -18,7 +18,8 @@ from utils import display_rouges
 
 
 #tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b') # always load this even if is_test
-tokenizer = AutoTokenizer.from_pretrained('TheBloke/Mistral-7B-v0.1-GGUF') # always load this even if is_test
+#tokenizer = AutoTokenizer.from_pretrained('TheBloke/Mistral-7B-v0.1-GGUF') # always load this even if is_test
+tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1') # always load this even if is_test
 
 prompt_prefix = 'Summarize the following TV show transcript.\n\n<Transcript Start>\n'
 prompt_suffix = '\n<Transcript End>\n\nSummary:'
@@ -46,9 +47,10 @@ def load_peft_model(base_model_name_or_path, chkpt_path):
     return model
 
 def get_clipped(inputs, labs):
+    max_len = min(1048, tokenizer.model_max_length)
     # add [2] (eos_token_id) manually because not added by tokenizer for some reason
-    clipped_inputs = [tok_pp+x[1:tokenizer.model_max_length-len(lab+tok_pp+tok_ps)]+tok_ps+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<tokenizer.model_max_length]
-    clipped_labs = [[-100]*(min(len(x),tokenizer.model_max_length-len(lab+tok_pp+tok_ps))+len(tok_pp+tok_ps)-1)+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<tokenizer.model_max_length]
+    clipped_inputs = [tok_pp+x[1:max_len-len(lab+tok_pp+tok_ps)]+tok_ps+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<max_len]
+    clipped_labs = [[-100]*(min(len(x),max_len-len(lab+tok_pp+tok_ps))+len(tok_pp+tok_ps)-1)+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<max_len]
     clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
     for cinp, clab, x, lab in zip(clipped_inputs, clipped_labs, inputs['input_ids'], labs['input_ids']):
         if len(cinp)!=len(clab):
@@ -127,7 +129,7 @@ if not ARGS.expname.startswith('llama'):
 expdir = join(ARGS.expdir_prefix,ARGS.expname)
 #base_model_name = 'seanmor5/tiny-llama-test' if ARGS.is_test else 'huggyllama/llama-7b'
 #base_model_name = 'mistralai/Mistral-7B-v0.1'
-base_model_name = 'TheBloke/Mistral-7B-v0.1-GGUF'
+base_model_name = 'mistralai/Mistral-7B-v0.1'
 reload_chkpt_path = None if ARGS.reload_from is None else f'{expdir}/checkpoints/{ARGS.reload_from}'
 if ARGS.reload_from is None:
     set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
@@ -179,7 +181,12 @@ def inference_epoch(dset,fragment):
             break
     return np.array(rouges)
 
+to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
 opt = AdamW(model.parameters(),lr=1e-6)
+for p in model.parameters():
+    if p not in to_opt:
+        p.requires_grad=False
+
 num_training_steps = ARGS.n_epochs * len(trainloader)
 lr_scheduler = get_scheduler(name="linear", optimizer=opt, num_warmup_steps=0, num_training_steps=num_training_steps)
 
