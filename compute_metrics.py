@@ -60,31 +60,34 @@ if __name__ == '__main__':
     parser.add_argument('--overwrite',action='store_true')
     parser.add_argument('--allow_bs_cache',action='store_true')
     parser.add_argument('--print_results',action='store_true')
-    parser.add_argument('--scorer_model', type=str, required=True)
+    parser.add_argument('--scorer_model', type=str)
     parser.add_argument('--expdir_prefix', type=str, default='experiments')
     parser.add_argument('--metrics', type=str, nargs='+', choices=all_metrics+['all','just-get-facts'], default=['all'])
     parser.add_argument('--n_dpoints', type=int, default=-1)
     ARGS = parser.parse_args()
 
-    if ARGS.scorer_model in ['llama7b', 'llama7B']:
-        scorer_model = 'retrieval+llama7B+npm'
-    elif ARGS.scorer_model in ['llama13b', 'llama13B']:
-        scorer_model = 'retrieval+llama13B+npm'
-    elif ARGS.scorer_model =='gpt3.5':
-        scorer_model = 'gpt-3.5-turbo-instruct'
-    elif ARGS.scorer_model =='gpt4':
-        scorer_model = 'gpt-4-turbo-preview'
+    if not 'factscore' in ARGS.metrics and not 'rev-factscore' in ARGS.metrics:
+        assert ARGS.scorer_model is None
     else:
-        sys.exit(f'unrecognized scorer_model: {ARGS.scorer_model}')
-    llama_size = '7B' if ARGS.is_test else '13B'
-    #fs = FactScorer(model_name=f'retrieval+llama{llama_size}+npm',
-    fs = FactScorer(model_name=scorer_model,
-                    data_dir=".cache/factscore/",
-                    model_dir="huggyllama",
-                    cache_dir=".cache/factscore/",
-                    openai_key='factscore/api.key',
-                    cost_estimate='consider-cache',
-                    abstain_detection_type='generic')
+        if ARGS.scorer_model in ['llama7b', 'llama7B']:
+            scorer_model = 'retrieval+llama7B+npm'
+        elif ARGS.scorer_model in ['llama13b', 'llama13B']:
+            scorer_model = 'retrieval+llama13B+npm'
+        elif ARGS.scorer_model =='gpt3.5':
+            scorer_model = 'gpt-3.5-turbo-instruct'
+        elif ARGS.scorer_model =='gpt4':
+            scorer_model = 'gpt-4-turbo-preview'
+        else:
+            sys.exit(f'unrecognized scorer_model: {ARGS.scorer_model}')
+        llama_size = '7B' if ARGS.is_test else '13B'
+        #fs = FactScorer(model_name=f'retrieval+llama{llama_size}+npm',
+        fs = FactScorer(model_name=scorer_model,
+                        data_dir=".cache/factscore/",
+                        model_dir="huggyllama",
+                        cache_dir=".cache/factscore/",
+                        openai_key='factscore/api.key',
+                        cost_estimate='consider-cache',
+                        abstain_detection_type='generic')
 
 
     #expdir = f'/rds/user/co-maho1/hpc-work/experiments/{ARGS.expname}'
