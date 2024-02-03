@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     #all_metrics = ['factscore', 'rev-factscore', 'rouge', 'bertscore']
     default_metrics = ['factscore', 'rouge']
-    all_metrics = ['factscore', 'rouge', 'bertscore', 'rev-factscore']
+    all_metrics = ['factscore', 'rouge', 'rev-factscore']
     parser = argparse.ArgumentParser()
     parser.add_argument('--expname',type=str,default='tmp')
     parser.add_argument('--ep',type=str,default='none')
@@ -101,13 +101,12 @@ if __name__ == '__main__':
         ARGS.metrics = [m for m in ARGS.metrics if m!='rouge']+['r1','r2','rl','rlsum']
     if 'factscore' in ARGS.metrics:
         ARGS.metrics.append('n_facts')
-    if 'bertscore' in ARGS.metrics:
-        from evaluate import load
-        bertscore = load("bertscore")
-        ARGS.metrics = [m for m in ARGS.metrics if m!='bertscore']+['bs-precision','bs-recall','bs-f1']
-        check_dir(bs_cache_dir := join(expdir,'bertscore_cache'))
 
-    all_epnames = [f'{ARGS.ep}.txt'] if ARGS.ep != 'none' else os.listdir(gendir)
+    if ARGS.expname == 'gt-upperbound':
+        info_df = pd.read_csv('dset_info.csv',index_col=0)
+        all_epnames = info_df[(info_df['split']=='test') & info_df['usable']].index
+    else:
+        all_epnames = os.listdir(gendir) if ARGS.ep == 'none' else [f'{ARGS.ep}.txt']
     if ARGS.n_dpoints != -1:
         all_epnames = all_epnames[:ARGS.n_dpoints]
     full_results = {m:{} for m in ARGS.metrics}
@@ -115,14 +114,26 @@ if __name__ == '__main__':
     all_rouges = []
     for i,fn in enumerate(pbar := tqdm(all_epnames)):
     #for i,fn in enumerate(all_epnames):
-        assert fn.endswith('.txt')
-        epname = fn[:-4]
+        if ARGS.expname != 'gt-upperbound':
+            assert fn.endswith('.txt')
+            epname = fn[:-4]
+        else:
+            assert not fn.endswith('.txt')
+            epname = fn
 
         ep = episode_from_epname(epname, False)
         gt_summs = ep.summaries # this is a dict
+        good_summ_sources = ('soapcentral_condensed','tvdb','tvmega_recap')
 
-        with open(f'{gendir}/{epname}.txt') as f:
-            pred_summ = f.read()
+        if ARGS.expname == 'gt-upperbound':
+            possible_summ_sources = [k for k in good_summ_sources if gt_summs.get(k,None) is not None]
+            assert len(possible_summ_sources) > 0
+            longest_summ_source = max(possible_summ_sources, key=lambda x:200 if x=='soapcentral_condensed' else len(gt_summs[x]))
+            print('\n'+longest_summ_source+'\n')
+            pred_summ = gt_summs.pop(longest_summ_source)
+        else:
+            with open(f'{gendir}/{epname}.txt') as f:
+                pred_summ = f.read()
 
 
         # Now compute specified metrics
@@ -132,7 +143,8 @@ if __name__ == '__main__':
             cache_fpath = f'{cache_dir}/{epname}'
             pred_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=pred_summ)
             if 'factscore' in ARGS.metrics:
-                fs_results = get_factscore(pred_facts, gt_summs, epname)
+                epname_to_use = f'{epname}-gtup' if ARGS.expname == 'gt-upperbound' else epname
+                fs_results = get_factscore(pred_facts, gt_summs, epname_to_use)
                 full_results['factscore'][epname] = fs_results['score']
                 full_results['n_facts'][epname] = len(pred_facts)
 
@@ -141,37 +153,43 @@ if __name__ == '__main__':
             check_dir(cache_dir := 'gpt-extracted-facts/gt_summ_facts')
             facts_by_summ_name = {}
             gt_facts = []
-            for k,v in gt_summs.items():
-                cache_fpath = f'{cache_dir}/{epname}-{k}'
-                new_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=v)
-                gt_facts += new_facts
-            gt_facts = list(set(gt_facts))
-            rfs_results = get_factscore(gt_facts, {'pred':pred_summ}, f'{epname}_{ARGS.expname}')
+            #for k,v in gt_summs.items():
+            #for k in good_summ_sources:
+            #    if k not in gt_summs.keys():
+            #        continue
+            #    summ = gt_summs[k]
+            #    cache_fpath = f'{cache_dir}/{epname}-{k}'
+            #    new_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=summ)
+            #    gt_facts += new_facts
+            #gt_facts = list(set(gt_facts))
+            cache_fpath = f'gpt-extracted-facts/gt-upperbound/{epname}'
+            summ = ep.summaries.get('tvmega_recap','')
+            gt_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=summ)
+            pred_summ_sents = pred_summ.split('. ')
+            #pred_summ_sents = ['<MALFORMED SENTENCE>' if '..' in ps else ps for ps in pred_summ_sents]
+            pred_summ_sents = [ps for ps in pred_summ_sents if '.' not in ps and not (len(ps.split())==2 and ps.strip().startswith('The')) and len(ps.split())!=1 and all(ord(c)<128 for c in list(ps))]
+            #pred_summ_sents = ['<MALFORMED SENTENCE>' if '.' in ps or (len(ps.split())==2 and ps.strip().startswith('The')) or len(ps.split())==1 or any(ord(c)>=128 for c in list(ps)) else ps for ps in pred_summ_sents]
+            pred_summ_to_use = '. '.join(pred_summ_sents)
+            print(pred_summ)
+            print(pred_summ_to_use)
+            rfs_results = get_factscore(gt_facts, {'pred':pred_summ_to_use}, f'{epname}_{ARGS.expname}')
             full_results['rev-factscore'][epname] = rfs_results['score']
 
         if 'r1' in ARGS.metrics:
             pbar.set_description(f'Computing rouge for {epname}')
+            if len(v for v in gt_summs.values() if v is not None) < 2:
+                continue
             rouge_results = rouge_from_multiple_refs(pred_summ, gt_summs.values(), benchmark_rl=True, return_full=False)
             for r,s in zip(['r1','r2','rl','rlsum'], rouge_results):
                 full_results[r][epname] = s
 
-        if 'bs-f1' in ARGS.metrics:
-            pbar.set_description(f'Computing bertscore for {epname}')
-            maybe_bs_cache_path = join(bs_cache_dir,f'{epname}.json')
-            if os.path.exists(maybe_bs_cache_path) and ARGS.allow_bs_cache:
-                with open(maybe_bs_cache_path) as f:
-                    all_bss = json.load(f)
-            else:
-                all_bss = bertscore.compute(predictions=[pred_summ]*len(gt_summs), references=list(gt_summs.values()), lang="en", idf=True)
-                with open(maybe_bs_cache_path,'w') as f:
-                    json.dump(all_bss,f)
-            summ_idx_to_pick = np.array(all_bss['f1']).argmax()
-            for k,v in all_bss.items():
-                if k!='hashcode':
-                    full_results[f'bs-{k}'][epname] = v[summ_idx_to_pick]
-
         if ARGS.is_test and i==1:
             break
+        results_df_tmp = pd.DataFrame(full_results)
+        if 'factscore' in ARGS.metrics:
+            print('running factscore:', results_df_tmp.mean(axis=0)['factscore'])
+        if 'rev-factscore' in ARGS.metrics:
+            print('running rev-factscore:', results_df_tmp.mean(axis=0)['rev-factscore'])
 
     results_df = pd.DataFrame(full_results)
     results_df.loc['mean'] = results_df.mean(axis=0)
@@ -189,3 +207,4 @@ if __name__ == '__main__':
     results_df.to_csv(join(expdir, 'full_results.csv'))
     if ARGS.print_results:
         print(results_df)
+

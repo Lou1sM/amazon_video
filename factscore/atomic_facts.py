@@ -52,16 +52,17 @@ class AtomicFactGenerator(object):
                 para_breaks.append(len(sentences))
             paragraph = re.sub(r'\.\.+','<ellipsis>. ',paragraph)
 
-            initials = detect_initials(paragraph)
+            curr_sentences = [r.strip()+'.' for s in paragraph.split('. ') for r in sent_tokenize(s)]
+            #initials = detect_initials(paragraph)
 
-            curr_sentences = sent_tokenize(paragraph)
-            curr_sentences_2 = sent_tokenize(paragraph)
+            #curr_sentences = sent_tokenize(paragraph)
+            #curr_sentences_2 = sent_tokenize(paragraph)
 
-            curr_sentences = fix_sentence_splitter(curr_sentences, initials)
-            curr_sentences_2 = fix_sentence_splitter(curr_sentences_2, initials)
+            #curr_sentences = fix_sentence_splitter(curr_sentences, initials)
+            #curr_sentences_2 = fix_sentence_splitter(curr_sentences_2, initials)
 
             # check to ensure the crediability of the sentence splitter fixing algorithm
-            assert curr_sentences == curr_sentences_2, (paragraph, curr_sentences, curr_sentences_2)
+            #assert curr_sentences == curr_sentences_2, (paragraph, curr_sentences, curr_sentences_2)
 
             sentences = [s.replace('<ellipsis>','...') for s in sentences]
             sentences += curr_sentences
@@ -131,7 +132,7 @@ class AtomicFactGenerator(object):
                 atoms[sentence] = ['<MALFORMED SENTENCE>']
             else:
                 prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
-                output = self.openai_lm.generate(pred=prompt, max_output_tokens=50)
+                output = self.openai_lm.generate(pred=prompt, max_output_tokens=32)
                 #if 'incomplete' in output or ('not' in output and 'complete' in output) or 'incoherent' in output or ('not' in output and 'coherent' in output) or 'insufficient' in output or 'does not contain' in output or 'doesn\'t contain' in output or 'cut off' in output or 'typographical error' in output or 'grammatical error' in output or ('not' in output and 'down into independent facts' in output) or 'is too vague' in output or ('lacks' in output and 'information' in output) or ('not' in output and 'information' in output) or 'does not provide enough information' in output or 'is too brief' in output or 'Please provide' in output or 'Could you provide' in output or 'contains errors' in output or ('seems' in output and 'unclear' in output) or 'typo' in output or 'the text you provided' in output or 'is very brief' in output or 'is quite brief' in output or 'fragment' in output or 'missing information' in output or 'it seems the sentence' in output or ('enough' in output and 'information' in output) or ('limited' in output and 'information' in output) or ('lacks' in output and 'information' in output) or ('However' in output and 'attempt' in output) or ('I\'m sorry' in output and 'lease provide' in output):
                 if not output.startswith('-'):
                     print(sentence)
@@ -141,7 +142,7 @@ class AtomicFactGenerator(object):
                         atoms[sentence] = ['<MALFORMED SENTENCE>']
                 else:
                     if '...' in sentence:
-                        breakpoint()
+                        print(f'sencence {sentence} got through even with elipsis as {output}')
                     maybe_facts = text_to_sentences(output)
                     if maybe_facts == []:
                         breakpoint()

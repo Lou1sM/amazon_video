@@ -27,7 +27,6 @@ class OpenAIModel(LM):
         if (is_extration:=prompt_end.startswith('Please breakdown the following sentence into independent facts: ')):
             sent = prompt_end[64:]
             if sent in self.sent_cache:
-                print('using cache for', prompt)
                 return self.sent_cache[sent]
         waittime = 2
         while True:
@@ -47,5 +46,4 @@ class OpenAIModel(LM):
         output = response.choices[0].message.content
         if is_extration:
             self.sent_cache[sent] = output
-        print(output)
         return output

@@ -183,8 +183,18 @@ class FactScorer(object):
                 self.print_cost_estimates(n, task="factscore evaluation", model="gpt-3.5-turbo")
 
             if atom in atomic_facts[:i]: # mark repeated facts as wrong
+                if atom!='<MALFORMED SENTENCE>':
+                    print('penalizing repeated fact')
                 is_supported = False
             elif atom =='<MALFORMED SENTENCE>':
+                is_supported = False
+            elif 'airs on' in atom.lower() or 'season finale' in atom.lower():
+                is_supported = False
+            elif 'click' in atom.lower() or 'link' in atom.lower():
+                is_supported = False
+            elif 'Samaritans' in atom:
+                is_supported = False
+            elif '.com' in atom:
                 is_supported = False
             elif atom in cache:
                 is_supported = cache[atom]
@@ -193,7 +203,7 @@ class FactScorer(object):
                     print('atom:', atom, 'not in cache at', cache_path)
                 output = self.lm.generate(prompt)
 
-                if type(output[1])==np.ndarray:# when logits are available
+                if not isinstance(output, str) and type(output[1])==np.ndarray:# when logits are available
                     logits = np.array(output[1])
                     assert logits.shape[0] in [32000, 32001]
                     true_score = logits[5852]
@@ -215,6 +225,7 @@ class FactScorer(object):
                         is_supported = all([kw not in generated_answer.lower().translate(str.maketrans("", "", string.punctuation)).split() for kw in ["not", "cannot", "unknown", "information"]])
                 cache[atom] = bool(is_supported)
 
+            print(atom, is_supported)
             decisions.append({"atom": atom, "is_supported": is_supported})
 
         if had_cache:
