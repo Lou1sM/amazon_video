@@ -1,4 +1,5 @@
 import numpy as np
+import re
 import sys
 import pandas as pd
 import json
@@ -66,6 +67,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_dpoints', type=int, default=-1)
     ARGS = parser.parse_args()
 
+    if ARGS.metrics == ['all']:
+        ARGS.metrics = all_metrics
+
     if not 'factscore' in ARGS.metrics and not 'rev-factscore' in ARGS.metrics:
         assert ARGS.scorer_model is None
     else:
@@ -104,7 +108,10 @@ if __name__ == '__main__':
 
     if ARGS.expname == 'gt-upperbound':
         info_df = pd.read_csv('dset_info.csv',index_col=0)
-        all_epnames = info_df[(info_df['split']=='test') & info_df['usable']].index
+        epnames_val = info_df[(info_df['split']=='val') & info_df['usable']].index.tolist()
+        epnames_test = info_df[(info_df['split']=='test') & info_df['usable']].index.tolist()
+        all_epnames = epnames_val + epnames_test
+        #all_epnames = info_df[info_df['usable']].index
     else:
         all_epnames = os.listdir(gendir) if ARGS.ep == 'none' else [f'{ARGS.ep}.txt']
     if ARGS.n_dpoints != -1:
@@ -168,6 +175,7 @@ if __name__ == '__main__':
             pred_summ_sents = pred_summ.split('. ')
             #pred_summ_sents = ['<MALFORMED SENTENCE>' if '..' in ps else ps for ps in pred_summ_sents]
             pred_summ_sents = [ps for ps in pred_summ_sents if '.' not in ps and not (len(ps.split())==2 and ps.strip().startswith('The')) and len(ps.split())!=1 and all(ord(c)<128 for c in list(ps))]
+            pred_summ_sents = [ps for ps in pred_summ_sents if len(re.findall(r'[A-Z],',ps)) < 3 and len(re.findall(r',[A-Za-z],',ps)) < 3 and ps.count('I')<3]
             #pred_summ_sents = ['<MALFORMED SENTENCE>' if '.' in ps or (len(ps.split())==2 and ps.strip().startswith('The')) or len(ps.split())==1 or any(ord(c)>=128 for c in list(ps)) else ps for ps in pred_summ_sents]
             pred_summ_to_use = '. '.join(pred_summ_sents)
             print(pred_summ)
@@ -177,7 +185,7 @@ if __name__ == '__main__':
 
         if 'r1' in ARGS.metrics:
             pbar.set_description(f'Computing rouge for {epname}')
-            if len(v for v in gt_summs.values() if v is not None) < 2:
+            if len([v for v in gt_summs.values() if v is not None]) < 2:
                 continue
             rouge_results = rouge_from_multiple_refs(pred_summ, gt_summs.values(), benchmark_rl=True, return_full=False)
             for r,s in zip(['r1','r2','rl','rlsum'], rouge_results):
