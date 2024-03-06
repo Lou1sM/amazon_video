@@ -43,6 +43,7 @@ class AtomicFactGenerator(object):
         #    with open(maybe_cache) as f:
         #        pred_facts = f.readlines()
         #    return pred_facts
+        generation = re.sub(r' (?=[A-Z][a-z]+:)', '. ', generation)
         paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
 
         sentences = []
@@ -131,6 +132,14 @@ class AtomicFactGenerator(object):
             if sentence.split()[0] in ('The', 'A') and len(sentence.split())==2:
                 atoms[sentence] = ['<MALFORMED SENTENCE>']
             else:
+                if is_first_person(sentence):
+                    atoms[sentence] = ['<MALFORMED SENTENCE>']
+                    print(sentence, 'is first person')
+                    continue
+                if '?' in sentence:
+                    atoms[sentence] = ['<MALFORMED SENTENCE>']
+                    print(sentence, 'is question')
+                    continue
                 prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
                 output = self.openai_lm.generate(pred=prompt, max_output_tokens=32)
                 #if 'incomplete' in output or ('not' in output and 'complete' in output) or 'incoherent' in output or ('not' in output and 'coherent' in output) or 'insufficient' in output or 'does not contain' in output or 'doesn\'t contain' in output or 'cut off' in output or 'typographical error' in output or 'grammatical error' in output or ('not' in output and 'down into independent facts' in output) or 'is too vague' in output or ('lacks' in output and 'information' in output) or ('not' in output and 'information' in output) or 'does not provide enough information' in output or 'is too brief' in output or 'Please provide' in output or 'Could you provide' in output or 'contains errors' in output or ('seems' in output and 'unclear' in output) or 'typo' in output or 'the text you provided' in output or 'is very brief' in output or 'is quite brief' in output or 'fragment' in output or 'missing information' in output or 'it seems the sentence' in output or ('enough' in output and 'information' in output) or ('limited' in output and 'information' in output) or ('lacks' in output and 'information' in output) or ('However' in output and 'attempt' in output) or ('I\'m sorry' in output and 'lease provide' in output):
@@ -159,6 +168,19 @@ class AtomicFactGenerator(object):
 
         return atoms
 
+def is_first_person(s):
+    s = s.replace('"','')
+    s = s.replace('\'', ' \'')
+    found = False
+    for w in ('And','But','So','Well','Because'):
+        if s.startswith(w):
+            body = s[len(w):]
+            found = True
+    if not found:
+        body = s[1:]
+    if 'we' not in s.lower().split() and 'I' not in s.split():
+        return False
+    return body.lower() == body.replace('I','i')
 
 def best_demos(query, bm25, demons_sents, k):
     tokenized_query = query.split(" ")

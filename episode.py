@@ -1,3 +1,4 @@
+import pandas as pd
 import re
 import json
 import os
@@ -28,11 +29,11 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
         self.title = transcript_data['Show Title'].lower().replace(' ','_')
         self.show_name = epname.split('.')[0]
-        if self.epname == 'gl-01-03-06':
-            assert self.transcript.count('') <= 1
-            if self.transcript.count('') == 1:
-                assert self.transcript.index('') == len(self.transcript)-1
-                self.transcript = self.transcript[:-1]
+        #if self.epname == 'gl-01-03-06':
+            #assert self.transcript.count('') <= 1
+            #if self.transcript.count('') == 1:
+                #assert self.transcript.index('') == len(self.transcript)-1
+                #self.transcript = self.transcript[:-1]
         self.transcript_data_dict = transcript_data
         self.summary_data_dict = summary_data
 
@@ -149,6 +150,8 @@ def labels_from_splits(splits, n):
 
 
 if __name__ == '__main__':
+    from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
+    from tqdm import tqdm
     #print(mdl_split([8,2,2,8,3,1,1,3,3,1,4,5,4,5,4,5]))
     #print(mdl_split([3,5,1,5,3,1,4,5,4,5,4,5]))
     #ep = episode_from_epname('atwt-01-02-03')
@@ -161,37 +164,58 @@ if __name__ == '__main__':
     #    else:
     #        print('\n'.join(sc))
     #    print('[INFERRED_BREAK]\n')
-    epname_list = [x.rstrip('.json') for x in os.listdir('SummScreen/transcripts')][:10]
+    #epname_list = [x.rstrip('.json') for x in os.listdir('SummScreen/transcripts')][:10]
+    info_df = pd.read_csv('dset_info.csv',index_col=0)
+    epnames = info_df.loc[info_df['usable'] & (info_df['scene_breaks']=='explicit') & (info_df['split']=='test')].index
     nss = []
-    for en in epname_list:
+    for en in epnames:
         with open(f'SummScreen/transcripts/{en}.json') as f:
             td = json.load(f)['Transcript']
-        if not any('[SCENE_BREAK]' in x for x in td):
-            continue
+        assert any('[SCENE_BREAK]' in x for x in td)
         nss.append(len(''.join(td).split('[SCENE_BREAK]')))
     mean_num_scenes = np.array(nss).mean()
-    all_accs = []
-    all_rand_accs = []
-    all_ro_accs = []
-    for en in epname_list:
+    all_scores = []
+    all_rand_scores = []
+    all_ro_scores = []
+    for en in tqdm(epnames):
         print(en)
         with open(f'SummScreen/transcripts/{en}.json') as f:
             transcript_data = json.load(f)['Transcript']
         if not any('[SCENE_BREAK]' in x for x in transcript_data):
             continue
         N = len(transcript_data)
-        gt_scenes, gt_splits = infer_scene_splits(transcript_data, False)
-        pred_scenes, pred_splits = infer_scene_splits(transcript_data, True)
+        gt_scenes, gt_splits, _ = infer_scene_splits(transcript_data, False)
+        pred_scenes, pred_splits, _ = infer_scene_splits(transcript_data, True)
         random_oracle_splits = np.arange(0, N, N//len(gt_scenes))
         random_splits = np.arange(0, N, N//mean_num_scenes)
         preds = labels_from_splits(pred_splits, N)
         gts = labels_from_splits(gt_splits, N)
         ro_labels = labels_from_splits(random_oracle_splits, N)
+        pcns = [[y for y in get_char_names(x.split('\n')) if y!=-1] for x in pred_scenes]
+        gcns = [[y for y in get_char_names(x.split('\n')) if y!=-1] for x in gt_scenes]
+        #if pcns[0] != gcns[0]:
+            #breakpoint()
         rand_labels = labels_from_splits(random_splits, N)
-        acc = accuracy(preds, gts)
-        ro_acc = accuracy(ro_labels, gts)
-        rand_acc = accuracy(rand_labels, gts)
-        all_accs.append(acc); all_ro_accs.append(ro_acc); all_rand_accs.append(rand_acc)
-    print('mine:', np.array(all_accs).mean())
-    print('rand oracle:', np.array(all_ro_accs).mean()) # rand oracle means knows gt num scenes
-    print('rand:', np.array(all_rand_accs).mean())
+
+        new_our_scores = {}
+        new_rand_scores = {}
+        new_ro_scores = {}
+        for mname ,mfunc in zip(['acc','nmi','ari'], [accuracy, normalized_mutual_info_score, adjusted_rand_score]):
+            new_our_scores[mname] = mfunc(preds, gts)
+            new_rand_scores[mname] = mfunc(rand_labels, gts)
+            new_ro_scores[mname] = mfunc(ro_labels, gts)
+        if new_our_scores['acc']>.95:
+            breakpoint()
+        all_scores.append(new_our_scores)
+        all_rand_scores.append(new_rand_scores)
+        all_ro_scores.append(new_ro_scores)
+
+    our_df = pd.DataFrame(all_scores)
+    rand_df = pd.DataFrame(all_rand_scores)
+    ro_df = pd.DataFrame(all_ro_scores)
+    results_df = pd.DataFrame({'ours':our_df.mean(axis=0),'random':rand_df.mean(axis=0), 'random oracle':ro_df.mean(axis=0)}).T
+    results_df.to_csv('scene_split_results.csv')
+    results_df.to_latex('scene_split_results_latex_table.txt')
+    print(results_df)
+    breakpoint()
+
