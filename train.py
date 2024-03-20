@@ -13,34 +13,35 @@ from utils import get_fn, display_rouges
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--batch_size',type=int,default=1)
+parser.add_argument('--bs',type=int,default=1)
 parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions','kosmos-only','swinbert-only'], default='nocaptions')
-parser.add_argument('--cpu',action='store_true')
-parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
-parser.add_argument('--uniform_breaks', action='store_true')
-parser.add_argument('--startendscenes', action='store_true')
 parser.add_argument('--centralscenes', action='store_true')
-parser.add_argument('--resumm_scenes',action='store_true')
+parser.add_argument('--chkpt_path_reload_from',type=str,default='none')
+parser.add_argument('--cpu',action='store_true')
+parser.add_argument('--dbs',type=int,default=8)
+parser.add_argument('--dont_save_new_scenes',action='store_true')
+parser.add_argument('--early_stop_metric',type=int,default=2)
 parser.add_argument('--eval_every',type=int,default=1)
 parser.add_argument('--eval_first',action='store_true')
-parser.add_argument('--expname',type=str)
 parser.add_argument('--expdir_prefix',type=str,default='experiments')
+parser.add_argument('--expname',type=str)
+parser.add_argument('--infer_splits_at_test',action='store_true')
+parser.add_argument('-t','--is_test',action='store_true')
+parser.add_argument('-bt','--is_test_big_bart',action='store_true')
 parser.add_argument('--model_name',type=str,default='facebook/bart-large-cnn')
 parser.add_argument('--n_dpoints',type=int,default=-1)
-parser.add_argument('--bs',type=int,default=1)
-parser.add_argument('--dbs',type=int,default=8)
 parser.add_argument('--n_epochs',type=int,default=10)
-parser.add_argument('--early_stop_metric',type=int,default=2)
 parser.add_argument('--n_iter',type=int,default=-1)
+parser.add_argument('--no_pbar',action='store_true')
+parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
 parser.add_argument('--overwrite',action='store_true')
 parser.add_argument('--reload_from',type=str,default='none')
-parser.add_argument('--chkpt_path_reload_from',type=str,default='none')
+parser.add_argument('--resumm_scenes',action='store_true')
 parser.add_argument('--retokenize',action='store_true')
-parser.add_argument('--infer_splits_at_test',action='store_true')
 parser.add_argument('--save_every',action='store_true')
-parser.add_argument('--no_pbar',action='store_true')
-parser.add_argument('--dont_save_new_scenes',action='store_true')
-parser.add_argument('-bt','--is_test_big_bart',action='store_true')
-parser.add_argument('-t','--is_test',action='store_true')
+parser.add_argument('--soft_scene_summs',action='store_true')
+parser.add_argument('--startendscenes', action='store_true')
+parser.add_argument('--uniform_breaks', action='store_true')
 ARGS = parser.parse_args()
 
 
@@ -96,11 +97,12 @@ ss = SoapSummer(model=model,
                 startendscenes=ARGS.startendscenes,
                 centralscenes=ARGS.centralscenes,
                 expdir=expdir,
+                soft_scene_summs=ARGS.soft_scene_summs,
                 resumm_scenes=ARGS.resumm_scenes,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
 
-fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test)
+fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.soft_scene_summs, ARGS.is_test)
 
 def train_preproc_fn(dpoint):
     inputs = [doc for doc in dpoint['scene_summs']]

@@ -9,7 +9,7 @@ def add_results_from(base_expname):
     for run in range(5):
         expname = f'{base_expname}{run}'
         print(expname)
-        results_path = f'/rds/user/co-maho1/hpc-work/experiments/{expname}/results.txt'
+        results_path = f'experiments/{expname}/results.txt'
         with open(results_path) as f:
             rlines = f.readlines()
         assert rlines[0].startswith('r1: ')
@@ -21,7 +21,7 @@ def add_results_from(base_expname):
         assert rlines[3].startswith('rLsum: ')
         rlsumval = float(rlines[3][7:])
 
-        factscore_results_path = f'/rds/user/co-maho1/hpc-work/experiments/{expname}/rouge_and_factscore_results.txt'
+        factscore_results_path = f'experiments/{expname}/rouge_and_factscore_results.txt'
         if not os.path.exists(factscore_results_path):
             factscore = -1
         else:
