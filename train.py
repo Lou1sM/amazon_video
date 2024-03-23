@@ -17,6 +17,7 @@ parser.add_argument('--bs',type=int,default=1)
 parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions','kosmos-only','swinbert-only'], default='nocaptions')
 parser.add_argument('--centralscenes', action='store_true')
 parser.add_argument('--chkpt_path_reload_from',type=str,default='none')
+parser.add_argument('--max_chunk_size',type=int,default=10000)
 parser.add_argument('--cpu',action='store_true')
 parser.add_argument('--dbs',type=int,default=8)
 parser.add_argument('--dont_save_new_scenes',action='store_true')
@@ -83,21 +84,23 @@ else:
 
 print(f'loading model from {chkpt_path}')
 if ARGS.startendscenes or ARGS.centralscenes:
-    model, tokenizer = None, None
-else:
-    model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
-ss = SoapSummer(model=model,
+    #model, tokenizer = None, None
+    assert ARGS.model_name == 'facebook/bart-large-cnn', "can't set model name in startend/central, will be ignored"
+#else:
+    #model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
+    #tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
+ss = SoapSummer(model_name=model_name,
                 bs=ARGS.bs,
                 dbs=ARGS.dbs,
-                tokenizer=tokenizer,
+                #tokenizer=tokenizer,
                 caps=ARGS.caps,
                 scene_order=ARGS.order,
                 uniform_breaks=ARGS.uniform_breaks,
                 startendscenes=ARGS.startendscenes,
                 centralscenes=ARGS.centralscenes,
-                expdir=expdir,
                 soft_scene_summs=ARGS.soft_scene_summs,
+                max_chunk_size=ARGS.max_chunk_size,
+                expdir=expdir,
                 resumm_scenes=ARGS.resumm_scenes,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
@@ -105,13 +108,19 @@ ss = SoapSummer(model=model,
 fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.soft_scene_summs, ARGS.is_test)
 
 def train_preproc_fn(dpoint):
-    inputs = [doc for doc in dpoint['scene_summs']]
-    model_inputs = ss.tokenizer(inputs)
+    if ARGS.soft_scene_summs:
+        model_inputs = {'inputs_embeds': [torch.load(fpath) for fpath in dpoint['scene_summs']]}
+        model_inputs['input_ids'] = model_inputs['inputs_embeds'] # makes checking input size easier later
+        model_inputs['attention_mask'] = [[1]*len(x) for x in model_inputs['inputs_embeds']]
+    else:
+        inputs = [doc for doc in dpoint['scene_summs']]
+        model_inputs = ss.tokenizer(inputs)
 
     # Setup the tokenizer for targets
     labels = ss.tokenizer(text_target=dpoint['summ'])
 
     model_inputs['labels'] = labels['input_ids']
+    breakpoint()
     return model_inputs
 
 
@@ -142,11 +151,6 @@ def get_dsets():
 
 trainset, valset, testset = get_dsets()
 
-
-def save_to(fname):
-    save_dir = join(expdir, 'checkpoints', fname)
-    model.save_pretrained(save_dir)
-    tokenizer.save_pretrained(save_dir)
 
 if ARGS.eval_first:
     rouges = ss.eval_epoch(0, testset)

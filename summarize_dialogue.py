@@ -20,18 +20,24 @@ from tqdm import tqdm
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class SoapSummer():
-    def __init__(self, model, bs, dbs, tokenizer, caps, scene_order, uniform_breaks, startendscenes, centralscenes, expdir, soft_scene_summs, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
-        assert (model is None) == (tokenizer is None) == (centralscenes or startendscenes)
+    def __init__(self, model_name, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, soft_scene_summs, max_chunk_size, expdir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
-        self.dtokenizer = AutoTokenizer.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary')
-        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained('kabita-choudhary/finetuned-bart-for-conversation-summary').to(device)
-        if model is None:
-            self.model = self.dmodel
-            self.tokenizer = self.dtokenizer
+        if is_test:
+            self.model_name = self.dmodel_name = 'lucadiliello/bart-small'
+        elif startendscenes or centralscenes:
+            self.model_name = self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
         else:
-            self.model = model
-            self.tokenizer = tokenizer
+            self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
+            self.model_name = model_name
+        self.dmodel = AutoModelForSeq2SeqLM.from_pretrained(self.dmodel_name).to(device)
+        self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name)
+        if self.model_name == self.dmodel_name: # either test, or startend/central
+            self.model = self.dmodel # avoid loading twice
+            self.tokenizer = self.dtokenizer # avoid loading twice
+        else:
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(device)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         if caps.endswith('-only'):
             self.caps = caps[:-5]
             self.caps_only = True
@@ -45,6 +51,7 @@ class SoapSummer():
         self.startendscenes = startendscenes
         self.centralscenes = centralscenes
         self.soft_scene_summs = soft_scene_summs
+        self.max_chunk_size = max_chunk_size
         self.resumm_scenes = resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
@@ -63,6 +70,7 @@ class SoapSummer():
     def summ_scenes(self, epname, infer_splits):
         ep = episode_from_epname(epname, infer_splits)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
+        max_chunk_size = min(self.max_chunk_size, self.dtokenizer.model_max_length)
         if len(scenes) == 1:
             print(f'no scene breaks for {epname}')
             breakpoint()
@@ -95,7 +103,7 @@ class SoapSummer():
             combined_caps = [caps[ri] for ri in idxs]
         elif self.uniform_breaks:
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
-            combined_scenes = chunkify(transcript_wo_scene_marks, self.dtokenizer.model_max_length)
+            combined_scenes = chunkify(transcript_wo_scene_marks, max_chunk_size)
             combined_caps = caps
         else:
             combined_scenes = scenes
@@ -147,7 +155,7 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        chunk_list = [chunkify(s,self.dtokenizer.model_max_length) for s in combined_scenes]
+        chunk_list = [chunkify(s, max_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks
         avg_scene_summ_len = self.tokenizer.model_max_length//len(chunks)
@@ -159,7 +167,7 @@ class SoapSummer():
         sorted_tok_chunks = [tok_chunks[i] for i in sort_idxs]
         v_short_chunk_idxs = [i for i,sc in enumerate(sorted_tok_chunks) if len(sc) < avg_scene_summ_len]
         n_shorts = 0 if self.soft_scene_summs else len(v_short_chunk_idxs)
-        assert v_short_chunk_idxs == list(range(n_shorts))
+        assert self.soft_scene_summs or (v_short_chunk_idxs == list(range(n_shorts)))
         short_chunk_summs = [summ_short_scene(sc) for sc in sorted_chunks[:n_shorts]]
         remaining_chunks = sorted_tok_chunks[n_shorts:]
         assert all([sorted_tok_chunks[reversed_sort_idxs[i]]==c for i,c in enumerate(tok_chunks)])
@@ -187,7 +195,7 @@ class SoapSummer():
             remaining_chunk_summs += summ
         chunk_summs = short_chunk_summs + remaining_chunk_summs
 
-        # now reuinfy whatever scenes were split into chunks
+        # return chunks to their original order
         desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
         count = 0
         desplit = []
@@ -199,7 +207,7 @@ class SoapSummer():
                 desplit.append(' '.join(desorted_chunk_summs[count:count+len(cl)]))
             count+=len(cl)
         if self.soft_scene_summs:
-            return desplit
+            return torch.cat(desplit)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
         ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
@@ -210,10 +218,9 @@ class SoapSummer():
     def get_scene_summs(self, epname, infer_splits):
         epname_ = f'{epname}-inferred' if infer_splits else epname
         maybe_scene_summ_path = f'SummScreen/scene_summs/{epname_}_{self.fn}.pt' if self.soft_scene_summs else f'SummScreen/scene_summs/{epname_}_{self.fn}.txt'
-        breakpoint()
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             if self.soft_scene_summs:
-                ss = list(torch.load(maybe_scene_summ_path))
+                ss = torch.load(maybe_scene_summ_path)
             else:
                 with open(maybe_scene_summ_path) as f:
                     ss = [x.strip() for x in f.readlines()]
@@ -233,7 +240,8 @@ class SoapSummer():
         return self.summarize_scene_summs('\n'.join(scene_summs))
 
     def summarize_scene_summs(self, concatted_scene_summs):
-        chunks = chunkify(concatted_scene_summs,self.tokenizer.model_max_length)
+        max_chunk_size = min(self.max_chunk_size, self.tokenizer.model_max_length)
+        chunks = chunkify(concatted_scene_summs, max_chunk_size)
         print(len(chunks))
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
@@ -260,7 +268,8 @@ class SoapSummer():
             pbar.set_description(epname)
             unjoined_scene_summs = self.get_scene_summs(epname, infer_splits)
             if self.soft_scene_summs:
-                ss = torch.cat(unjoined_scene_summs)
+                #ss = torch.cat(unjoined_scene_summs)
+                ss = unjoined_scene_summs
             else:
                 ss = '\n'.join(unjoined_scene_summs)
             with open(os.path.join(summ_dir, f'{epname}.json')) as f:
@@ -271,6 +280,8 @@ class SoapSummer():
                 if '[ RECAP AVAILABLE ]' in v or 'Episode summary coming soon.' in v:
                     continue
                 assert (k=='tvmega_summary') == (v.startswith('Episode'))
+                if self.soft_scene_summs:
+                    ss = f'SummScreen/scene_summs/{epname}_{self.fn}.pt'
                 if len(v) > 0 and k not in ['soap_central','tvmega_summary']:
                     data_list.append({'scene_summs':ss, 'summ':v, 'summ_name':k, 'epname':epname})
         return data_list
@@ -325,12 +336,17 @@ class SoapSummer():
             else:
                 batch['input_ids'] = batch['input_ids'][:,:self.tokenizer.model_max_length]
                 batch['attention_mask'] = batch['attention_mask'][:,:self.tokenizer.model_max_length]
+                assert ('inputs_embeds' in batch.keys()) == self.soft_scene_summs
+                if self.soft_scene_summs:
+                    batch['inputs_embeds'] = batch['inputs_embeds'][:,:self.tokenizer.model_max_length]
             if (batch['labels'].shape[1]) > self.tokenizer.model_max_length:
                 continue
             if max(batch['input_ids'].shape[1], batch['labels'].shape[1], batch['decoder_input_ids'].shape[1]) > self.tokenizer.model_max_length:
                 breakpoint()
             cbatch = {k:v.to(device) for k,v in batch.items()}
             cbatch['labels'] = cbatch['labels'].contiguous()
+            if self.soft_scene_summs:
+                cbatch['input_ids'] = None
             try:
                 outputs = self.model(**cbatch)
                 loss = outputs[0]
@@ -428,12 +444,12 @@ def soft_forward(model, input_ids, attention_mask, n_new_tokens):
     bos_token_id_tensor = torch.ones((bs, 1), dtype=torch.long, device=device)*bos_token_id
     embeds = model.model.decoder.embed_tokens(bos_token_id_tensor)
     #for i in range(n_new_tokens):
-    for i in range(2):
-        print(i)
+    for i in range(10):
         dec_out = model.model.decoder(input_ids=None, inputs_embeds=embeds, encoder_hidden_states=encoder_outputs, encoder_attention_mask=attention_mask)
         hiddens_for_each_word = dec_out.last_hidden_state
         hidden_for_last_word = hiddens_for_each_word[:,-1:,:] # vec that would normally be used to select next word
         embeds = torch.cat([embeds, hidden_for_last_word], dim=1)
+    embeds = embeds.detach().cpu()
     return embeds
 
 
