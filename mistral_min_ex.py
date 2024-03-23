@@ -20,8 +20,8 @@ info_df = pd.read_csv('dset_info.csv', index_col=0)
 icl_epnames = info_df.loc[info_df['usable']&(info_df['split']=='val')]
 prompt_prefix = 'Summarize the following TV show transcript.\n\n<Transcript Start>\n'
 prompt_suffix = '\n<Transcript End>\n\nSummary: '
-prompt = ''
-for i in range(1):
+icl_examples = ''
+for i in range(1,6):
     summ = 'none'
     for summ_source in ('tvdb','tvmega_recap', 'soapcentral_condensed'):
         potential_summ = pdset[summ_source][i]
@@ -29,14 +29,24 @@ for i in range(1):
             summ = potential_summ
             break
     assert summ != 'none'
-    prompt += prompt_prefix+pdset['transcript'][i][:1000]+prompt_suffix+summ
+    if i==5:
+        breakpoint()
+    icl_examples += prompt_prefix+pdset['transcript'][i][:1000]+prompt_suffix+summ
+    #prompt += prompt_prefix+pdset['transcript'][i]+prompt_suffix+summ
 
-prompt += prompt_prefix + dset['transcript'][0][:1000] + prompt_suffix
-#prompt = "do you like green eggs"
-model_inputs = tokenizer([prompt], return_tensors="pt").to(device)
 
-model.eval()
-print('generating')
-with torch.no_grad():
-    generated_ids = model.generate(**model_inputs, min_new_tokens=18, max_new_tokens=20, do_sample=True)
-print(tokenizer.batch_decode(generated_ids)[0])
+for j in range(5):
+    prompt = icl_examples + prompt_prefix+pdset['transcript'][j][:1000]+prompt_suffix
+    #prompt += prompt_prefix + dset['transcript'][0] + prompt_suffix
+    #prompt = "do you like green eggs"
+    model_inputs = tokenizer([prompt], return_tensors="pt").to(device)
+
+    model.eval()
+    print('generating')
+    with torch.no_grad():
+        generated_ids = model.generate(**model_inputs, min_new_tokens=100, max_new_tokens=120, do_sample=True)
+    #for summ_source in ('tvdb', 'soapcentral_condensed', 'tvmega_recap'):
+        #print(pdset[j].get(summ_source,''))
+    print(tokenizer.batch_decode(generated_ids)[0])
+    breakpoint()
+    pass

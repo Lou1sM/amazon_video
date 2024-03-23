@@ -38,8 +38,8 @@ elif ARGS.is_test:
     ARGS.expname='llamatmp'
     ARGS.n_epochs = min(ARGS.n_epochs,2)
     ARGS.n_dpoints = 10
-if not ARGS.expname.startswith('llama'):
-    ARGS.expname = 'llama'+ARGS.expname
+if not ARGS.expname.startswith(ARGS.model_name):
+    ARGS.expname = ARGS.model_name+ARGS.expname
 
 prompt_prefix = 'Summarize the following TV show transcript.\n\n<Transcript Start>\n'
 prompt_suffix = '\n<Transcript End>\n\nSummary:'
@@ -47,11 +47,11 @@ if ARGS.is_test:
     base_model_name = 'seanmor5/tiny-llama-test'
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
 elif ARGS.model_name=='llama':
-    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     base_model_name = 'huggyllama/llama-7b'
+    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
 elif ARGS.model_name=='mistral':
-    tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1')
     base_model_name = 'mistralai/Mistral-7B-v0.1'
+    tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1')
 else:
     sys.exit('You must specify a model name if not in test mode')
 
@@ -62,8 +62,6 @@ tok_ps = tokenizer(prompt_suffix)['input_ids'][1:]
 def load_peft_model(base_model_name_or_path, chkpt_path):
     print('loading model from', base_model_name_or_path)
     model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
-    #model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path)
-    #return model
     if chkpt_path is None:
         print('no peft chkpt to update from')
         model = prepare_model_for_kbit_training(model)
@@ -78,11 +76,11 @@ def load_peft_model(base_model_name_or_path, chkpt_path):
         assert any([x.requires_grad for x in model.parameters()])
     return model
 
+clip_len = min(4048, tokenizer.model_max_length)
 def get_clipped(inputs, labs):
-    max_len = min(4048, tokenizer.model_max_length)
     # add [2] (eos_token_id) manually because not added by tokenizer for some reason
-    clipped_inputs = [tok_pp+x[1:max_len-len(lab+tok_pp+tok_ps)]+tok_ps+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<max_len]
-    clipped_labs = [[-100]*(min(len(x),max_len-len(lab+tok_pp+tok_ps))+len(tok_pp+tok_ps)-1)+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<max_len]
+    clipped_inputs = [tok_pp+x[1:clip_len-len(lab+tok_pp+tok_ps)]+tok_ps+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<clip_len]
+    clipped_labs = [[-100]*(min(len(x),clip_len-len(lab+tok_pp+tok_ps))+len(tok_pp+tok_ps)-1)+lab[1:] for x,lab in zip(inputs['input_ids'],labs['input_ids']) if len(lab+tok_pp+tok_ps)<clip_len]
     clipped_attn_masks = [[1]*len(x) for x in clipped_inputs]
     for cinp, clab, x, lab in zip(clipped_inputs, clipped_labs, inputs['input_ids'], labs['input_ids']):
         if len(cinp)!=len(clab):
@@ -124,7 +122,7 @@ def test_preproc_fn(examples):
     return results
 
 def get_maybe_cached_dset(fragment, preproc_fn):
-    cache_path = f'SummScreen/cached_tokenized/{fragment}set_for_llama_baseline'
+    cache_path = f'SummScreen/cached_tokenized/{fragment}set_for_{ARGS.model_name}_baseline'
     if os.path.exists(cache_path) and not ARGS.retokenize:
         print(f'dataset has been cached on disk at {cache_path}, loading from there')
         tokenized_dset = load_from_disk(cache_path)
@@ -141,7 +139,7 @@ reload_chkpt_path = None if ARGS.reload_from is None else f'{expdir}/checkpoints
 if ARGS.reload_from is None:
     set_experiment_dir(expdir, ARGS.overwrite, name_of_trials=join(ARGS.expdir_prefix,'llamatmp'))
 else:
-    assert os.path.exists(expdir)
+    assert os.path.exists(expdir), f'{expdir} not found'
 
 tokenized_trainset = get_maybe_cached_dset('train', train_preproc_fn)
 tokenized_valset = get_maybe_cached_dset('val', test_preproc_fn)
@@ -179,7 +177,7 @@ def inference_epoch(dset,fragment):
             print('repeat output')
         prev = nl_outputs
         for i, nlo in enumerate(nl_outputs):
-            print(nlo)
+            #print(nlo)
             references = [v[i] for k,v in batch.items() if k not in ('input_ids','attention_mask') and v[i] is not None]
             best_rouge = rouge_from_multiple_refs(nlo, references, return_full=False, benchmark_rl=True)
             rouges.append(best_rouge)
@@ -233,13 +231,6 @@ for en in range(ARGS.n_epochs):
             break
     save_model(f'{expdir}/checkpoints/epoch{en}')
     save_model(f'{expdir}/checkpoints/best')
-    #val_rouges = inference_epoch(tokenized_valset, 'val').mean(axis=0)
-    #if val_rouges[2] > best_val_rouges[2]:
-    #    best_val_rouges = val_rouges
-    #    save_model(f'{expdir}/checkpoints/best')
-    #else:
-    #    patience += 1
-    #print(f'Mean Rouge: {val_rouges}\tPatience: {patience}\t')
     if patience == 2:
         break
 
