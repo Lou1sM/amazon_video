@@ -1,11 +1,13 @@
 import pandas as pd
 import numpy as np
 import os
+import json
 
 
 full_results_dict = {}
 ct_results_dict = {}
 def add_results_from(base_expname):
+    setting_results_dict = {}
     for run in range(5):
         expname = f'{base_expname}{run}'
         print(expname)
@@ -37,23 +39,46 @@ def add_results_from(base_expname):
             rl = float(flines[5][8:])
             assert flines[6].startswith('rougeLsum: ')
             rlsum = float(flines[6][11:])
+        new_results_dir = f'/rds/user/co-maho1/hpc-work/experiments/{expname}/results_by_metric'
+        #for mname in ['r1','r2','rlsum','bs-precision','bs-recall','bs-f1']:
+        for mname in ['bs-precision','bs-recall','bs-f1']:
+            new_results_path = os.path.join(new_results_dir,f'{mname}-full-results.json')
+            if os.path.exists(new_results_path):
+                #print('getting results from', new_results_path)
+                with open(new_results_path) as f:
+                    en_results[mname] = json.load(f)['mean']*100
+                    #en_results[mname] = json.load(f)['std']
+            else:
+                en_results[mname] = -1
 
-        full_results_dict[expname] = {'r1':r1, 'r2':r2, 'rl': rl, 'rlsum': rlsum, 'r1val':r1val, 'r2val':r2val, 'rlval': rlval, 'rlsumval': rlsumval, 'factscore': factscore}
-        setting_results_list.append([r1,r2,rl,rlsum,factscore])
 
-    setting_results = np.array(setting_results_list)
-    #setting_means = setting_results.mean(axis=0)
-    setting_means = np.nanmean(np.where(setting_results!=-1,setting_results,np.nan),0)
-    #setting_stds = setting_results.std(axis=0)
-    setting_stds = np.nanstd(np.where(setting_results!=-1,setting_results,np.nan),0)
-    ct_results_dict[base_expname] = {k:f'{m:.3f} ({s:.3f})' for k,m,s in zip(['r1','r2','rl','rlsum','factscore'],setting_means, setting_stds)}
+        full_results_dict[expname] = en_results
+        setting_results_dict[expname] = en_results
 
+    setting_results = pd.DataFrame(setting_results_dict).T
+    setting_means = setting_results.mask(setting_results.eq(-1)).mean()
+    setting_stds = setting_results.mask(setting_results.eq(-1)).std()
+    print(setting_results)
+    #if (setting_results.drop('factscore',axis=1)==-1).any().any():
+        #breakpoint()
+    ct_results_dict[base_expname] = {k:f'{v:.2f} ({setting_stds[k]:.2f})' for k,v in setting_means.items()}
+    #ct_results_dict[base_expname] = setting_means
+
+add_results_from('unifbreaks')
+add_results_from('kosmosonly')
+add_results_from('unl')
+add_results_from('unllong')
+add_results_from('llama')
+add_results_from('mistral')
+add_results_from('central')
+add_results_from('startend')
 for caps in ['nocaptions', 'swinbert', 'kosmos']:
-    for order in ['', '_reordered', '_randordered']:
+    for order in ['', '_reordered']:
         setting_results_list = []
         add_results_from(f'{caps}{order}')
-add_results_from('unifbreaks')
 full_df = pd.DataFrame(full_results_dict).T
 ct_df = pd.DataFrame(ct_results_dict).T
+ct_df = ct_df.rename({'kosmos_reordered':'modular-kosmos (ours)', 'swinbert_reordered':'modular-swinbert (ours)','nocaptions_reordered':'w/o video'})
 print(ct_df)
 breakpoint()
+print(ct_df.drop(['swinbert','nocaptions']).to_latex(float_format="{{:0.2f}}".format))
