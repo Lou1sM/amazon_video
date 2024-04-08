@@ -17,15 +17,14 @@ import numpy as np
 from tqdm import tqdm
 
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 class SoapSummer():
-    def __init__(self, model_name, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, soft_scene_summs, max_chunk_size, expdir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, model_name, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, soft_scene_summs, max_chunk_size, expdir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
+        self.device = device
         if is_test:
             self.model_name = self.dmodel_name = 'lucadiliello/bart-small'
-        elif startendscenes or centralscenes:
+        elif startendscenes or centralscenes or soft_scene_summs:
             self.model_name = self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
         else:
             self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
@@ -61,9 +60,9 @@ class SoapSummer():
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
-        attention_mask = torch.stack([torch.cat([torch.ones(len(c)),torch.zeros(N-len(c))]) for c in batch], dim=0).to(device)
+        attention_mask = torch.stack([torch.cat([torch.ones(len(c)),torch.zeros(N-len(c))]) for c in batch], dim=0).to(self.device)
         padded = [b+[tokenizer.eos_token_id]*(N-len(b)) for b in batch]
-        padded = torch.tensor(padded).to(device)
+        padded = torch.tensor(padded).to(self.device)
         assert padded.shape == attention_mask.shape
         return padded, attention_mask
 
@@ -182,7 +181,7 @@ class SoapSummer():
                 padded = padded[:,:self.dtokenizer.model_max_length]
                 attn = attn[:,:self.dtokenizer.model_max_length]
             if self.soft_scene_summs:
-                soft_tokens = soft_forward(self.dmodel, padded, attention_mask=attn, n_new_tokens=max_len)
+                soft_tokens = self.soft_forward(padded, attention_mask=attn, n_new_tokens=max_len)
                 summ = list(soft_tokens) # summ is a list of scene summaries in permuted order, will be depermuted later
             else:
                 summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_length=min_len, max_length=max_len)
@@ -242,7 +241,6 @@ class SoapSummer():
     def summarize_scene_summs(self, concatted_scene_summs):
         max_chunk_size = min(self.max_chunk_size, self.tokenizer.model_max_length)
         chunks = chunkify(concatted_scene_summs, max_chunk_size)
-        print(len(chunks))
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         #if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
@@ -343,7 +341,7 @@ class SoapSummer():
                 continue
             if max(batch['input_ids'].shape[1], batch['labels'].shape[1], batch['decoder_input_ids'].shape[1]) > self.tokenizer.model_max_length:
                 breakpoint()
-            cbatch = {k:v.to(device) for k,v in batch.items()}
+            cbatch = {k:v.to(self.device) for k,v in batch.items()}
             cbatch['labels'] = cbatch['labels'].contiguous()
             if self.soft_scene_summs:
                 cbatch['input_ids'] = None
@@ -433,24 +431,33 @@ class SoapSummer():
         if self.n_epochs>0:
             best_chkpt = f'{self.expdir}/checkpoints/best'
             print('reloading', best_chkpt)
-            self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(device)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(best_chkpt).to(self.device)
         test_rouges = self.inference_epoch(self.n_epochs, testset, 'test')
         return test_rouges, alltime_best_rouges, all_rouges
 
-def soft_forward(model, input_ids, attention_mask, n_new_tokens):
-    encoder_outputs = model.model.encoder(input_ids)[0]
-    bos_token_id = 2
-    bs = input_ids.shape[0]
-    bos_token_id_tensor = torch.ones((bs, 1), dtype=torch.long, device=device)*bos_token_id
-    embeds = model.model.decoder.embed_tokens(bos_token_id_tensor)
-    #for i in range(n_new_tokens):
-    for i in range(10):
-        dec_out = model.model.decoder(input_ids=None, inputs_embeds=embeds, encoder_hidden_states=encoder_outputs, encoder_attention_mask=attention_mask)
-        hiddens_for_each_word = dec_out.last_hidden_state
-        hidden_for_last_word = hiddens_for_each_word[:,-1:,:] # vec that would normally be used to select next word
-        embeds = torch.cat([embeds, hidden_for_last_word], dim=1)
-    embeds = embeds.detach().cpu()
-    return embeds
+    def soft_forward(self, input_ids, attention_mask, n_new_tokens):
+        encoder_outputs = self.model.model.encoder(input_ids)[0]
+        bos_token_id = 2
+        bs = input_ids.shape[0]
+        bos_token_id_tensor = torch.ones((bs, 1), dtype=torch.long, device=self.device)*bos_token_id
+        embeds = self.model.model.decoder.embed_tokens(bos_token_id_tensor)
+        #for i in range(n_new_tokens):
+        for i in range(10):
+            dec_out = self.model.model.decoder(input_ids=None, inputs_embeds=embeds, encoder_hidden_states=encoder_outputs, encoder_attention_mask=attention_mask)
+            hiddens_for_each_word = dec_out.last_hidden_state
+            hidden_for_last_word = hiddens_for_each_word[:,-1:,:] # vec that would normally be used to select next word
+            embeds = torch.cat([embeds, hidden_for_last_word], dim=1)
+        embeds = embeds.detach().cpu()
+        return embeds
+
+    def soft_decode(self, x):
+        if x.ndim != 1:
+            assert x.ndim == 2
+            x = x.transpose(0,1)
+        token_embed_logits = self.model.lm_head.weight @ x.to(self.device)
+        nearest_token_embeds = token_embed_logits.argmax(axis=0)
+        soft_decoding = self.tokenizer.decode(nearest_token_embeds)
+        return soft_decoding
 
 
 if __name__ == '__main__':

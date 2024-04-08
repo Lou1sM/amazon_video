@@ -90,6 +90,7 @@ if ARGS.startendscenes or ARGS.centralscenes:
     #model = AutoModelForSeq2SeqLM.from_pretrained(chkpt_path).to(device)
     #tokenizer = AutoTokenizer.from_pretrained(chkpt_path)
 ss = SoapSummer(model_name=model_name,
+                device=device,
                 bs=ARGS.bs,
                 dbs=ARGS.dbs,
                 #tokenizer=tokenizer,
