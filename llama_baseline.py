@@ -1,6 +1,6 @@
 from tqdm import tqdm
 import torch
-from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training, PeftModel, PeftConfig
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel, PeftConfig
 from dl_utils.misc import check_dir
 from dl_utils.tensor_funcs import cudify
 from utils import rouge_from_multiple_refs
@@ -21,6 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--bs',type=int,default=1)
 parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions','kosmos-only','swinbert-only'], default='nocaptions')
 parser.add_argument('--expname',type=str)
+parser.add_argument('--device',type=str, choices=['cuda','cpu'], default='cpu')
 parser.add_argument('--model_name',type=str, choices=['mistral','llama'])
 parser.add_argument('--expdir_prefix',type=str,default='experiments')
 parser.add_argument('--n_dpoints',type=int,default=-1)
@@ -65,7 +66,7 @@ def load_peft_model(base_model_name_or_path, chkpt_path):
     #return model
     if chkpt_path is None:
         print('no peft chkpt to update from')
-        model = prepare_model_for_int8_training(model)
+        model = prepare_model_for_kbit_training(model)
         lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
         model = get_peft_model(model,lora_config)
     else:
@@ -146,7 +147,10 @@ tokenized_trainset = get_maybe_cached_dset('train', train_preproc_fn)
 tokenized_valset = get_maybe_cached_dset('val', test_preproc_fn)
 tokenized_testset = get_maybe_cached_dset('test', test_preproc_fn)
 
-model = load_peft_model(base_model_name, reload_chkpt_path)
+if ARGS.device=='cpu':
+    model = AutoModelForCausalLM.from_pretrained(base_model_name)
+else:
+    model = load_peft_model(base_model_name, reload_chkpt_path)
 dc = DataCollatorForSeq2Seq(tokenizer, model=model)
 trainloader = DataLoader(tokenized_trainset, batch_size=ARGS.bs, shuffle=True, collate_fn=dc)
 tokenizer.pad_token = tokenizer.eos_token
@@ -162,9 +166,12 @@ def inference_epoch(dset,fragment):
         batch = dset[j*ARGS.bs:(j+1)*ARGS.bs]
         pad_len = max(len(x) for x in batch['input_ids'])
         padded_inputs = [x+[tokenizer.pad_token_id]*(pad_len-len(x)) for x in batch['input_ids']]
-        padded_inputs = cudify(padded_inputs)
+        if ARGS.device=='cpu':
+            padded_inputs = torch.tensor(padded_inputs)
+        else:
+            padded_inputs = cudify(padded_inputs)
         with torch.no_grad():
-            preds = model.generate(input_ids=padded_inputs, min_new_tokens=48, max_new_tokens=58)
+            preds = model.generate(input_ids=padded_inputs, min_new_tokens=180, max_new_tokens=200)
         nl_outputs = tokenizer.batch_decode([p[len(binp):]  for p,binp in zip(preds,batch['input_ids'])], skip_special_tokens=True, cleanup_tokenization_spaces=True)
         assert len(nl_outputs) == ARGS.bs
         #nl_outputs = nl_outputs_[0]
@@ -179,7 +186,6 @@ def inference_epoch(dset,fragment):
         epoch_rouge = (((j+i)*epoch_rouge) + best_rouge) / (j+i+1) # running avg
         pbar.set_description(f'current rouge: {best_rouge[0]:.3f} {best_rouge[1]:.3f} {best_rouge[2]:.3f} {best_rouge[3]:.3f}  '
                          f'epoch rouge: {epoch_rouge[0]:.3f} {epoch_rouge[1]:.3f} {epoch_rouge[2]:.3f} {epoch_rouge[3]:.3f}')
-        epname = batch['epname']
         for en, nlo in zip(batch['epname'], nl_outputs):
             with open(f'{generations_dir}/{en}.txt','w') as f:
                 f.write(nlo)
@@ -187,7 +193,7 @@ def inference_epoch(dset,fragment):
             break
     return np.array(rouges)
 
-to_opt = model.parameters() if ARGS.is_test else model.model.model.layers[24:].parameters()
+to_opt = model.parameters() if ARGS.is_test else model.model.layers[24:].parameters() if ARGS.device=='cpu' else model.model.model.layers[24:].parameters()
 opt = AdamW(model.parameters(),lr=1e-6)
 for p in model.parameters():
     p.requires_grad=False
@@ -211,7 +217,10 @@ for en in range(ARGS.n_epochs):
     opt.zero_grad()
     for i,batch in enumerate(pbar:=tqdm(trainloader)):
         opt.zero_grad()
-        cbatch = {k:cudify(v) for k,v in batch.items()}
+        if ARGS.device=='cpu':
+            cbatch = batch
+        else:
+            cbatch = {k:cudify(v) for k,v in batch.items()}
         cbatch['labels'] = cbatch['labels'].contiguous()
         outputs = model(**cbatch)
         loss = outputs[0]

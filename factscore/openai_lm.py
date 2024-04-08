@@ -6,6 +6,7 @@ import numpy as np
 
 class OpenAIModel(LM):
     def __init__(self, cache_file=None, key_path="api.key"):
+        assert os.path.exists(key_path)
         self.key_path = key_path
         self.temp = 0.7
         self.save_interval = 100

@@ -19,7 +19,14 @@ nltk.download("punkt")
 
 class AtomicFactGenerator(object):
     def __init__(self, key_path, demon_dir, gpt3_cache_file=None):
-        self.nlp = spacy.load("en_core_web_sm")
+        try:
+            self.nlp = spacy.load("en_core_web_sm")
+        except:
+            print("Downloading spaCy NLP model...")
+            print("This may take a few minutes and it's one time process...")
+            os.system(
+                "python -m spacy download en")
+            self.nlp = spacy.load("en_core_web_sm")
         self.is_bio = True
         self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
 
@@ -132,13 +139,17 @@ class AtomicFactGenerator(object):
             if sentence.split()[0] in ('The', 'A') and len(sentence.split())==2:
                 atoms[sentence] = ['<MALFORMED SENTENCE>']
             else:
-                if is_first_person(sentence):
+                if is_first_or_second_person(sentence):
                     atoms[sentence] = ['<MALFORMED SENTENCE>']
                     print(sentence, 'is first person')
                     continue
                 if '?' in sentence:
                     atoms[sentence] = ['<MALFORMED SENTENCE>']
                     print(sentence, 'is question')
+                    continue
+                if ':' in sentence:
+                    atoms[sentence] = ['<MALFORMED SENTENCE>']
+                    print(sentence, 'is script-like line') # sometimes models just repeat part of transcript
                     continue
                 prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
                 output = self.openai_lm.generate(pred=prompt, max_output_tokens=32)
@@ -168,7 +179,7 @@ class AtomicFactGenerator(object):
 
         return atoms
 
-def is_first_person(s):
+def is_first_or_second_person(s):
     s = s.replace('"','')
     s = s.replace('\'', ' \'')
     found = False
@@ -178,7 +189,7 @@ def is_first_person(s):
             found = True
     if not found:
         body = s[1:]
-    if 'we' not in s.lower().split() and 'I' not in s.split():
+    if 'we' not in s.lower().split() and 'I' not in s.split() and 'you' not in s.split():
         return False
     return body.lower() == body.replace('I','i')
 

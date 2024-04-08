@@ -13,6 +13,10 @@ from factscore.clm import CLM
 from factscore.npm import NPM
 from factscore.openai_lm import OpenAIModel
 from factscore.retrieval import DocDB, Retrieval
+from nltk.corpus import names
+
+english_names = names.words('male.txt') + names.words('female.txt')
+
 
 class FactScorer(object):
     def __init__(self, model_name, data_dir, model_dir, cache_dir, openai_key, cost_estimate, abstain_detection_type, batch_size=256):
@@ -90,7 +94,7 @@ class FactScorer(object):
 
         logging.critical("Estimated OpenAI API cost for %s ($%.3f per 1000 tokens): $%.2f for %d words and %d tokens" % (task, rate, total_cost, total_words, total_tokens))
 
-    def get_score(self, epname, topics, ref_summaries, generations=None, atomic_facts=None):
+    def get_score(self, epname, topics, ref_summaries, overwrite_cache, generations=None, atomic_facts=None):
         assert type(topics)==list
         assert (generations is None) != (atomic_facts is None), 'use exactly one of gens/facts'
         if atomic_facts is not None:
@@ -135,7 +139,7 @@ class FactScorer(object):
             if facts is None:
                 decisions.append(None)
             else:
-                decision = self._get_score(epname, topic, facts, ep_ref_summs)
+                decision = self._get_score(epname, topic, facts, ep_ref_summs, overwrite_cache=overwrite_cache)
                 if decision is None:
                     decisions.append(None)
                 else:
@@ -155,13 +159,14 @@ class FactScorer(object):
 
         return out
 
-    def _get_score(self, epname, topic, atomic_facts, summaries_dict, cost_estimate=None):
+    def _get_score(self, epname, topic, atomic_facts, summaries_dict, overwrite_cache):
         decisions = []
         total_words = 0
         cache_dir = 'is_supported_factscore_caches/'
         print(f'\nScoring facts for {epname}\n')
         cache_path = os.path.join(cache_dir,f'{epname}-{self.model_name}.json')
-        if (had_cache:=(check_dir(cache_dir) and os.path.exists(cache_path))):
+        had_cache = check_dir(cache_dir) and os.path.exists(cache_path)
+        if (use_cache:=(had_cache and not overwrite_cache)):
             with open(cache_path) as f:
                 cache = json.load(f)
         else:
@@ -182,7 +187,11 @@ class FactScorer(object):
                 n = len(prompt.split())
                 self.print_cost_estimates(n, task="factscore evaluation", model="gpt-3.5-turbo")
 
-            if atom in atomic_facts[:i]: # mark repeated facts as wrong
+            maybe_names = [w for w in atom.rstrip('.').split() if w in english_names]
+            if not all(n in definition for n in maybe_names):
+                print(f'The following names are not in the summ: {[n for n in maybe_names if n not in definition]}')
+                is_supported = False
+            elif atom in atomic_facts[:i]: # mark repeated facts as wrong
                 if atom!='<MALFORMED SENTENCE>':
                     print('penalizing repeated fact')
                 is_supported = False
@@ -199,7 +208,7 @@ class FactScorer(object):
             elif atom in cache:
                 is_supported = cache[atom]
             else:
-                if had_cache:
+                if use_cache:
                     print('atom:', atom, 'not in cache at', cache_path)
                 output = self.lm.generate(prompt)
 
@@ -228,7 +237,7 @@ class FactScorer(object):
             print(atom, is_supported)
             decisions.append({"atom": atom, "is_supported": is_supported})
 
-        if had_cache:
+        if use_cache:
             with open(cache_path) as f:
                 orig_cache = json.load(f)
             for k,v in orig_cache.items():
@@ -237,7 +246,4 @@ class FactScorer(object):
         with open(cache_path, 'w') as f:
             #print('saving cache to', cache_path)
             json.dump(cache, f)
-        if cost_estimate:
-            return total_words
-        else:
-            return decisions
+        return decisions

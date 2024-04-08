@@ -15,19 +15,27 @@ from tqdm import tqdm
 
 
 def filter_facts(facts):
-    return [f for f in facts if f=='<MALFORMED SENTENCE>' or (not any(x in f for x in ['someone','something','somebody','is a person','is a character', 'are people', 'are characters']) and len(f.split())>2)]
+    facts = [f for f in facts if f=='<MALFORMED SENTENCE>' or (not any(x in f.lower() for x in ['someone','something','somebody','is a person','is a character', 'are people', 'are characters']) and len(f.split())>2)]
+    facts = [f for f in facts if not f.lower().startswith('there is a') and not 'is in a room' in f and not 'is talking' in f and not 'are talking' in f and not 'made a statement' in f]
+    facts = [f for f in facts if not 'is mentioned' in f.lower() and not 'are mentioned' in f.lower() and not 'is there' in f.lower() and not 'are there' in f.lower()]
+    facts = [f for f in facts if f=='<MALFORMED SENTENCE>' or not f.endswith(' to')]
+    facts = [f for f in facts if not 'is there' in f and not 'are there' in f]
+    return facts
 
 def get_maybe_cached_atomic_facts(maybe_cached_path, generator, nl_text=None, path=None):
     assert (nl_text is None) != (path is None)
-    if os.path.exists(maybe_cached_path):
+    if nl_text is None:
+        with open(path) as f:
+            nl_text = f.read()
+    if ':' not in nl_text and os.path.exists(maybe_cached_path):
         print('using extraction cache at', maybe_cached_path)
         with open(maybe_cached_path) as f:
             facts = f.read().split('\n')
     else:
         print('no extraction cache found at', maybe_cached_path)
-        if nl_text is None:
-            with open(path) as f:
-                nl_text = f.read()
+        #if nl_text is None:
+            #with open(path) as f:
+                #nl_text = f.read()
         facts_and_sources, para_breaks = generator.run(nl_text)
         facts = [x for line in facts_and_sources for x in line[1]]
         with open(maybe_cached_path,'w') as f:
@@ -40,10 +48,10 @@ def get_maybe_cached_atomic_facts(maybe_cached_path, generator, nl_text=None, pa
     return filtered_facts
 
 
-def get_factscore(facts, knowledge_base_text, epname): #epname need for caching
+def get_factscore(facts, knowledge_base_text, epname, overwrite_cache): #epname need for caching
     factscore = fs.get_score(epname, topics=['A summary of a TV show'],
                   ref_summaries=[knowledge_base_text],
-                  atomic_facts=[facts])
+                  atomic_facts=[facts], overwrite_cache=overwrite_cache)
 
     factscore['decisions'] = [{k:int(v) if v in [True,False] else v for k,v in dec.items()} for dec in factscore['decisions'][0]]
     return factscore
@@ -151,7 +159,7 @@ if __name__ == '__main__':
             pred_facts = get_maybe_cached_atomic_facts(cache_fpath, generator, nl_text=pred_summ)
             if 'factscore' in ARGS.metrics:
                 epname_to_use = f'{epname}-gtup' if ARGS.expname == 'gt-upperbound' else epname
-                fs_results = get_factscore(pred_facts, gt_summs, epname_to_use)
+                fs_results = get_factscore(pred_facts, gt_summs, epname_to_use, overwrite_cache=False)
                 full_results['factscore'][epname] = fs_results['score']
                 full_results['n_facts'][epname] = len(pred_facts)
 
@@ -176,12 +184,15 @@ if __name__ == '__main__':
             #pred_summ_sents = ['<MALFORMED SENTENCE>' if '..' in ps else ps for ps in pred_summ_sents]
             pred_summ_sents = [ps for ps in pred_summ_sents if '.' not in ps and not (len(ps.split())==2 and ps.strip().startswith('The')) and len(ps.split())!=1 and all(ord(c)<128 for c in list(ps))]
             pred_summ_sents = [ps for ps in pred_summ_sents if len(re.findall(r'[A-Z],',ps)) < 3 and len(re.findall(r',[A-Za-z],',ps)) < 3 and ps.count('I')<3]
-            #pred_summ_sents = ['<MALFORMED SENTENCE>' if '.' in ps or (len(ps.split())==2 and ps.strip().startswith('The')) or len(ps.split())==1 or any(ord(c)>=128 for c in list(ps)) else ps for ps in pred_summ_sents]
+            pred_summ_sents = ['<MALFORMED SENTENCE>' if '.' in ps or (len(ps.split())==2 and ps.strip().startswith('The')) or len(ps.split())==1 or any(ord(c)>=128 for c in list(ps))  or ':' in ps or '?' in ps or 'I' in ps.split() or 'you' in ps.split() or 'we' in ps.split() else ps for ps in pred_summ_sents]
             pred_summ_to_use = '. '.join(pred_summ_sents)
             print(pred_summ)
             print(pred_summ_to_use)
-            rfs_results = get_factscore(gt_facts, {'pred':pred_summ_to_use}, f'{epname}_{ARGS.expname}')
-            full_results['rev-factscore'][epname] = rfs_results['score']
+            if all([ps=='<MALFORMED SENTENCE>' for ps in pred_summ_sents]):
+                full_results['rev-factscore'][epname] = 0
+            else:
+                rfs_results = get_factscore(gt_facts, {'pred':pred_summ_to_use}, f'{epname}_{ARGS.expname}', overwrite_cache=any(ps=='<MALFORMED SENTENCE>' for ps in pred_summ_sents))
+                full_results['rev-factscore'][epname] = rfs_results['score']
 
         if 'r1' in ARGS.metrics:
             pbar.set_description(f'Computing rouge for {epname}')
@@ -215,4 +226,3 @@ if __name__ == '__main__':
     results_df.to_csv(join(expdir, 'full_results.csv'))
     if ARGS.print_results:
         print(results_df)
-
