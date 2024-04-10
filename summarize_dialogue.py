@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 
 class SoapSummer():
-    def __init__(self, model_name, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, soft_scene_summs, max_chunk_size, expdir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, model_name, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, soft_scene_summs, max_chunk_size, expdir, data_dir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
         self.device = device
@@ -44,6 +44,7 @@ class SoapSummer():
             self.caps = caps
             self.caps_only = False
         self.expdir = expdir
+        self.data_dir = data_dir
         self.n_epochs = 0
         self.scene_order = scene_order
         self.uniform_breaks = uniform_breaks
@@ -76,7 +77,7 @@ class SoapSummer():
         if self.caps == 'nocaptions':
             caps = ['']*len(scenes)
         else: # prepend vid caps to the scene summ
-            with open(f'SummScreen/video_scenes/{epname}/{self.caps}_procced_scene_caps.json') as f:
+            with open(join(self.data_dir,f'video_scenes/{epname}/{self.caps}_procced_scene_caps.json')) as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
             caps = [cdd.get(f'{epname}s{i}','') for i in range(len(scenes))]
@@ -216,7 +217,7 @@ class SoapSummer():
 
     def get_scene_summs(self, epname, infer_splits):
         epname_ = f'{epname}-inferred' if infer_splits else epname
-        maybe_scene_summ_path = f'SummScreen/scene_summs/{epname_}_{self.fn}.pt' if self.soft_scene_summs else f'SummScreen/scene_summs/{epname_}_{self.fn}.txt'
+        maybe_scene_summ_path = join(self.data_dir,f'scene_summs/{epname_}_{self.fn}.pt') if self.soft_scene_summs else join(self.data_dir,f'scene_summs/{epname_}_{self.fn}.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             if self.soft_scene_summs:
                 ss = torch.load(maybe_scene_summ_path)
@@ -279,7 +280,7 @@ class SoapSummer():
                     continue
                 assert (k=='tvmega_summary') == (v.startswith('Episode'))
                 if self.soft_scene_summs:
-                    ss = f'SummScreen/scene_summs/{epname}_{self.fn}.pt'
+                    ss = join(self.data_dir,f'scene_summs/{epname}_{self.fn}.pt')
                 if len(v) > 0 and k not in ['soap_central','tvmega_summary']:
                     data_list.append({'scene_summs':ss, 'summ':v, 'summ_name':k, 'epname':epname})
         return data_list
@@ -303,7 +304,7 @@ class SoapSummer():
         else:
             epnames = [x for x in epnames if x!=epname_to_be_first]
 
-        assert all([os.path.isdir(f'SummScreen/video_scenes/{x}') for x in epnames])
+        assert all([os.path.isdir(join(self.data_dir,f'video_scenes/{x}')) for x in epnames])
         infer_splits = dset_fragment_name.endswith('-inferred')
         dpoints = self.dpoints_from_epnames(epnames, scene_caps, infer_splits)
         if base_dset_fragment_name in ('val', 'test'):
@@ -317,7 +318,7 @@ class SoapSummer():
                 todump.append(combined)
         else:
             todump = dpoints
-        with open(f'SummScreen/json_datasets/{self.fn}_{n_dpoints}dps_{dset_fragment_name}_dset.json','w') as f:
+        with open(join(self.data_dir,f'json_datasets/{self.fn}_{n_dpoints}dps_{dset_fragment_name}_dset.json','w')) as f:
             json.dump(todump, f)
 
     def train_one_epoch(self, epoch, trainloader, no_pbar):

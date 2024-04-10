@@ -19,6 +19,7 @@ parser.add_argument('--centralscenes', action='store_true')
 parser.add_argument('--chkpt_path_reload_from',type=str,default='none')
 parser.add_argument('--max_chunk_size',type=int,default=10000)
 parser.add_argument('--cpu',action='store_true')
+parser.add_argument('--data_dir',type=str,default='./SummScreen')
 parser.add_argument('--dbs',type=int,default=8)
 parser.add_argument('--dont_save_new_scenes',action='store_true')
 parser.add_argument('--early_stop_metric',type=int,default=2)
@@ -60,6 +61,7 @@ elif ARGS.is_test:
     ARGS.expname='tmp'
     if ARGS.n_dpoints == -1:
         ARGS.n_dpoints = 10
+    ARGS.n_epochs = 2
 
 assert not (ARGS.reload_from!='none' and ARGS.chkpt_path_reload_from!='none'), "can't use two reload options"
 
@@ -102,6 +104,7 @@ ss = SoapSummer(model_name=model_name,
                 soft_scene_summs=ARGS.soft_scene_summs,
                 max_chunk_size=ARGS.max_chunk_size,
                 expdir=expdir,
+                data_dir=ARGS.data_dir,
                 resumm_scenes=ARGS.resumm_scenes,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
@@ -121,19 +124,18 @@ def train_preproc_fn(dpoint):
     labels = ss.tokenizer(text_target=dpoint['summ'])
 
     model_inputs['labels'] = labels['input_ids']
-    breakpoint()
     return model_inputs
 
 
 def get_dsets():
     dsets = []
     splits = ('train','val','test-inferred') if ARGS.infer_splits_at_test else ('train','val','test')
-    maybe_cache_paths = [f'SummScreen/cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{s}_cache' for s in splits]
+    maybe_cache_paths = [join(ARGS.data_dir, f'cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{s}_cache') for s in splits]
     if all(os.path.exists(p) for p in maybe_cache_paths) and not ARGS.retokenize:
         print(maybe_cache_paths[0], 'exists, loading from there')
         print('tokenized datasets have been cached, loading')
         return [load_from_disk(cp) for cp in maybe_cache_paths]
-    json_paths = [f'SummScreen/json_datasets/{fn}_{ARGS.n_dpoints}dps_{s}_dset.json' for s in splits]
+    json_paths = [join(ARGS.data_dir, f'json_datasets/{fn}_{ARGS.n_dpoints}dps_{s}_dset.json') for s in splits]
     if any(not os.path.exists(jp) for jp in json_paths) or ARGS.retokenize:
         print('building new dataset')
         for spl in splits:
@@ -145,7 +147,7 @@ def get_dsets():
         dset = load_dataset('json', data_files=jp, split='train')
         if split=='train':
             dset = dset.map(train_preproc_fn, batched=True, remove_columns=dset.column_names)
-        assert cp == f'SummScreen/cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{split}_cache'
+        assert cp == join(ARGS.data_dir, f'cached_tokenized/{fn}_{ARGS.n_dpoints}dps_{split}_cache')
         dset.save_to_disk(cp)
         dsets.append(dset)
     return dsets
