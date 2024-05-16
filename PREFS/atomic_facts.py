@@ -1,24 +1,21 @@
 import json
+import time
 import numpy as np
 import re
-import functools
 import string
 import spacy
-import sys
 import nltk
 import openai
+from PREFS.openai_lm import OpenAIModel
 from rank_bm25 import BM25Okapi
 import os
-import time
 from nltk.tokenize import sent_tokenize
-
-from .openai_lm import OpenAIModel
 
 nltk.download("punkt")
 
 
 class AtomicFactGenerator(object):
-    def __init__(self, key_path, demon_dir, gpt3_cache_file=None):
+    def __init__(self):
         try:
             self.nlp = spacy.load("en_core_web_sm")
         except:
@@ -27,29 +24,25 @@ class AtomicFactGenerator(object):
             os.system(
                 "python -m spacy download en")
             self.nlp = spacy.load("en_core_web_sm")
-        self.is_bio = True
-        self.demon_path = os.path.join(demon_dir, "demons.json" if self.is_bio else "demons_complex.json")
+        self.demo_path = 'PREFS/demos/demos_complex.json'
+        self.oailm = OpenAIModel()
 
-        self.openai_lm = OpenAIModel(cache_file=gpt3_cache_file, key_path=key_path)
+        with open(self.demo_path, 'r') as f:
+            self.demos = json.load(f)
 
-        # get the demos
-        with open(self.demon_path, 'r') as f:
-            self.demons = json.load(f)
-
-        tokenized_corpus = [doc.split(" ") for doc in self.demons.keys()]
+        tokenized_corpus = [doc.split(" ") for doc in self.demos.keys()]
         self.bm25 = BM25Okapi(tokenized_corpus)
 
-    def save_cache(self):
-        self.openai_lm.save_cache()
+        self.sent_cache_fp = 'PREFS/sent2facts_cache.json'
+        if os.path.exists(self.sent_cache_fp):
+            with open(self.sent_cache_fp) as f:
+                self.sent_cache = json.load(f)
+            assert isinstance(self.sent_cache, dict)
+        else:
+            self.sent_cache = {}
 
     def run(self, generation, cost_estimate=None):
-        """Convert the generation into a set of atomic facts. Return a total words cost if cost_estimate != None."""
-        assert isinstance(generation, str), "generation must be a string"
-        #assert len(maybe_cache) < 100, 'you might have mixed up cache and pred'
-        #if os.path.exists(maybe_cache) and False:
-        #    with open(maybe_cache) as f:
-        #        pred_facts = f.readlines()
-        #    return pred_facts
+        assert isinstance(generation, str)
         generation = re.sub(r' (?=[A-Z][a-z]+:)', '. ', generation)
         paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
 
@@ -61,17 +54,6 @@ class AtomicFactGenerator(object):
             paragraph = re.sub(r'\.\.+','<ellipsis>. ',paragraph)
 
             curr_sentences = [r.strip()+'.' for s in paragraph.split('. ') for r in sent_tokenize(s)]
-            #initials = detect_initials(paragraph)
-
-            #curr_sentences = sent_tokenize(paragraph)
-            #curr_sentences_2 = sent_tokenize(paragraph)
-
-            #curr_sentences = fix_sentence_splitter(curr_sentences, initials)
-            #curr_sentences_2 = fix_sentence_splitter(curr_sentences_2, initials)
-
-            # check to ensure the crediability of the sentence splitter fixing algorithm
-            #assert curr_sentences == curr_sentences_2, (paragraph, curr_sentences, curr_sentences_2)
-
             sentences = [s.replace('<ellipsis>','...') for s in sentences]
             sentences += curr_sentences
 
@@ -84,13 +66,9 @@ class AtomicFactGenerator(object):
 
         atomic_facts_pairs = []
         for i, sent in enumerate(sentences):
-            if not self.is_bio and ( \
-                (i==0 and (sent.startswith("Sure") or sent.startswith("Here are"))) or \
-                (i==len(sentences)-1 and (sent.startswith("Please") or sent.startswith("I hope") or sent.startswith("Here are")))):
+            if any(sent.startswith(x) for x in ['Sure', 'Here are', 'Please', 'I hope']):
                 atomic_facts_pairs.append((sent, []))
-            elif self.is_bio and sent.startswith("This sentence does not contain any facts"):
-                atomic_facts_pairs.append((sent, []))
-            elif sent.startswith("Sure") or sent.startswith("Please") or (i==0 and sent.startswith("Here are")):
+            elif sent.startswith("This sentence does not contain any facts"):
                 atomic_facts_pairs.append((sent, []))
             else:
                 atomic_facts_pairs.append((sent, atoms[sent]))
@@ -99,41 +77,36 @@ class AtomicFactGenerator(object):
         # it is supposed to handle sentence splitter issue too, but since here
         # we fixed sentence splitter issue already,
         # the new para_breaks should be identical to the original para_breaks
-        if self.is_bio:
-            atomic_facts_pairs, para_breaks = postprocess_atomic_facts(atomic_facts_pairs, list(para_breaks), self.nlp)
+        atomic_facts_pairs, para_breaks = postprocess_atomic_facts(atomic_facts_pairs, list(para_breaks), self.nlp)
 
-        #pred_facts = [x for line in atomic_facts_pairs for x in line[1]]
-        #with open(maybe_cache,'w') as f:
-            #f.write('\n'.join([pf for pf in pred_facts]))
         return atomic_facts_pairs, para_breaks
 
     def get_init_atomic_facts_from_sentence(self, sentences):
         """Get the initial atomic facts from the sentences. Return a total words cost if cost_estimate != None."""
 
-        is_bio = self.is_bio
-        demons = self.demons
+        k = 1
+        n = 7
 
-        k = 1 if is_bio else 0
-        n = 7 if is_bio else 8
-
-        prompts = []
-        prompt_to_sent = {}
         atoms = {}
         for i,sentence in enumerate(sentences):
             if sentence in atoms:
                 continue
-            top_machings = best_demos(sentence, self.bm25, list(demons.keys()), k)
+            elif sentence in self.sent_cache:
+                atoms[sentence] = self.sent_cache[sentence]
+                continue
+
+            top_machings = best_demos(sentence, self.bm25, list(self.demos.keys()), k)
             prompt = ""
 
             for i in range(n):
-                prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(list(demons.keys())[i])
-                for fact in demons[list(demons.keys())[i]]:
+                prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(list(self.demos.keys())[i])
+                for fact in self.demos[list(self.demos.keys())[i]]:
                     prompt = prompt + "- {}\n".format(fact)
                 prompt = prompt + "\n"
 
             for match in top_machings:
                 prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(match)
-                for fact in demons[match]:
+                for fact in self.demos[match]:
                     prompt = prompt + "- {}\n".format(fact)
                 prompt = prompt + "\n"
             if sentence.split()[0] in ('The', 'A') and len(sentence.split())==2:
@@ -152,8 +125,7 @@ class AtomicFactGenerator(object):
                     print(sentence, 'is script-like line') # sometimes models just repeat part of transcript
                     continue
                 prompt = prompt + "Please breakdown the following sentence into independent facts: {}\n".format(sentence)
-                output = self.openai_lm.generate(pred=prompt, max_output_tokens=32)
-                #if 'incomplete' in output or ('not' in output and 'complete' in output) or 'incoherent' in output or ('not' in output and 'coherent' in output) or 'insufficient' in output or 'does not contain' in output or 'doesn\'t contain' in output or 'cut off' in output or 'typographical error' in output or 'grammatical error' in output or ('not' in output and 'down into independent facts' in output) or 'is too vague' in output or ('lacks' in output and 'information' in output) or ('not' in output and 'information' in output) or 'does not provide enough information' in output or 'is too brief' in output or 'Please provide' in output or 'Could you provide' in output or 'contains errors' in output or ('seems' in output and 'unclear' in output) or 'typo' in output or 'the text you provided' in output or 'is very brief' in output or 'is quite brief' in output or 'fragment' in output or 'missing information' in output or 'it seems the sentence' in output or ('enough' in output and 'information' in output) or ('limited' in output and 'information' in output) or ('lacks' in output and 'information' in output) or ('However' in output and 'attempt' in output) or ('I\'m sorry' in output and 'lease provide' in output):
+                output = self.oailm.generate(prompt, max_output_tokens=32)
                 if not output.startswith('-'):
                     print(sentence)
                     if i==len(sentences)-1: # just because context size output ran out
@@ -167,13 +139,12 @@ class AtomicFactGenerator(object):
                     if maybe_facts == []:
                         breakpoint()
                     atoms[sentence] = maybe_facts
-            #prompts.append(prompt)
-            #prompt_to_sent[prompt] = sentence
-
-        #for prompt in prompts:
+            self.sent_cache[sentence] = atoms[sentence]
 
         print(atoms)
-        for key, value in demons.items():
+        with open(self.sent_cache_fp, 'w') as f:
+            json.dump(self.sent_cache, f)
+        for key, value in self.demos.items():
             if key not in atoms:
                 atoms[key] = value
 
@@ -193,9 +164,9 @@ def is_first_or_second_person(s):
         return False
     return body.lower() == body.replace('I','i')
 
-def best_demos(query, bm25, demons_sents, k):
+def best_demos(query, bm25, demos_sents, k):
     tokenized_query = query.split(" ")
-    top_machings = bm25.get_top_n(tokenized_query, demons_sents, k)
+    top_machings = bm25.get_top_n(tokenized_query, demos_sents, k)
     return top_machings
 
 # transform InstructGPT output into sentences
