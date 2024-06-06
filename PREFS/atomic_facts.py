@@ -41,7 +41,7 @@ class AtomicFactGenerator(object):
         else:
             self.sent_cache = {}
 
-    def run(self, generation, cost_estimate=None):
+    def convert_to_facts(self, generation, cost_estimate=None):
         assert isinstance(generation, str)
         generation = re.sub(r' (?=[A-Z][a-z]+:)', '. ', generation)
         paragraphs = [para.strip() for para in generation.split("\n") if len(para.strip()) > 0]
@@ -79,7 +79,7 @@ class AtomicFactGenerator(object):
         # the new para_breaks should be identical to the original para_breaks
         atomic_facts_pairs, para_breaks = postprocess_atomic_facts(atomic_facts_pairs, list(para_breaks), self.nlp)
 
-        return atomic_facts_pairs, para_breaks
+        return atomic_facts_pairs
 
     def get_init_atomic_facts_from_sentence(self, sentences):
         """Get the initial atomic facts from the sentences. Return a total words cost if cost_estimate != None."""

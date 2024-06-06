@@ -79,4 +79,4 @@ class FactScorer(object):
         with open(cache_path, 'w') as f:
             json.dump(cache, f)
 
-        return score, decisions
+        return score
