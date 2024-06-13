@@ -1,10 +1,11 @@
 from episode import infer_scene_splits
+import pandas as pd
 import numpy as np
 from time import time
 from contextlib import redirect_stdout
 import os
 from dl_utils.misc import check_dir
-from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
+#from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 import json
 from nltk import word_tokenize
 from difflib import SequenceMatcher
@@ -68,13 +69,12 @@ def split_by_alignment(epname,verbose):
     with open(f'SummScreen/closed_captions/{epname}.json') as f:
         closed_captions = json.load(f)
 
-    #if '[SCENE_BREAK]' not in raw_transcript_lines:
-    #    print(f'Can\'t split {epname}, no scene markings')
-    #    N_WITHOUT_SCENE_BREAKS += 1
-    #    if '' in raw_transcript_lines:
-    #        N_WITH_HIDDEN_SCENE_BREAKS += 1
-    #    return
-
+    if '[SCENE_BREAK]' not in raw_transcript_lines:
+        print(f'Can\'t split {epname}, no scene markings')
+        N_WITHOUT_SCENE_BREAKS += 1
+        if '' in raw_transcript_lines:
+            N_WITH_HIDDEN_SCENE_BREAKS += 1
+        return
     transcript_lines = [word_tokenize(clean(line)) for line in raw_transcript_lines]
     if 'captions' not in closed_captions.keys():
         print(f'Can\'t split {epname}, no captions')
@@ -86,6 +86,7 @@ def split_by_alignment(epname,verbose):
     if ARGS.is_test:
         transcript_lines = transcript_lines[:40]
         cc_lines = cc_lines[:40]
+
         cc_timestamps = cc_timestamps[:40]
     all_words, counts = np.unique(sum(cc_lines+transcript_lines,[]),return_counts=True)
 
@@ -94,7 +95,7 @@ def split_by_alignment(epname,verbose):
         print(f'Can\'t split {epname}, no file at {video_fpath}')
         return
     alignment = align(transcript_lines, cc_lines)
-    _, splits = infer_scene_splits(raw_transcript_lines, False)
+    _, splits, _ = infer_scene_splits(raw_transcript_lines, False)
 
     if ARGS.print_full_aligned:
         for i,j in zip(alignment.index1,alignment.index2):
@@ -103,11 +104,12 @@ def split_by_alignment(epname,verbose):
     timestamped_lines = []
     starttime = 0
     endtime = 0
-    cur_idx = 0
+    cur_idx = 0 # idx of scene currently being processed, each time incremented, a new scene is made
     check_dir(f'SummScreen/video_scenes/{epname}')
     scene_num = 0
     scene_starttime = 0
     scene_endtime = 0
+    scene_times = []
     for idx1, idx2 in zip(alignment.index1,alignment.index2):
         new_starttime, new_endtime = cc_timestamps[idx2].split(' --> ')
         new_starttime = secs_from_timestamp(new_starttime)
@@ -123,6 +125,7 @@ def split_by_alignment(epname,verbose):
             if cur_idx in splits or is_last(): # increment scenes too
                 outpath = f'SummScreen/video_scenes/{epname}/{epname}_scene{scene_num}.mp4'
                 scene_endtime = min(new_starttime,endtime)
+                scene_times.append({'start':new_starttime, 'end':new_endtime})
                 scene_endtime -= 3 + (scene_endtime - scene_starttime)/8 #cut further reduce overspill
                 if verbose:
                     print(f'SCENE{scene_num}: {asMinutes(scene_starttime)}-{asMinutes(scene_endtime)}')
@@ -144,6 +147,9 @@ def split_by_alignment(epname,verbose):
             print(888)
         if new_endtime > endtime:
             endtime = new_endtime
+    df = pd.DataFrame(scene_times)
+    print(df)
+    df.to_csv(f'SummScreen/video_scenes/{epname}/startendtimes-from-transcript.csv')
     if verbose:
         print(f'Time to split: {asMinutes(time()-compute_start_time)}')
 
@@ -155,6 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('--db_failed_scenes',action='store_true')
     parser.add_argument('--print_full_aligned',action='store_true')
     parser.add_argument('--print_tlines',action='store_true')
+    parser.add_argument('--recompute',action='store_true')
     parser.add_argument('--epname',type=str, default='oltl-10-18-10')
     ARGS = parser.parse_args()
 
@@ -162,7 +169,7 @@ if __name__ == '__main__':
         all_epnames = [fn[:-4] for fn in os.listdir('SummScreen/videos') if fn.endswith('.mp4')]
         for en in all_epnames:
             scene_dir = f'SummScreen/video_scenes/{en}'
-            if not (os.path.exists(scene_dir) and os.listdir(scene_dir)):
+            if ARGS.recompute or not (os.path.exists(scene_dir) and os.listdir(scene_dir)):
                 print(f'aligning and splitting {en}')
                 split_by_alignment(en,verbose=ARGS.verbose)
             else:
