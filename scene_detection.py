@@ -25,9 +25,11 @@ class SceneSegmenter():
     def get_ffmpeg_keyframe_times(self, epname, recompute):
         self.framesdir = f'SummScreen/ffmpeg-scenes/{epname}'
         check_dir(self.framesdir)
-        if (not os.path.isdir(self.framesdir)) or (not os.path.isfile(join(self.framesdir, 'frametimes.npy'))) or recompute:
+        if (not os.path.isfile(join(self.framesdir, 'frametimes.npy'))) or recompute:
             print('extracting ffmpeg frames to', self.framesdir)
-            x = subprocess.run([FFMPEG_PATH, "-i", f"SummScreen/videos/{epname}.mp4", "-filter:v", "select=" "'gt(scene,0.1)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
+            vid_fpath = f"SummScreen/videos/{epname}.mp4"
+            assert os.path.exists(vid_fpath)
+            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.2)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
             timepoint_lines = [z for z in x.stderr.decode().split('\n') if ' n:' in z]
             timepoints = np.array([float(re.search(r'(?<= pts_time:)[0-9\.]+(?= )',tl).group()) for tl in timepoint_lines])
             np.save(join(self.framesdir, 'frametimes.npy'), timepoints)
@@ -66,9 +68,7 @@ class SceneSegmenter():
 
     def segment_from_feats_list(self, epname, feats_list, recompute):
         N = len(feats_list)
-        #N = 450
         max_scene_size = 50
-        start_time = time()
         splits_fp = check_dir('SummScreen/inferred-vid-splits')
         splits_fp = f'SummScreen/inferred-vid-splits/{epname}-inferred-vid-splits.npy'
         if os.path.exists(splits_fp) and not recompute:
@@ -113,10 +113,11 @@ class SceneSegmenter():
 
         check_dir(framefeatsdir:=f'SummScreen/ffmpeg-frame-features/{epname}')
         if recompute_feats or any(not os.path.exists(f'{framefeatsdir}/{x.split(".")[0]}.npy') for x in fns):
-            print('some save paths don\'t exist, loading model')
-            import open_clip
-            model, preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
-            model = model.cuda()
+            if not hasattr(self, 'model'):
+                import open_clip
+                self.model, self.preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
+                breakpoint()
+                self.model = self.model.cuda()
 
         for im_name in tqdm(sorted_fns):
             feats_fpath = f'{framefeatsdir}/{im_name.split(".")[0]}.npy'
@@ -124,15 +125,15 @@ class SceneSegmenter():
                 im_feats = np.load(feats_fpath)
             else:
                 image = Image.open(join(self.framesdir, im_name))
-                image = preprocess(image).unsqueeze(0).cuda()
+                image = self.preprocess(image).unsqueeze(0).cuda()
                 with torch.no_grad(), torch.cuda.amp.autocast():
-                    im_feats = model.encode_image(image)
+                    im_feats = self.model.encode_image(image)
                     im_feats = numpyify(im_feats)
                 np.save(feats_fpath, im_feats)
             feats_list.append(im_feats)
 
+        breakpoint()
         self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
-        #print(kf_scene_split_points)
         pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
         return pt, timepoints
 

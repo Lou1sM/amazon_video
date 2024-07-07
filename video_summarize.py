@@ -28,67 +28,73 @@ parser.add_argument('-t','--is_test',action='store_true')
 ARGS = parser.parse_args()
 
 
-model = whisperx.load_model("large-v2", 'cuda', compute_type='int8')
-diarize_model = whisperx.DiarizationPipeline(use_auth_token='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', device='cuda')
-model_a, metadata = whisperx.load_align_model(language_code='en', device='cuda')
-
 high_level_summ_mod_name = 'lucadiliello/bart-small' if ARGS.is_test else 'facebook/bart-large-cnn'
 
-summarizer_model = SoapSummer(model_name=high_level_summ_mod_name,
-                device='cuda',
-                bs=ARGS.bs,
-                dbs=ARGS.dbs,
-                #tokenizer=tokenizer,
-                caps='kosmos',
-                scene_order='identity',
-                uniform_breaks=False,
-                startendscenes=False,
-                centralscenes=False,
-                max_chunk_size=10000,
-                expdir='single-ep/{ARGS.epname}',
-                data_dir='./SummScreen',
-                resumm_scenes=False,
-                do_save_new_scenes=True,
-                is_test=ARGS.is_test)
-
-def summarize_from_video(epname):
-    mp4_fpath = f'SummScreen/videos/{ARGS.epname}.mp4'
-    audio_fpath = f'SummScreen/audio/{ARGS.epname}.wav'
-    if not os.path.exists(audio_fpath):
-        FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
-        extract_wav_cmd = f"{FFMPEG_PATH} -i {mp4_fpath} -ab 160k -ac 2 -ar 44100 -vn {audio_fpath}"
-        subprocess.call(extract_wav_cmd, shell=True)
-
+def segment_and_save(epname_list):
     scene_segmenter = SceneSegmenter()
-    pt, timepoints = scene_segmenter.scene_segment(ARGS.epname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+    all_pts = []
+    all_timepoints = []
+    for en in epname_list:
+        new_pt, new_timepoints = scene_segmenter.scene_segment(en, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+        all_pts.append(new_pt)
+        all_timepoints.append(new_timepoints)
+        check_dir(kf_dir:=f'SummScreen/keyframes/{en}-auto')
+        check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene0')
+        next_scene_idx = 1
+        for i,kf in enumerate(os.listdir(scene_segmenter.framesdir)):
+            if i in scene_segmenter.kf_scene_split_points:
+                check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene{next_scene_idx}')
+                next_scene_idx += 1
+            shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
+    return all_pts, all_timepoints
 
+def whisper_and_save(epname_list):
     # move keyframes for each scene to their own dir
-    check_dir('SummScreen/whisper_transcripts')
-    if os.path.exists(maybe_saved:=f'SummScreen/whisper_transcripts/{epname}.json'):
-        with open(maybe_saved) as f:
-            whisper_result = json.load(f)
-    else:
-        audio = whisperx.load_audio(audio_fpath)
+    model = whisperx.load_model("large-v2", 'cuda', compute_type='int8')
+    diarize_model = whisperx.DiarizationPipeline(use_auth_token='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', device='cuda')
+    model_a, metadata = whisperx.load_align_model(language_code='en', device='cuda')
 
-        result = model.transcribe(audio, batch_size=1)
-        result = whisperx.align(result["segments"], model_a, metadata, audio, 'cuda', return_char_alignments=False)
+    for en in epname_list:
+        check_dir('SummScreen/audio_transcripts')
+        audio_fpath = f'SummScreen/audio/{en}.wav'
+        mp4_fpath = f'SummScreen/videos/{en}.mp4'
 
-        diarize_segments = diarize_model(audio)
-        whisper_result = whisperx.assign_word_speakers(diarize_segments, result)['segments']
-
-    cur_line = whisper_result[0]
-    audio_transcript = []
-    for ut in whisper_result[1:]:
-        if ut.get('speaker', 'none1') == cur_line.get('speaker', 'none2'):
-            cur_line = {'start':cur_line['start'], 'end':ut['end'], 'text': cur_line['text'] + ' ' + ut['text'], 'speaker': cur_line['speaker']}
+        if not os.path.exists(audio_fpath):
+            FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
+            extract_wav_cmd = f"{FFMPEG_PATH} -i {mp4_fpath} -ab 160k -ac 2 -ar 44100 -vn {audio_fpath}"
+            subprocess.call(extract_wav_cmd, shell=True)
+        if os.path.exists(at_fpath:=f'SummScreen/audio_transcripts/{en}.json'):
+            with open(at_fpath) as f:
+                audio_transcript = json.load(f)
         else:
-            audio_transcript.append(cur_line)
-            cur_line = ut
-    audio_transcript.append(cur_line)
+            audio = whisperx.load_audio(audio_fpath)
 
-    pt = np.append(pt, np.inf)
+            result = model.transcribe(audio, batch_size=16)
+            result = whisperx.align(result["segments"], model_a, metadata, audio, 'cuda', return_char_alignments=False)
+
+            diarize_segments = diarize_model(audio)
+            whisper_result = whisperx.assign_word_speakers(diarize_segments, result)['segments']
+
+            cur_line = whisper_result[0]
+            audio_transcript = []
+            for ut in whisper_result[1:]:
+                if ut.get('speaker', 'none1') == cur_line.get('speaker', 'none2'):
+                    cur_line = {'start':cur_line['start'], 'end':ut['end'], 'text': cur_line['text'] + ' ' + ut['text'], 'speaker': cur_line['speaker']}
+                else:
+                    audio_transcript.append(cur_line)
+                    cur_line = ut
+            audio_transcript.append(cur_line)
+            with open(at_fpath, 'w') as f:
+                json.dump(audio_transcript, f)
+
+def segment_audio_transcript(epname):
     scene_idx = 0
     scenes = []
+    pt = np.load(f'SummScreen/inferred-vid-splits/{epname}-inferred-vid-splits.npy')
+    pt = np.append(pt, np.inf)
+    with open(f'SummScreen/audio_transcripts/{epname}.json') as f:
+        audio_transcript = json.load(f)
+
     cur_scene = audio_transcript[:1]
     for ut in audio_transcript[1:]:
         avg_time = (float(ut['start']) + float(ut['end'])) / 2
@@ -105,46 +111,61 @@ def summarize_from_video(epname):
     tdata['Transcript'] = transcript
     with open(f'SummScreen/transcripts/{epname}-auto.json', 'w') as f:
         json.dump(tdata, f)
-    ep = episode_from_epname(f'{epname}-auto', infer_splits=False)
 
-    check_dir(kf_dir:=f'SummScreen/keyframes/{ARGS.epname}-auto')
-    check_dir(cur_scene_dir:=f'{kf_dir}/{ARGS.epname}_scene0')
-    next_scene_idx = 1
-    for i,kf in enumerate(os.listdir(scene_segmenter.framesdir)):
-        if i in scene_segmenter.kf_scene_split_points:
-            check_dir(cur_scene_dir:=f'{kf_dir}/{ARGS.epname}_scene{next_scene_idx}')
-            next_scene_idx += 1
-        shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
-
+def caption_keyframes_and_save(epname_list):
     captioner = Captioner()
-    if not os.path.exists(f'SummScreen/video_scenes/{epname}-auto/kosmos_raw_scene_caps.json'):
+    if not all(os.path.exists(f'SummScreen/video_scenes/{en}-auto/kosmos_raw_scene_caps.json') for en in epname_list):
         captioner.init_models('kosmos')
-        captioner.kosmos_scene_caps(f'{ARGS.epname}-auto')
 
-    captioner.filter_and_namify_scene_captions(f'{ARGS.epname}-auto', 'kosmos')
+    for en in epname_list:
+        captioner.kosmos_scene_caps(f'{en}-auto')
+        captioner.filter_and_namify_scene_captions(f'{en}-auto', 'kosmos')
 
-    concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{ARGS.epname}-auto')
-    concatted_scene_summs, og_final_summ = summarizer_model.summarize_from_epname(f'{ARGS.epname}')
-    print(final_summ)
-    scores = rouge_from_multiple_refs(final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
-    print(og_final_summ)
-    og_scores = rouge_from_multiple_refs(og_final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
-    return scores, og_scores
+def summarize_and_score(epname_list):
+    summarizer_model = SoapSummer(model_name=high_level_summ_mod_name,
+                    device='cuda',
+                    bs=ARGS.bs,
+                    dbs=ARGS.dbs,
+                    #tokenizer=tokenizer,
+                    caps='kosmos',
+                    scene_order='identity',
+                    uniform_breaks=False,
+                    startendscenes=False,
+                    centralscenes=False,
+                    max_chunk_size=10000,
+                    expdir='single-ep',
+                    data_dir='./SummScreen',
+                    resumm_scenes=False,
+                    do_save_new_scenes=True,
+                    is_test=ARGS.is_test)
 
-dset_info = pd.read_csv('dset_info.csv', index_col=0)
-test_mask = dset_info['usable'] & (dset_info['split']=='test')
-test_epnames = dset_info.index[test_mask]
-all_our_scores = []
-all_og_scores = []
-pbar = tqdm(test_epnames)
-new_our_scores, new_og_scores = summarize_from_video(test_epnames[0])
-for ten in pbar:
-    new_our_scores, new_og_scores = summarize_from_video(ten)
-    all_our_scores.append(new_our_scores)
-    all_og_scores.append(new_og_scores)
-    pbar.set_description(f'Ours: {new_our_scores[1]:.4f} OG: {new_og_scores[1]:.4f}')
+    pbar = tqdm(epname_list)
+    all_our_scores = []
+    all_og_scores = []
+    for en in pbar:
+        ep = episode_from_epname(f'{en}-auto', infer_splits=False)
+        concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto')
+        concatted_scene_summs, og_final_summ = summarizer_model.summarize_from_epname(f'{en}')
+        new_our_scores = rouge_from_multiple_refs(final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
+        new_og_scores = rouge_from_multiple_refs(og_final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
+        all_our_scores.append(new_our_scores)
+        all_og_scores.append(new_og_scores)
+        pbar.set_description(f'Ours: {new_our_scores[1]:.4f} OG: {new_og_scores[1]:.4f}')
+    return all_our_scores, all_og_scores
 
-final_our_scores = np.array(all_our_scores).mean(axis=0)
-final_og_scores = np.array(all_og_scores).mean(axis=0)
-print('ours:', final_our_scores)
-print('og:', final_og_scores)
+#dset_info = pd.read_csv('dset_info.csv', index_col=0)
+#test_mask = dset_info['usable'] & (dset_info['split']=='test')
+#test_epnames = dset_info.index[test_mask]
+test_epnames = [x.removesuffix('.mp4') for x in os.listdir('SummScreen/videos/')]
+
+segment_and_save(test_epnames)
+whisper_and_save(test_epnames)
+for en in test_epnames:
+    segment_audio_transcript(en)
+ours, og = summarize_and_score(test_epnames)
+ours = np.array(ours).mean(axis=0)
+og = np.array(og).mean(axis=0)
+
+with open('video-only-results.txt', 'w') as f:
+    f.write('Ours: ' + ours)
+    f.write('OG: ' + og)
