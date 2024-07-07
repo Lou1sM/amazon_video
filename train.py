@@ -41,7 +41,6 @@ parser.add_argument('--reload_from',type=str,default='none')
 parser.add_argument('--resumm_scenes',action='store_true')
 parser.add_argument('--retokenize',action='store_true')
 parser.add_argument('--save_every',action='store_true')
-parser.add_argument('--soft_scene_summs',action='store_true')
 parser.add_argument('--startendscenes', action='store_true')
 parser.add_argument('--uniform_breaks', action='store_true')
 ARGS = parser.parse_args()
@@ -101,7 +100,6 @@ ss = SoapSummer(model_name=model_name,
                 uniform_breaks=ARGS.uniform_breaks,
                 startendscenes=ARGS.startendscenes,
                 centralscenes=ARGS.centralscenes,
-                soft_scene_summs=ARGS.soft_scene_summs,
                 max_chunk_size=ARGS.max_chunk_size,
                 expdir=expdir,
                 data_dir=ARGS.data_dir,
@@ -109,16 +107,11 @@ ss = SoapSummer(model_name=model_name,
                 do_save_new_scenes=not ARGS.dont_save_new_scenes,
                 is_test=ARGS.is_test)
 
-fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.soft_scene_summs, ARGS.is_test)
+fn = get_fn(ARGS.caps, ARGS.order, ARGS.uniform_breaks, ARGS.startendscenes, ARGS.centralscenes, ARGS.is_test)
 
 def train_preproc_fn(dpoint):
-    if ARGS.soft_scene_summs:
-        model_inputs = {'inputs_embeds': [torch.load(fpath) for fpath in dpoint['scene_summs']]}
-        model_inputs['input_ids'] = model_inputs['inputs_embeds'] # makes checking input size easier later
-        model_inputs['attention_mask'] = [[1]*len(x) for x in model_inputs['inputs_embeds']]
-    else:
-        inputs = [doc for doc in dpoint['scene_summs']]
-        model_inputs = ss.tokenizer(inputs)
+    inputs = [doc for doc in dpoint['scene_summs']]
+    model_inputs = ss.tokenizer(inputs)
 
     # Setup the tokenizer for targets
     labels = ss.tokenizer(text_target=dpoint['summ'])
