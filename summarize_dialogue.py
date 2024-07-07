@@ -219,7 +219,7 @@ class SoapSummer():
         return ss
 
     def summarize_from_epname(self, epname):
-        scene_summs = self.get_scene_summs(epname)
+        scene_summs = self.get_scene_summs(epname, infer_splits=False)
         return self.summarize_scene_summs('\n'.join(scene_summs))
 
     def summarize_scene_summs(self, concatted_scene_summs):

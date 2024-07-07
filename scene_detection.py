@@ -64,17 +64,16 @@ class SceneSegmenter():
         #print(n, data_cost, mean_cost, cost, cost/n)
         return cost
 
-
-    def segment_from_feats_list(self, feats_list, recompute):
+    def segment_from_feats_list(self, epname, feats_list, recompute):
         N = len(feats_list)
         #N = 450
         max_scene_size = 50
         start_time = time()
         splits_fp = check_dir('SummScreen/inferred-vid-splits')
-        splits_fp = f'SummScreen/inferred-vid-splits/{ARGS.epname}-inferred-vid-splits.npy'
+        splits_fp = f'SummScreen/inferred-vid-splits/{epname}-inferred-vid-splits.npy'
         if os.path.exists(splits_fp) and not recompute:
             print(f'loading splits from {splits_fp}')
-            ep_splits = np.load(splits_fp)
+            self.kf_scene_split_points = np.load(splits_fp)
         else:
             print('computing span costs')
             feat_vecs = np.concatenate(feats_list, axis=0)
@@ -101,9 +100,9 @@ class SceneSegmenter():
                     new_best_cost, new_best_splits = min(options, key=lambda x: x[0])
                     best_costs[start,stop] = new_best_cost
                     best_splits[start,stop] = new_best_splits
-            ep_splits = np.array(best_splits[0,N-1])
-            np.save(splits_fp, ep_splits)
-        return ep_splits
+            self.kf_scene_split_points = np.array(best_splits[0,N-1])
+            np.save(splits_fp, self.kf_scene_split_points)
+        return self.kf_scene_split_points
 
     def scene_segment(self, epname, recompute_keyframes, recompute_feats, recompute_best_split):
         timepoints = self.get_ffmpeg_keyframe_times(epname, recompute=recompute_keyframes)
@@ -121,7 +120,7 @@ class SceneSegmenter():
 
         for im_name in tqdm(sorted_fns):
             feats_fpath = f'{framefeatsdir}/{im_name.split(".")[0]}.npy'
-            if (not ARGS.recompute_frame_features) and os.path.exists(feats_fpath):
+            if (not recompute_feats) and os.path.exists(feats_fpath):
                 im_feats = np.load(feats_fpath)
             else:
                 image = Image.open(join(self.framesdir, im_name))
@@ -132,21 +131,15 @@ class SceneSegmenter():
                 np.save(feats_fpath, im_feats)
             feats_list.append(im_feats)
 
-        ep_splits = self.segment_from_feats_list(feats_list, recompute=recompute_best_split)
-        pt = np.array([timepoints[i] for i in ep_splits])
-        gt_scene_times = pd.read_csv(f'SummScreen/video_scenes/{epname}/startendtimes-from-transcript.csv')
-        gt = gt_scene_times['end'][:-1].to_numpy()
-        ts = np.arange(0,timepoints[-1],0.1)
-        gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
-        pred_point_labs = (np.expand_dims(ts,1)>pt).sum(axis=1)
-        print(ep_splits)
-        for mname ,mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
-            score = mfunc(pred_point_labs, gt_point_labs)
-            print(f'{mname}: {score:.4f}')
+        self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
+        #print(kf_scene_split_points)
+        pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
+        return pt, timepoints
 
 if __name__ == '__main__':
 
     import argparse
+    import math
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--recompute-keyframes', action='store_true')
@@ -155,6 +148,18 @@ if __name__ == '__main__':
     parser.add_argument('--epname', type=str, default='oltl-10-18-10')
     ARGS = parser.parse_args()
     ss = SceneSegmenter()
-    ss.scene_segment(ARGS.epname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-
-
+    pt, timepoints = ss.scene_segment(ARGS.epname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+    gt_scene_times = pd.read_csv(f'SummScreen/video_scenes/{ARGS.epname}/startendtimes-from-transcript.csv')
+    gt = gt_scene_times['end'][:-1].to_numpy()
+    ts = np.arange(0,timepoints[-1],0.1)
+    breakpoint()
+    gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+    pred_point_labs = (np.expand_dims(ts,1)>pt).sum(axis=1)
+    gt_n_scenes = len(gt_scene_times)
+    n_to_repeat = int(math.ceil(len(gt_point_labs)/gt_n_scenes))
+    unif_point_labs = np.repeat(np.arange(gt_n_scenes), n_to_repeat)[:len(gt_point_labs)]
+    for pred_name, preds, in zip(['ours', 'uniform'], [pred_point_labs, unif_point_labs]):
+        print(pred_name)
+        for mname ,mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
+            score = mfunc(preds, gt_point_labs)
+            print(f'{mname}: {score:.4f}')

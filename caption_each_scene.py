@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import warnings
+from natsort import natsorted
 warnings.filterwarnings('ignore')
 from dl_utils.misc import check_dir
 import numpy as np
@@ -10,12 +11,12 @@ from os.path import join
 from copy import copy
 import json
 from nltk.corpus import names
-from SwinBERT.src.tasks.run_caption_VidSwinBert_inference import inference
-from SwinBERT.src.datasets.caption_tensorizer import build_tensorizer
-from SwinBERT.src.modeling.load_swin import get_swin_model
-from src.modeling.load_bert import get_bert_model
-from src.modeling.video_captioning_e2e_vid_swin_bert import VideoTransformer
-from src.datasets.data_utils.video_ops import extract_frames_from_video_path
+#from SwinBERT.src.tasks.run_caption_VidSwinBert_inference import inference
+#from SwinBERT.src.datasets.caption_tensorizer import build_tensorizer
+#from SwinBERT.src.modeling.load_swin import get_swin_model
+#from src.modeling.load_bert import get_bert_model
+#from src.modeling.video_captioning_e2e_vid_swin_bert import VideoTransformer
+#from src.datasets.data_utils.video_ops import extract_frames_from_video_path
 import torch
 import argparse
 from episode import episode_from_epname
@@ -89,11 +90,13 @@ class Captioner():
         scene_fnames = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
         #scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
         scene_nums = sorted([int(x.split('.')[0].split('_')[1][5:]) for x in scene_fnames])
+        breakpoint()
         for scene_dir in scene_fnames:
             caps_for_this_scene = []
             locs_for_this_scene = []
             keyframes_files = [fn for fn in os.listdir(join(ep_dir,scene_dir)) if fn != 'middle_frame.jpg']
-            keyframes_files = sorted(keyframes_files, key=lambda x: int(x[3:-5])) # by where the appear in scene
+            #keyframes_files = sorted(keyframes_files, key=lambda x: int(x[3:-5])) # by where the appear in scene
+            keyframes_files = [x for x in natsorted(keyframes_files) if x.endswith('jpg')]
             if len(keyframes_files) == 0:
                 keyframes_files = [fn for fn in os.listdir(join(ep_dir,scene_dir)) if fn == 'middle_frame.jpg']
                 if len(keyframes_files) > 0:
@@ -154,7 +157,7 @@ class Captioner():
 
     def filter_and_namify_scene_captions(self, epname, model_name):
         scenes_dir = f'SummScreen/video_scenes/{epname}'
-        ep = episode_from_epname(epname)
+        ep = episode_from_epname(epname, infer_splits=False)
         with open(os.path.join(scenes_dir,f'{model_name}_raw_scene_caps.json')) as f:
             z = json.load(f)
             try:
@@ -172,8 +175,7 @@ class Captioner():
             caps_per_scene.append({'scene_id': sid, 'raw':raw_cap, 'with_names':cap})
 
         assert all('talking' not in x['with_names'] for x in caps_per_scene)
-        if ARGS.verbose:
-            print(f'{sid.upper()}: {raw_cap}\t{cap}')
+        print(f'{sid.upper()}: {raw_cap}\t{cap}')
         with open(f'{scenes_dir}/{model_name}_procced_scene_caps.json','w') as f:
             json.dump(caps_per_scene,f)
 

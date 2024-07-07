@@ -17,7 +17,9 @@ def episode_from_epname(epname, infer_splits):
         transcript_data['Transcript'] = '\n'.join(tdata).split('\n')
         with open(f'SummScreen/transcripts/{epname}.json','w') as f:
             json.dump(transcript_data,f)
-    with open(f'SummScreen/summaries/{epname}.json') as f:
+    # same ref summmary for auto version
+    summary_fpath = f'SummScreen/summaries/{epname.removesuffix("-auto")}.json'
+    with open(summary_fpath) as f:
         summary_data = json.load(f)
     return Episode(epname, transcript_data, summary_data, infer=infer_splits)
 
