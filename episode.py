@@ -26,6 +26,7 @@ def episode_from_epname(epname, infer_splits):
         summary_data = None
     return Episode(epname, transcript_data, summary_data, infer=infer_splits)
 
+
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
     def __init__(self, epname, transcript_data, summary_data, infer=False, force_infer=False):
         self.transcript = [x.replace('\r\n','') for x in transcript_data['Transcript']]

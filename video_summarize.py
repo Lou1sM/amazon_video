@@ -21,13 +21,11 @@ from utils import rouge_from_multiple_refs, display_rouges
 
 def segment_and_save(epname_list):
     scene_segmenter = SceneSegmenter()
-    all_pts = []
-    all_timepoints = []
     for en in epname_list:
         new_pt, new_timepoints = scene_segmenter.scene_segment(en, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-        all_pts.append(new_pt)
-        all_timepoints.append(new_timepoints)
         check_dir(kf_dir:=f'data/keyframes/{en}')
+        np.save(f'{kf_dir}/keyframe-timepoints.npy', new_timepoints)
+        np.save(f'{kf_dir}/scene-split-timepoints.npy', new_pt)
         check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene0')
         next_scene_idx = 1
         print(f'found {len(scene_segmenter.kf_scene_split_points)+1} scenes')
@@ -37,7 +35,6 @@ def segment_and_save(epname_list):
                 next_scene_idx += 1
             shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
     torch.cuda.empty_cache()
-    return all_pts, all_timepoints
 
 def whisper_and_save(epname_list, recompute):
     # move keyframes for each scene to their own dir
@@ -81,7 +78,7 @@ def whisper_and_save(epname_list, recompute):
 def segment_audio_transcript(epname):
     scene_idx = 0
     scenes = []
-    pt = np.load(f'data/inferred-vid-splits/{epname}-inferred-vid-splits.npy')
+    pt = np.load(f'data/keyframes/{epname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
     with open(f'data/audio_transcripts/{epname}.json') as f:
         audio_transcript = json.load(f)
@@ -148,18 +145,14 @@ def summarize_and_score(epname_list):
     all_og_scores = []
     for en in pbar:
         ep = episode_from_epname(f'{en}-auto', infer_splits=False)
-        concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto')
-        concatted_scene_summs, og_final_summ = summarizer_model.summarize_from_epname(f'{en}')
+        concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto', min_len=360, max_len=400)
+        concatted_scene_summs, og_final_summ = summarizer_model.summarize_from_epname(f'{en}', min_len=360, max_len=400)
         new_our_scores = rouge_from_multiple_refs(final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
         new_og_scores = rouge_from_multiple_refs(og_final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
         all_our_scores.append(new_our_scores)
         all_og_scores.append(new_og_scores)
         pbar.set_description(f'Ours: {new_our_scores[1]:.4f} OG: {new_og_scores[1]:.4f}')
     return all_our_scores, all_og_scores
-
-#dset_info = pd.read_csv('dset_info.csv', index_col=0)
-#test_mask = dset_info['usable'] & (dset_info['split']=='test')
-#test_epnames = dset_info.index[test_mask]
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--recompute-keyframes', action='store_true')
@@ -174,10 +167,20 @@ parser.add_argument('--dbs', type=int, default=8)
 parser.add_argument('--n-dpoints', type=int, default=3)
 parser.add_argument('--bs', type=int, default=1)
 parser.add_argument('-t','--is_test', action='store_true')
-parser.add_argument('--vid-name', type=str, default=3)
+parser.add_argument('--vid-name', type=str)
 ARGS = parser.parse_args()
 
-test_epnames = [x.removesuffix('.mp4') for x in os.listdir('data/videos/')][:ARGS.n_dpoints] if ARGS.vid_name is None else [ARGS.vid_name]
+available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/videos/')]
+if ARGS.vid_name is None:
+    dset_info = pd.read_csv('dset_info.csv', index_col=0)
+    #test_mask = dset_info['usable'] & (dset_info['split']=='test')
+    test_mask = dset_info['usable']
+    test_epnames = dset_info.index[test_mask]
+
+    test_epnames = [x for x in test_epnames if x in available_with_vids]
+    test_epnames = test_epnames[:ARGS.n_dpoints]
+else:
+    test_epnames = [ARGS.vid_name]
 
 segment_and_save(test_epnames)
 torch.cuda.empty_cache()
@@ -201,6 +204,7 @@ if ARGS.vid_name is None:
             f.write(to_display + '\n')
 else:
     high_level_summ_mod_name = 'lucadiliello/bart-small' if ARGS.is_test else 'facebook/bart-large-cnn'
+    #high_level_summ_mod_name = 'lucadiliello/bart-small' if ARGS.is_test else 'chiakya/T5-large-Summarization'
     summarizer_model = SoapSummer(model_name=high_level_summ_mod_name,
                 device='cuda',
                 bs=ARGS.bs,
@@ -218,6 +222,8 @@ else:
                 do_save_new_scenes=True,
                 is_test=ARGS.is_test)
 
-    concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto')
+    print(sum(x.numel() for x in summarizer_model.model.parameters()))
+    concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto', min_len=500, max_len=600)
+    print(concatted_scene_summs)
     print(final_summ)
 

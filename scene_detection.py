@@ -1,4 +1,5 @@
 import os
+import math
 from time import time
 from natsort import natsorted
 from tqdm import tqdm
@@ -23,7 +24,7 @@ class SceneSegmenter():
     def __init__(self):
         pass
 
-    def get_ffmpeg_keyframe_times(self, epname, recompute, avg_kf_every=10):
+    def get_ffmpeg_keyframe_times(self, epname, recompute, avg_kf_every=5):
         self.framesdir = f'data/ffmpeg-scenes/{epname}'
         check_dir(self.framesdir)
         if (not os.path.isfile(join(self.framesdir, 'frametimes.npy'))) or recompute:
@@ -34,7 +35,7 @@ class SceneSegmenter():
             assert os.path.exists(vid_fpath)
             duration = float(ffmpeg.probe(vid_fpath)["format"]["duration"])
             desired_nkfs = int(duration/avg_kf_every)
-            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.2)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
+            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.1)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
             timepoint_lines = [z for z in x.stderr.decode().split('\n') if ' n:' in z]
             timepoints = np.array([float(re.search(r'(?<= pts_time:)[0-9\.]+(?= )',tl).group()) for tl in timepoint_lines])
             if len(timepoints)>desired_nkfs:
@@ -123,7 +124,6 @@ class SceneSegmenter():
         fns = [x for x in os.listdir(self.framesdir) if x.endswith('.jpg')]
         assert len(timepoints) == len(fns)
         sorted_fns = natsorted(fns)
-        feats_list = []
 
         check_dir(framefeatsdir:=f'data/ffmpeg-frame-features/{epname}')
         if recompute_feats or any(not os.path.exists(f'{framefeatsdir}/{x.split(".")[0]}.npy') for x in fns):
@@ -132,19 +132,27 @@ class SceneSegmenter():
                 self.model, self.preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
                 self.model = self.model.cuda()
 
-        print('extracting visual features')
-        for im_name in tqdm(sorted_fns):
-            feats_fpath = f'{framefeatsdir}/{im_name.split(".")[0]}.npy'
-            if (not recompute_feats) and os.path.exists(feats_fpath):
-                im_feats = np.load(feats_fpath)
-            else:
-                image = Image.open(join(self.framesdir, im_name))
-                image = self.preprocess(image).unsqueeze(0).cuda()
+        feat_paths = [f'{framefeatsdir}/{x.split(".")[0]}.npy' for x in sorted_fns]
+        if recompute_feats or any(not os.path.exists(x) for x in feat_paths):
+            print('extracting visual features')
+            feats_list = []
+            bs = 6
+            batched = [(sorted_fns[i*bs:(i+1)*bs], feat_paths[i*bs:(i+1)*bs]) for i in range(int(math.ceil(len(sorted_fns)/bs)))]
+            for im_name_batch, featp_batch in tqdm(batched):
+                im_list = []
+                for inb in im_name_batch:
+                    image = Image.open(join(self.framesdir, inb))
+                    image = self.preprocess(image).unsqueeze(0).cuda()
+                    im_list.append(image)
+                image_batch = torch.cat(im_list)
                 with torch.no_grad(), torch.cuda.amp.autocast():
-                    im_feats = self.model.encode_image(image)
+                    im_feats = self.model.encode_image(image_batch)
                     im_feats = numpyify(im_feats)
-                np.save(feats_fpath, im_feats)
+                for imf, ftp in zip(im_feats, feat_paths):
+                    np.save(ftp, imf)
             feats_list.append(im_feats)
+        else:
+            feats_list = [np.load(featp) for featp in feat_paths]
 
         self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
         pt = np.array([timepoints[i] for i in self.kf_scene_split_points])

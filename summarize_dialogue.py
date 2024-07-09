@@ -174,7 +174,7 @@ class SoapSummer():
         remaining_chunk_summs = []
         for i in range(N):
             padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
-            max_len = min(padded.shape[1],avg_scene_summ_len+15)
+            max_len = min(padded.shape[1],avg_scene_summ_len+20)
             min_len = max(10,max_len-20)
             if padded.shape[1] > self.dtokenizer.model_max_length:
                 #print('too long', padded.shape, self.dtokenizer.model_max_length)
@@ -189,6 +189,7 @@ class SoapSummer():
                 len_first_unpadded = attn.shape[1]
             remaining_chunk_summs += summ
         chunk_summs = short_chunk_summs + remaining_chunk_summs
+        chunk_summs = [drop_trailing_halfsent(cs) for cs in chunk_summs]
 
         # return chunks to their original order
         desorted_chunk_summs = [chunk_summs[i] for i in reversed_sort_idxs]
@@ -218,26 +219,27 @@ class SoapSummer():
                     f.write('\n'.join(ss))
         return ss
 
-    def summarize_from_epname(self, epname):
+    def summarize_from_epname(self, epname, min_len, max_len):
         scene_summs = self.get_scene_summs(epname, infer_splits=False)
-        return self.summarize_scene_summs('\n'.join(scene_summs))
+        return self.summarize_scene_summs('\n'.join(scene_summs), min_len, max_len)
 
-    def summarize_scene_summs(self, concatted_scene_summs):
+    def summarize_scene_summs(self, concatted_scene_summs, min_len=360, max_len=400):
         max_chunk_size = min(self.max_chunk_size, self.tokenizer.model_max_length)
         chunks = chunkify(concatted_scene_summs, max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
-        #if (self.caps=='nocaptions') and (pbatch.shape[1] > self.tokenizer.model_max_length):
         pbatch = pbatch[:,:self.tokenizer.model_max_length]
         attn = attn[:,:self.tokenizer.model_max_length]
         if self.caps_only:
-            min_len = 80
-            max_len = 100
+            min_chunk_len = 80
+            max_chunk_len = 100
         else:
-            min_len = 360//len(chunks)
-            max_len = 400//len(chunks)
-        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=min_len, max_length=max_len)
-        final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
+            min_chunk_len = min_len//len(chunks) + 5 # +5 cuz will cut off incomplete sents
+            max_chunk_len = max_len//len(chunks) + 5
+        meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=min_chunk_len, max_length=max_chunk_len)
+        text_mcss = self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True)
+        text_mcss = [drop_trailing_halfsent(tmcs) for tmcs in text_mcss]
+        final_summ = ' '.join(text_mcss)
         return concatted_scene_summs, final_summ
 
     def dpoints_from_epnames(self, epname_list, scene_caps, infer_splits):
@@ -407,6 +409,8 @@ class SoapSummer():
         test_rouges = self.inference_epoch(self.n_epochs, testset, 'test')
         return test_rouges, alltime_best_rouges, all_rouges
 
+def drop_trailing_halfsent(s):
+    return '. '.join(x for x in s.split('. '))
 
 if __name__ == '__main__':
     import openai
