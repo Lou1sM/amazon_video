@@ -9,6 +9,7 @@ from dl_utils.misc import check_dir
 from dl_utils.tensor_funcs import numpyify
 import subprocess
 import imageio_ffmpeg
+import ffmpeg
 import re
 import pandas as pd
 from sklearn.metrics import normalized_mutual_info_score as nmi
@@ -22,19 +23,32 @@ class SceneSegmenter():
     def __init__(self):
         pass
 
-    def get_ffmpeg_keyframe_times(self, epname, recompute):
-        self.framesdir = f'SummScreen/ffmpeg-scenes/{epname}'
+    def get_ffmpeg_keyframe_times(self, epname, recompute, avg_kf_every=10):
+        self.framesdir = f'data/ffmpeg-scenes/{epname}'
         check_dir(self.framesdir)
         if (not os.path.isfile(join(self.framesdir, 'frametimes.npy'))) or recompute:
+            for fn in os.listdir(self.framesdir):
+                os.remove(join(self.framesdir, fn))
             print('extracting ffmpeg frames to', self.framesdir)
-            vid_fpath = f"SummScreen/videos/{epname}.mp4"
+            vid_fpath = f"data/videos/{epname}.mp4"
             assert os.path.exists(vid_fpath)
+            duration = float(ffmpeg.probe(vid_fpath)["format"]["duration"])
+            desired_nkfs = int(duration/avg_kf_every)
             x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.2)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
             timepoint_lines = [z for z in x.stderr.decode().split('\n') if ' n:' in z]
             timepoints = np.array([float(re.search(r'(?<= pts_time:)[0-9\.]+(?= )',tl).group()) for tl in timepoint_lines])
+            if len(timepoints)>desired_nkfs:
+                keep_idxs = np.linspace(0,len(timepoints)-1, desired_nkfs).astype(int)
+                for i in range(len(timepoints)):
+                    if i not in keep_idxs:
+                        os.remove(f'{self.framesdir}/{i:05d}.jpg')
+                timepoints = timepoints[keep_idxs]
             np.save(join(self.framesdir, 'frametimes.npy'), timepoints)
         else:
             timepoints = np.load(join(self.framesdir, 'frametimes.npy'))
+        if len(timepoints) != len(os.listdir(self.framesdir))-1:
+            breakpoint()
+        assert len(timepoints)+1 == len(os.listdir(self.framesdir)) # +1 for frametimes.npy
         return timepoints
 
     def cost_under_params(self, x, mu):
@@ -69,8 +83,8 @@ class SceneSegmenter():
     def segment_from_feats_list(self, epname, feats_list, recompute):
         N = len(feats_list)
         max_scene_size = 50
-        splits_fp = check_dir('SummScreen/inferred-vid-splits')
-        splits_fp = f'SummScreen/inferred-vid-splits/{epname}-inferred-vid-splits.npy'
+        splits_fp = check_dir('data/inferred-vid-splits')
+        splits_fp = f'data/inferred-vid-splits/{epname}-inferred-vid-splits.npy'
         if os.path.exists(splits_fp) and not recompute:
             print(f'loading splits from {splits_fp}')
             self.kf_scene_split_points = np.load(splits_fp)
@@ -111,14 +125,14 @@ class SceneSegmenter():
         sorted_fns = natsorted(fns)
         feats_list = []
 
-        check_dir(framefeatsdir:=f'SummScreen/ffmpeg-frame-features/{epname}')
+        check_dir(framefeatsdir:=f'data/ffmpeg-frame-features/{epname}')
         if recompute_feats or any(not os.path.exists(f'{framefeatsdir}/{x.split(".")[0]}.npy') for x in fns):
             if not hasattr(self, 'model'):
                 import open_clip
                 self.model, self.preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
-                breakpoint()
                 self.model = self.model.cuda()
 
+        print('extracting visual features')
         for im_name in tqdm(sorted_fns):
             feats_fpath = f'{framefeatsdir}/{im_name.split(".")[0]}.npy'
             if (not recompute_feats) and os.path.exists(feats_fpath):
@@ -132,7 +146,6 @@ class SceneSegmenter():
                 np.save(feats_fpath, im_feats)
             feats_list.append(im_feats)
 
-        breakpoint()
         self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
         pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
         return pt, timepoints
@@ -150,7 +163,7 @@ if __name__ == '__main__':
     ARGS = parser.parse_args()
     ss = SceneSegmenter()
     pt, timepoints = ss.scene_segment(ARGS.epname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-    gt_scene_times = pd.read_csv(f'SummScreen/video_scenes/{ARGS.epname}/startendtimes-from-transcript.csv')
+    gt_scene_times = pd.read_csv(f'data/video_scenes/{ARGS.epname}/startendtimes-from-transcript.csv')
     gt = gt_scene_times['end'][:-1].to_numpy()
     ts = np.arange(0,timepoints[-1],0.1)
     breakpoint()

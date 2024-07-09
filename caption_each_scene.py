@@ -83,14 +83,13 @@ class Captioner():
             print(f'unrecognized model name: {model_name}')
 
     def kosmos_scene_caps(self,epname):
-        ep_dir = os.path.join('SummScreen/keyframes',epname)
+        ep_dir = os.path.join('data/keyframes',epname.removesuffix('-auto'))
         scene_caps = []
         scene_locs = []
         n_frames_to_cap = 1
         scene_fnames = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
         #scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
         scene_nums = sorted([int(x.split('.')[0].split('_')[1][5:]) for x in scene_fnames])
-        breakpoint()
         for scene_dir in scene_fnames:
             caps_for_this_scene = []
             locs_for_this_scene = []
@@ -118,13 +117,13 @@ class Captioner():
         for sn,c,l in zip(scene_nums,scene_caps,scene_locs):
             to_append = {'scene_id': f'{epname}s{sn}', 'raw_cap':c, 'locs':l}
             to_dump.append(to_append)
-        check_dir(f'SummScreen/video_scenes/{epname}')
-        with open(f'SummScreen/video_scenes/{epname}/kosmos_raw_scene_caps.json', 'w') as f:
+        check_dir(f'data/video_scenes/{epname}')
+        with open(f'data/video_scenes/{epname}/kosmos_raw_scene_caps.json', 'w') as f:
             json.dump(to_dump,f)
 
     def swinbert_scene_caps(self,epname):
-        scenes_dir = f'SummScreen/video_scenes/{epname}'
-        #with open(f'SummScreen/transcripts/{epname}.json') as f:
+        scenes_dir = f'data/video_scenes/{epname}'
+        #with open(f'data/transcripts/{epname}.json') as f:
         #    transcript_data = json.load(f)
         #if not '[SCENE_BREAK]' in transcript_data['Transcript']:
         #    print(f'There doesn\'t appear to be scene break markings for {epname}')
@@ -151,13 +150,13 @@ class Captioner():
             to_dump.append(to_append)
         if to_dump == []:
             breakpoint()
-        outpath = f'SummScreen/video_scenes/{epname}/swinbert_raw_scene_caps.json'
+        outpath = f'data/video_scenes/{epname}/swinbert_raw_scene_caps.json'
         with open(outpath, 'w') as f:
             json.dump(to_dump,f)
 
     def filter_and_namify_scene_captions(self, epname, model_name):
-        scenes_dir = f'SummScreen/video_scenes/{epname}'
-        ep = episode_from_epname(epname, infer_splits=False)
+        scenes_dir = f'data/video_scenes/{epname}'.removesuffix('-auto') # scenes come from vid only
+        ep = episode_from_epname(epname, infer_splits=False) # but here -auto has an effect
         with open(os.path.join(scenes_dir,f'{model_name}_raw_scene_caps.json')) as f:
             z = json.load(f)
             try:
@@ -264,14 +263,14 @@ if __name__ == '__main__':
     if ARGS.epname == 'all':
         df = pd.read_csv('dset_info.csv',index_col=0)
         all_epnames = df.loc[(df['duration_raw']!='failed video read') & df['has_caps']].index
-        #all_epnames = [fn for fn in os.listdir('SummScreen/video_scenes') if fn in os.listdir('SummScreen/keyframes')]
-        #all_epnames = [x.split('.')[0] for x in os.listdir('SummScreen/summaries') if os.path.exists('SummScreen/closed_captions/{x}')]
-        #all_epnames = [x.split('.')[0] for x in os.listdir('SummScreen/closed_captions')]
+        #all_epnames = [fn for fn in os.listdir('data/video_scenes') if fn in os.listdir('data/keyframes')]
+        #all_epnames = [x.split('.')[0] for x in os.listdir('data/summaries') if os.path.exists('data/closed_captions/{x}')]
+        #all_epnames = [x.split('.')[0] for x in os.listdir('data/closed_captions')]
         if ARGS.show_name != 'all':
             all_epnames = [x for x in all_epnames if x.startswith(ARGS.show_name)]
         to_caption = []
         for en in all_epnames:
-            if (not ARGS.refilter) and os.path.exists(f'SummScreen/video_scenes/{en}/{ARGS.model_name}_procced_scene_caps.json'):
+            if (not ARGS.refilter) and os.path.exists(f'data/video_scenes/{en}/{ARGS.model_name}_procced_scene_caps.json'):
                 print(f'scene captions already exist for {en}')
                 pass
             else:

@@ -238,7 +238,6 @@ class SoapSummer():
             max_len = 400//len(chunks)
         meta_chunk_summs = self.model.generate(pbatch, attention_mask=attn, min_length=min_len, max_length=max_len)
         final_summ = ' '.join(self.tokenizer.batch_decode(meta_chunk_summs,skip_special_tokens=True))
-        print(len(self.tokenizer(final_summ)['input_ids']))
         return concatted_scene_summs, final_summ
 
     def dpoints_from_epnames(self, epname_list, scene_caps, infer_splits):

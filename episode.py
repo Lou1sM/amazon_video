@@ -9,38 +9,39 @@ from dl_utils.label_funcs import accuracy
 
 
 def episode_from_epname(epname, infer_splits):
-    with open(f'SummScreen/transcripts/{epname}.json') as f:
+    with open(f'data/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
     tdata = transcript_data['Transcript']
     if tdata[0].count(':') > 1 and len(tdata)<150:
         print(f'Seems transcript stored as scene list instead of line list for {epname}, fixing')
         transcript_data['Transcript'] = '\n'.join(tdata).split('\n')
-        with open(f'SummScreen/transcripts/{epname}.json','w') as f:
+        with open(f'data/transcripts/{epname}.json','w') as f:
             json.dump(transcript_data,f)
     # same ref summmary for auto version
-    summary_fpath = f'SummScreen/summaries/{epname.removesuffix("-auto")}.json'
-    with open(summary_fpath) as f:
-        summary_data = json.load(f)
+    summary_fpath = f'data/summaries/{epname.removesuffix("-auto")}.json'
+    if os.path.exists(summary_fpath):
+        with open(summary_fpath) as f:
+            summary_data = json.load(f)
+    else:
+        summary_data = None
     return Episode(epname, transcript_data, summary_data, infer=infer_splits)
 
 class Episode(): # Nelly stored transcripts and summaries as separate jsons
     def __init__(self, epname, transcript_data, summary_data, infer=False, force_infer=False):
         self.transcript = [x.replace('\r\n','') for x in transcript_data['Transcript']]
         self.epname = epname
-        self.summaries = summary_data
-        self.summaries = {k:v for k,v in self.summaries.items() if len(v) > 0}
         self.title = transcript_data['Show Title'].lower().replace(' ','_')
         self.show_name = epname.split('.')[0]
-        #if self.epname == 'gl-01-03-06':
-            #assert self.transcript.count('') <= 1
-            #if self.transcript.count('') == 1:
-                #assert self.transcript.index('') == len(self.transcript)-1
-                #self.transcript = self.transcript[:-1]
         self.transcript_data_dict = transcript_data
-        self.summary_data_dict = summary_data
+        if summary_data is None:
+            self.summaries = None
+            self.summary_data_dict = None
+        else:
+            self.summaries = {k:v for k,v in summary_data.items() if len(v) > 0}
+            self.summary_data_dict = summary_data
 
         if infer:
-            if os.path.exists(maybe_cached_infer_path:=f'SummScreen/transcripts/{epname}-inferred-scene-breaks.json'):
+            if os.path.exists(maybe_cached_infer_path:=f'data/transcripts/{epname}-inferred-scene-breaks.json'):
                 print(f'loading cached inferred splits from {maybe_cached_infer_path}')
                 with open(maybe_cached_infer_path) as f:
                     self.scenes = f.readlines()
@@ -55,8 +56,8 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
             if not had_markers:
                 with_explicit_breaks = '£[SCENE_BREAK]£'.join(self.scenes).split('£')
                 assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
-                os.rename(f'SummScreen/transcripts/{epname}.json',f'SummScreen/transcripts/{epname}-without-explicit-breaks.json')
-                with open(f'SummScreen/transcripts/{epname}.json','w') as f:
+                os.rename(f'data/transcripts/{epname}.json',f'data/transcripts/{epname}-without-explicit-breaks.json')
+                with open(f'data/transcripts/{epname}.json','w') as f:
                     json.dump(dict(transcript_data, Transcript=with_explicit_breaks),f)
 
     def transcript_from_scenes(self):
@@ -102,7 +103,6 @@ def infer_scene_splits(tlines, force_infer):
     fillers = [i for i,x in enumerate(char_names_with_fillers) if x==-1]
     char_names = [x for i,x in enumerate(char_names_with_fillers) if x!=-1]
     names_to_nums_dict = {c:i for i,c in enumerate(set(char_names))}
-    nums_to_names_dict = {i:c for i,c in enumerate(char_names)}
     char_nums = [names_to_nums_dict[n] for n in char_names]
     splits_without_fillers = np.array([-1] + mdl_split(char_nums) + [len(char_nums)])
     #splits = splits_without_fillers+sum(np.array(splits_without_fillers)>=f for f in fillers)
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     #print(mdl_split([8,2,2,8,3,1,1,3,3,1,4,5,4,5,4,5]))
     #print(mdl_split([3,5,1,5,3,1,4,5,4,5,4,5]))
     #ep = episode_from_epname('atwt-01-02-03')
-    #with open(f'SummScreen/transcripts/bb-10-06-14.json') as f:
+    #with open(f'data/transcripts/bb-10-06-14.json') as f:
     #    transcript_data = json.load(f)['Transcript']
     #scenes, splits = infer_scene_splits(transcript_data, False)
     #for sc in scenes:
@@ -166,12 +166,12 @@ if __name__ == '__main__':
     #    else:
     #        print('\n'.join(sc))
     #    print('[INFERRED_BREAK]\n')
-    #epname_list = [x.rstrip('.json') for x in os.listdir('SummScreen/transcripts')][:10]
+    #epname_list = [x.rstrip('.json') for x in os.listdir('data/transcripts')][:10]
     info_df = pd.read_csv('dset_info.csv',index_col=0)
     epnames = info_df.loc[info_df['usable'] & (info_df['scene_breaks']=='explicit') & (info_df['split']=='test')].index
     nss = []
     for en in epnames:
-        with open(f'SummScreen/transcripts/{en}.json') as f:
+        with open(f'data/transcripts/{en}.json') as f:
             td = json.load(f)['Transcript']
         assert any('[SCENE_BREAK]' in x for x in td)
         nss.append(len(''.join(td).split('[SCENE_BREAK]')))
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     all_ro_scores = []
     for en in tqdm(epnames):
         print(en)
-        with open(f'SummScreen/transcripts/{en}.json') as f:
+        with open(f'data/transcripts/{en}.json') as f:
             transcript_data = json.load(f)['Transcript']
         if not any('[SCENE_BREAK]' in x for x in transcript_data):
             continue
