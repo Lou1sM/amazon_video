@@ -1,5 +1,7 @@
 import re
 import rouge
+import torch
+import numpy as np
 
 
 rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
@@ -136,4 +138,11 @@ def split_text_by_sep(text,sep):
     second_chunk = text[len(first_chunk):]
     assert first_chunk+second_chunk == text
     return first_chunk, second_chunk
+
+def prepare_for_pil(torch_im):
+    assert isinstance(torch_im, torch.Tensor)
+    normed_torch_im = (torch_im - torch_im.min()) / (torch_im.max() - torch_im.min())
+    np_im = normed_torch_im.permute(1,2,0).numpy()
+    np_uint8_im = (np_im*255).astype(np.uint8)
+    return np_uint8_im
 

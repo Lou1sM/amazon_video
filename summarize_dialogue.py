@@ -150,7 +150,6 @@ class SoapSummer():
             best_in_order = [scenes[i] for i in idxs_to_use]
             assert sum(len(x.split()) for x in best_in_order)*4/3 <= self.dtokenizer.model_max_length
             return best_in_order
-            #scene_sims = tfidf_sims(scenes)
 
         if self.caps_only:
             return combined_caps
@@ -177,7 +176,6 @@ class SoapSummer():
             max_len = min(padded.shape[1],avg_scene_summ_len+20)
             min_len = max(10,max_len-20)
             if padded.shape[1] > self.dtokenizer.model_max_length:
-                #print('too long', padded.shape, self.dtokenizer.model_max_length)
                 padded = padded[:,:self.dtokenizer.model_max_length]
                 attn = attn[:,:self.dtokenizer.model_max_length]
             summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_length=min_len, max_length=max_len)
