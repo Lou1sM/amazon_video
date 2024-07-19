@@ -152,7 +152,6 @@ def get_scene_faces(epname, recompute):
 def torch_load_jpg(fp):
     return torch.tensor(np.array(Image.open(fp)).transpose(2,0,1)).cuda().float()
 
-
 def assign_char_names(epname, recompute):
     with open(f'data/transcripts/{epname}-auto.json') as f:
         transcript = json.load(f)['Transcript']
@@ -162,24 +161,27 @@ def assign_char_names(epname, recompute):
     speakers_per_scene = [x for x in speakers_per_scene if x !=-1]
     n_scenes = len(speakers_per_scene)
     assert n_scenes == transcript.count('[SCENE_BREAK]') + 1
-    aface_fnames = os.listdir(afaces_dir:=f'data/scraped_faces/{epname}')
+    aface_fnames = natsorted(os.listdir(afaces_dir:=f'data/scraped_faces/{epname}'))
     actor_scene_costs_list = []
     face_resnet = InceptionResnetV1(pretrained='vggface2').eval().cuda()
     aface_ims = [torch_load_jpg(join(afaces_dir, aface_fn)) for aface_fn in aface_fnames]
     aface_feat_vecs = face_resnet(torch.stack(aface_ims))
     #for i, aface_fn in enumerate(aface_fnames):
     #mean_aface = aface_feat_vecs.mean(axis=0)
-    non_assign_scene_costs = []
+    #non_assign_scene_costs = []
     for scene_idx in range(n_scenes):
         dfaces_dir = f'data/faceframes/{epname}/{epname}_scene{scene_idx}'
-        dface_ims = [torch_load_jpg(join(dfaces_dir, dface_fn)) for dface_fn in os.listdir(dfaces_dir)]
+        dface_ims = [torch_load_jpg(join(dfaces_dir, dface_fn)) for dface_fn in natsorted(os.listdir(dfaces_dir))]
         dface_feat_vecs = face_resnet(torch.stack(dface_ims))
         dists = dface_feat_vecs.unsqueeze(0) - aface_feat_vecs.unsqueeze(1)
-        dists = (dists**2).sum(axis=2)
+        #dists = (dists**2).sum(axis=2)
+        dists = np.linalg.norm(numpyify(dists), axis=2)
+        #dists = torch.matmul(aface_feat_vecs, dface_feat_vecs.T)
+        for i,j in enumerate(dists.argmin(axis=0)[:15]): print(i, aface_fnames[j])
         breakpoint()
-        actor_scene_costs_list.append(numpyify(dists.min(axis=1)[0]))
+        actor_scene_costs_list.append(numpyify(dists).min(axis=1))
         #nac = ((mean_aface - dface_feat_vecs)**2).sum(axis=1).min()
-        non_assign_scene_costs.append(dists.mean().item())
+        #non_assign_scene_costs.append(dists.mean().item())
             #best_cost = 0
             #aface_fp = join(afaces_dir, aface_fn)
             #aface_im = torch_load_jpg(aface_fp)
@@ -197,23 +199,24 @@ def assign_char_names(epname, recompute):
             #actor_scene_costs[i, scene_idx] = best_cost
 
     actor_scene_costs = np.stack(actor_scene_costs_list, axis=1)
-    non_assign_scene_costs = np.array(non_assign_scene_costs)
+    #non_assign_scene_costs = np.array(non_assign_scene_costs)
     all_speakers = natsorted(list(set(c for scene in speakers_per_scene for c in scene if c!=-1)))
     speaker_actor_costs = np.empty([len(all_speakers), len(aface_fnames)])
-    non_assign_speaker_costs = []
+    #non_assign_speaker_costs = []
     for i,sid in enumerate(all_speakers):
         appearing_sidxs = [i for i, anames in enumerate(speakers_per_scene) if sid in anames]
-        nacs = non_assign_scene_costs[appearing_sidxs].sum()
-        non_assign_speaker_costs.append(nacs)
+        #nacs = non_assign_scene_costs[appearing_sidxs].sum()
+        #non_assign_speaker_costs.append(nacs)
         for j,act in enumerate(aface_fnames):
             cost = actor_scene_costs[j, appearing_sidxs].mean()
             speaker_actor_costs[i,j] = cost # of assigning speaker num i to char num j
-    non_assign_speaker_costs = np.array(non_assign_speaker_costs)
-    n_non_assigned = speaker_actor_costs.shape[0] - speaker_actor_costs.shape[1]
-    tiled_non_assigned = np.tile(np.expand_dims(non_assign_speaker_costs,1),(1,n_non_assigned))
+    #non_assign_speaker_costs = np.array(non_assign_speaker_costs)
+    #n_non_assigned = speaker_actor_costs.shape[0] - speaker_actor_costs.shape[1]
+    #tiled_non_assigned = np.tile(np.expand_dims(non_assign_speaker_costs,1),(1,n_non_assigned))
     nr = 3 # max allowed number of speakers assigned to one char
     tiled_sacs = np.tile(speaker_actor_costs, (1,nr))
-    cost_mat = np.concatenate([tiled_sacs, tiled_non_assigned], axis=1)
+    #cost_mat = np.concatenate([tiled_sacs, tiled_non_assigned], axis=1)
+    cost_mat = tiled_sacs
     assert cost_mat.shape == (len(all_speakers), len(all_speakers)+(nr-1)*speaker_actor_costs.shape[1])
     trans_dict = get_trans_dict_from_cost_mat(cost_mat)
     #trans_dict = simple_get_trans_dict_from_cost_mat(speaker_actor_costs)
@@ -239,7 +242,6 @@ def assign_char_names(epname, recompute):
     with_names_tdata = {'Show Title': epname, 'Transcript': transcript}
     with open(f'data/transcripts/{epname}-auto-with-names.json', 'w') as f:
         json.dump(with_names_tdata, f)
-
 
 def caption_keyframes_and_save(epname_list, recompute):
     captioner = Captioner()
