@@ -10,6 +10,7 @@ from natsort import natsorted
 import numpy as np
 import pandas as pd
 import torch
+from scipy.special import softmax
 import whisperx
 import face_recognition
 import imageio_ffmpeg
@@ -31,14 +32,14 @@ def segment_and_save(epname_list):
     scene_segmenter = SceneSegmenter()
     for en in epname_list:
         new_pt, new_timepoints = scene_segmenter.scene_segment(en, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-        check_dir(kf_dir:=f'data/keyframes/{en}')
+        check_dir(kf_dir:=f'data/keyframes-by-scene/{en}')
         np.save(f'{kf_dir}/keyframe-timepoints.npy', new_timepoints)
         np.save(f'{kf_dir}/scene-split-timepoints.npy', new_pt)
         check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene0')
         next_scene_idx = 1
         print(f'found {len(scene_segmenter.kf_scene_split_points)+1} scenes')
         # move keyframes for each scene to their own dir
-        for i, kf in enumerate(os.listdir(scene_segmenter.framesdir)):
+        for i, kf in enumerate(natsorted(os.listdir(scene_segmenter.framesdir))):
             if i in scene_segmenter.kf_scene_split_points:
                 check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene{next_scene_idx}')
                 next_scene_idx += 1
@@ -89,7 +90,7 @@ def whisper_and_save(epname_list, recompute):
 def segment_audio_transcript(epname):
     scene_idx = 0
     scenes = []
-    pt = np.load(f'data/keyframes/{epname}/scene-split-timepoints.npy')
+    pt = np.load(f'data/keyframes-by-scene/{epname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
     with open(f'data/audio_transcripts/{epname}.json') as f:
         audio_transcript = json.load(f)
@@ -115,7 +116,7 @@ def segment_audio_transcript(epname):
         json.dump(tdata, f)
 
 def get_scene_faces(epname, recompute):
-    keyframes_dir = f'data/keyframes/{epname}'
+    keyframes_dir = f'data/keyframes-by-scene/{epname}'
     faces_dir = f'data/faceframes/{epname}'
     kf_scene_dirs = natsorted([x for x in os.listdir(keyframes_dir) if '_scene' in x])
     mtcnn = MTCNN(image_size=160, margin=10, min_face_size=20, thresholds=[0.8, 0.8, 0.9], factor=0.709, post_process=True, device='cuda', keep_all=True)
@@ -161,7 +162,8 @@ def assign_char_names(epname, recompute):
     speakers_per_scene = [x for x in speakers_per_scene if x !=-1]
     n_scenes = len(speakers_per_scene)
     assert n_scenes == transcript.count('[SCENE_BREAK]') + 1
-    aface_fnames = natsorted(os.listdir(afaces_dir:=f'data/scraped_faces/{epname}'))
+    check_dir(afaces_dir:=f'data/scraped_faces/{epname}')
+    aface_fnames = natsorted(os.listdir(afaces_dir))
     actor_scene_costs_list = []
     face_resnet = InceptionResnetV1(pretrained='vggface2').eval().cuda()
     aface_ims = [torch_load_jpg(join(afaces_dir, aface_fn)) for aface_fn in aface_fnames]
@@ -176,6 +178,8 @@ def assign_char_names(epname, recompute):
         dists = dface_feat_vecs.unsqueeze(0) - aface_feat_vecs.unsqueeze(1)
         #dists = (dists**2).sum(axis=2)
         dists = np.linalg.norm(numpyify(dists), axis=2)
+        def f(idx):
+            for an, p in sorted(list(zip(aface_fnames,softmax(-dists[:,idx]*20))),key=lambda x:-x[1]): print(f'{an.removesuffix(".jpg")} {p:.3f}')
         #dists = torch.matmul(aface_feat_vecs, dface_feat_vecs.T)
         for i,j in enumerate(dists.argmin(axis=0)[:15]): print(i, aface_fnames[j])
         breakpoint()
