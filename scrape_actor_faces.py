@@ -1,12 +1,15 @@
 from selenium import webdriver, common
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
 import io
 from os.path import join
 import numpy as np
+import time
 from bs4 import BeautifulSoup
 from dl_utils.misc import check_dir
 import requests
 from PIL import Image
-from facenet_pytorch import MTCNN
+from faces_train.facenet_pytorch import MTCNN
 from utils import prepare_for_pil
 
 
@@ -17,33 +20,72 @@ def save_and_crop_img_from_url(file_path:str,url:str):
         image_content = requests.get(url).content
     except Exception as e:
         print(f"ERROR - Could not download {url} - {e}")
+    #breakpoint()
+    #detected_faces = mtc(image_content)
+    #for frame_faces in detected_faces:
+    #    if frame_faces is None:
+    #        continue
+    #    for face in frame_faces: # all faces in frame are stack along first dim.
+    #        face = prepare_for_pil(face)
+    #        if face.shape[0] > 100 and face.shape[1] > 100:
+    #            save_fpath = join(scene_faces_dir, f'face{face_idx}.jpg')
+    #            print('saving face to', save_fpath, face.shape)
+    #            Image.fromarray(face).save(save_fpath)
+    #            face_idx += 1
     image_file = io.BytesIO(image_content)
     image = Image.open(image_file).convert('RGB')
     face_img = mtc(image)
+    if face_img is None: # just skip if other chars in the image
+        print(f"found 0 faces in {url} so skipping")
+        return
+    if len(face_img) > 1: # just skip if other chars in the image
+        print(f"found {len(face_img)} faces in {url} so skipping")
+        return
     pil_face_img = Image.fromarray(prepare_for_pil(face_img.squeeze(0)))
+    if 'Krendler' in file_path:
+        breakpoint()
     with open(file_path, 'wb') as f:
         pil_face_img.save(f, "JPEG", quality=95)
     print(f"SUCCESS - saved {url} - as {file_path}")
 
 def scrape_from_url(url, movie_name):
-    dir_name = join('data/scraped_faces', movie_name)
-    check_dir(dir_name)
+    check_dir(char_faces_dir:=join('data/scraped_char_faces', movie_name))
     #with webdriver.Chrome('/home/louis/chromedriver-linux64/chromedriver') as wd:
     with webdriver.Chrome() as wd:
+        actions = ActionChains(wd)
         wd.get(url)
-        #wd.maximize_window()
         #time.sleep(2)
-        soup = BeautifulSoup(wd.page_source, 'html.parser')
-        aface_divs = [d for d in soup.find_all('div') if d.get('data-testid') == 'title-cast-item']
-        for afd in aface_divs:
-            char_name = afd.find('span').text
-            img_elm = afd.find('img')
-            if img_elm is None:
-                print('No image found for char_name')
-                continue
-            actor_name = img_elm['alt']
-            img_fpath = join(dir_name, f'{char_name}.jpg')
-            save_and_crop_img_from_url(file_path=img_fpath, url=img_elm['src'])
+        #soup = BeautifulSoup(wd.page_source, 'html.parser')
+        #top_cast_elements = [d for d in soup.find_all('section') if d.get('data-testid') == 'title-cast-item__characters-list']
+        #top_cast_elements = [d for d in soup.find_all('a') if d.get('data-testid') if d.get('data-testid', '') == 'cast-item-characters-link']
+        #top_cast_elements = wd.find_elements(By.CSS_SELECTOR, 'a[data-testid=cast-item-characters-link]')
+        char_names = [x.find_element(By.TAG_NAME, 'span').text for x in  wd.find_elements(By.CSS_SELECTOR, 'a[data-testid=cast-item-characters-link]')]
+        time.sleep(1)
+        wd.find_element(By.CSS_SELECTOR, 'button[data-testid=reject-button]').click() # cookie consent shite
+        wd.maximize_window()
+        time.sleep(1)
+        #wd.execute_script("document.body.style.zoom='50%'")
+        wd.execute_script("window.scrollTo(0, 2000)")
+        time.sleep(1)
+
+        for char_name in char_names:
+            #char_name = tcd.find_element(By.TAG_NAME, 'span').text
+            check_dir(char_dir:=join(char_faces_dir, char_name))
+            tcd = wd.find_element(By.LINK_TEXT, char_name).find_element(By.XPATH, '..')
+            actions.move_to_element(tcd).perform()
+            tcd.click()
+            #char_face_elements = [d for d in soup.find_all('a') if d.get('class', []) != [] and d.get('class')[0] == 'titlecharacters-image-grid__thumbnail-link']
+            char_face_elements = wd.find_elements(By.CSS_SELECTOR, 'a[class=titlecharacters-image-grid__thumbnail-link]')
+            for i, cfe in enumerate(char_face_elements):
+                img_children = cfe.find_elements(By.TAG_NAME, 'img')
+                assert len(img_children) == 1
+                img_url = img_children[0].get_attribute('src')
+                save_fpath = join(char_dir, f'img{i}.jpg')
+                save_and_crop_img_from_url(file_path=save_fpath, url=img_url)
+            time.sleep(1)
+            wd.back()
+            time.sleep(0.5)
 
 
 scrape_from_url('https://www.imdb.com/title/tt0102926/?ref_=fn_al_tt_1', 'silence-of-lambs')
+#scrape_from_url('https://www.imdb.com/title/tt0102926/characters/nm0505971?ref_=tt_mv_close', 'silence-of-lambs')
