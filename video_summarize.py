@@ -15,11 +15,12 @@ import whisperx
 import face_recognition
 import imageio_ffmpeg
 #from deepface import DeepFace
-from facenet_pytorch import InceptionResnetV1, MTCNN
+from faces_train.facenet_pytorch import InceptionResnetV1, MTCNN
+from faces_train.train import FaceLearner, read_tfloat_im
 from PIL import Image
 from dl_utils.misc import check_dir
 from dl_utils.label_funcs import get_trans_dict_from_cost_mat, simple_get_trans_dict_from_cost_mat
-from dl_utils.tensor_funcs import numpyify
+from dl_utils.tensor_funcs import numpyify, display_image
 from caption_each_scene import Captioner
 from episode import episode_from_epname, get_char_names
 from summarize_dialogue import SoapSummer
@@ -27,6 +28,8 @@ from scene_detection import SceneSegmenter
 from utils import rouge_from_multiple_refs, display_rouges, prepare_for_pil
 
 
+
+FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
 def segment_and_save(epname_list):
     scene_segmenter = SceneSegmenter()
@@ -92,12 +95,18 @@ def segment_audio_transcript(epname):
     scenes = []
     pt = np.load(f'data/keyframes-by-scene/{epname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
+    vid_fpath = f"data/videos/{epname}.mp4"
+    check_dir(f'data/utterance-frames/{epname}')
     with open(f'data/audio_transcripts/{epname}.json') as f:
         audio_transcript = json.load(f)
 
+    audio_transcript = [line for line in audio_transcript if not all(ord(x)>255 for x in line['text'].strip())]
     cur_scene = audio_transcript[:1]
-    for ut in audio_transcript[1:]:
+    for i,ut in enumerate(audio_transcript[1:]):
         avg_time = (float(ut['start']) + float(ut['end'])) / 2
+        fp = f'data/utterance-frames/{epname}/ut{i}.jpg'
+        #ffmpeg -ss 01:23:45 -i input -frames:v 1 -q:v 2 output.jpg
+        subprocess.run([FFMPEG_PATH, '-ss', str(avg_time), '-i', vid_fpath, '-frames:v', '1', '-q:v', '2', fp, '-y'])
         if avg_time < pt[scene_idx+1]:
             cur_scene.append(ut)
         else:
@@ -109,8 +118,6 @@ def segment_audio_transcript(epname):
     if ARGS.print_transcript:
         print(transcript)
 
-    #with open(f'data/transcripts/{epname}.json') as f:
-        #tdata = json.load(f)
     tdata = {'Show Title': epname, 'Transcript': transcript}
     with open(f'data/transcripts/{epname}-auto.json', 'w') as f:
         json.dump(tdata, f)
@@ -139,6 +146,7 @@ def get_scene_faces(epname, recompute):
                 if len(frames)%batch_size == 0:
                     #batched_face_locations = face_recognition.face_locations(frames[:3], model='cnn')
                     batched_faces = mtcnn(frames)
+                    breakpoint()
                     for frame_faces in batched_faces:
                         if frame_faces is None:
                             continue
@@ -162,88 +170,73 @@ def assign_char_names(epname, recompute):
     speakers_per_scene = [x for x in speakers_per_scene if x !=-1]
     n_scenes = len(speakers_per_scene)
     assert n_scenes == transcript.count('[SCENE_BREAK]') + 1
-    check_dir(afaces_dir:=f'data/scraped_faces/{epname}')
-    aface_fnames = natsorted(os.listdir(afaces_dir))
+    check_dir(cfaces_dir:=f'data/scraped_char_faces/{epname}')
+    cface_fnames = natsorted(os.listdir(cfaces_dir))
     actor_scene_costs_list = []
-    face_resnet = InceptionResnetV1(pretrained='vggface2').eval().cuda()
-    aface_ims = [torch_load_jpg(join(afaces_dir, aface_fn)) for aface_fn in aface_fnames]
-    aface_feat_vecs = face_resnet(torch.stack(aface_ims))
-    #for i, aface_fn in enumerate(aface_fnames):
-    #mean_aface = aface_feat_vecs.mean(axis=0)
-    #non_assign_scene_costs = []
+    #face_resnet = InceptionResnetV1(pretrained='vggface2').eval().cuda()
+    #face_resnet = InceptionResnetV1(pretrained='vggface2').eval().cuda()
+    #face_resnet = torchvision.models.resnet50(pretrained=True).cuda()
+    fl = FaceLearner()
+    fl.load_state_dict(torch.load('faces_train/best.pt'))
+    cface_feat_vecs = []
+    names_to_remove = []
+    for acn in cface_fnames:
+        im_fps = [join(cfaces_dir, acn, x) for x in os.listdir(join(cfaces_dir, acn))]
+        if len(im_fps) == 0:
+            names_to_remove.append(acn)
+            continue
+        cface_ims = [read_tfloat_im(x).cuda() for x in im_fps]
+        feat_vecs = fl.net(torch.stack(cface_ims))
+        cface_feat_vecs.append(feat_vecs.mean(axis=0))
+    cface_fnames = [x for x in cface_fnames if x not in names_to_remove]
+    cface_feat_vecs = torch.stack(cface_feat_vecs)
     for scene_idx in range(n_scenes):
         dfaces_dir = f'data/faceframes/{epname}/{epname}_scene{scene_idx}'
-        dface_ims = [torch_load_jpg(join(dfaces_dir, dface_fn)) for dface_fn in natsorted(os.listdir(dfaces_dir))]
-        dface_feat_vecs = face_resnet(torch.stack(dface_ims))
-        dists = dface_feat_vecs.unsqueeze(0) - aface_feat_vecs.unsqueeze(1)
-        #dists = (dists**2).sum(axis=2)
+        dface_ims = [read_tfloat_im(join(dfaces_dir, dface_fn)).cuda() for dface_fn in natsorted(os.listdir(dfaces_dir))]
+        dface_feat_vecs = fl.net(torch.stack(dface_ims))
+        dists = dface_feat_vecs.unsqueeze(0) - cface_feat_vecs.unsqueeze(1)
         dists = np.linalg.norm(numpyify(dists), axis=2)
-        def f(idx):
-            for an, p in sorted(list(zip(aface_fnames,softmax(-dists[:,idx]*20))),key=lambda x:-x[1]): print(f'{an.removesuffix(".jpg")} {p:.3f}')
-        #dists = torch.matmul(aface_feat_vecs, dface_feat_vecs.T)
-        for i,j in enumerate(dists.argmin(axis=0)[:15]): print(i, aface_fnames[j])
-        breakpoint()
+        #def f(idx):
+            #for an, p in sorted(list(zip(aface_fnames,softmax(-dists[:,idx]*20))),key=lambda x:-x[1]): print(f'{an.removesuffix(".jpg")} {p:.3f}')
+        #for i,j in enumerate(dists.argmin(axis=0)[:15]): print(i, cface_fnames[j])
         actor_scene_costs_list.append(numpyify(dists).min(axis=1))
-        #nac = ((mean_aface - dface_feat_vecs)**2).sum(axis=1).min()
-        #non_assign_scene_costs.append(dists.mean().item())
-            #best_cost = 0
-            #aface_fp = join(afaces_dir, aface_fn)
-            #aface_im = torch_load_jpg(aface_fp)
-            #aface_feat_vec = face_resnet(aface_im.unsqueeze(0))
-            #for face_fn in os.listdir(detected_faces_dir):
-            #    dface_path = join(detected_faces_dir, face_fn)
-            #    dface_im = torch_load_jpg(dface_path)
-            #    print(dface_path, dface_im.shape)
-            #    #face_comparison_result = DeepFace.verify(img1_path=aface_fp, img2_path=dface_path)
-            #    #new_cost = 1 - face_comparison_result['distance']
-            #    dface_feat_vec = face_resnet(dface_im.unsqueeze(0))
-            #    new_cost = ((aface_feat_vec - dface_feat_vec)**2).sum()
-            #    if new_cost < best_cost:
-            #        best_cost = new_cost
-            #actor_scene_costs[i, scene_idx] = best_cost
 
     actor_scene_costs = np.stack(actor_scene_costs_list, axis=1)
-    #non_assign_scene_costs = np.array(non_assign_scene_costs)
     all_speakers = natsorted(list(set(c for scene in speakers_per_scene for c in scene if c!=-1)))
-    speaker_actor_costs = np.empty([len(all_speakers), len(aface_fnames)])
-    #non_assign_speaker_costs = []
+    speaker_actor_costs = np.empty([len(all_speakers), len(cface_fnames)])
     for i,sid in enumerate(all_speakers):
         appearing_sidxs = [i for i, anames in enumerate(speakers_per_scene) if sid in anames]
-        #nacs = non_assign_scene_costs[appearing_sidxs].sum()
-        #non_assign_speaker_costs.append(nacs)
-        for j,act in enumerate(aface_fnames):
+        for j,act in enumerate(cface_fnames):
             cost = actor_scene_costs[j, appearing_sidxs].mean()
             speaker_actor_costs[i,j] = cost # of assigning speaker num i to char num j
-    #non_assign_speaker_costs = np.array(non_assign_speaker_costs)
-    #n_non_assigned = speaker_actor_costs.shape[0] - speaker_actor_costs.shape[1]
-    #tiled_non_assigned = np.tile(np.expand_dims(non_assign_speaker_costs,1),(1,n_non_assigned))
     nr = 3 # max allowed number of speakers assigned to one char
     tiled_sacs = np.tile(speaker_actor_costs, (1,nr))
-    #cost_mat = np.concatenate([tiled_sacs, tiled_non_assigned], axis=1)
     cost_mat = tiled_sacs
-    assert cost_mat.shape == (len(all_speakers), len(all_speakers)+(nr-1)*speaker_actor_costs.shape[1])
+    #assert cost_mat.shape == (len(all_speakers), len(all_speakers)+(nr-1)*speaker_actor_costs.shape[1])
     trans_dict = get_trans_dict_from_cost_mat(cost_mat)
     #trans_dict = simple_get_trans_dict_from_cost_mat(speaker_actor_costs)
     speaker2char = {}
     for k,v in trans_dict.items():
         speaker = all_speakers[v]
-        if k >= len(aface_fnames)*nr:
+        if k >= len(cface_fnames)*nr:
             char = 'UNASSIGNED'
         else:
-            k = k%len(aface_fnames)
-            char = aface_fnames[k].removesuffix('.jpg') # faces saved as {char-name}.jpg
+            k = k%len(cface_fnames)
+            char = cface_fnames[k].removesuffix('.jpg') # faces saved as {char-name}.jpg
         speaker2char[speaker] = char
 
     print(speaker2char)
     print(speaker2char['SPEAKER_17'])
     print(speaker2char['SPEAKER_39'])
     breakpoint()
+    check_dir('data/speaker_char_mappings')
     with open('data/speaker_char_mappings/{epname}.json', 'w') as f:
         json.dump(speaker2char, f)
 
     for k,v in speaker2char.items():
-        transcript = transcript.replace(k, v)
+        transcript = [line.replace(k, v) for line in transcript]
     with_names_tdata = {'Show Title': epname, 'Transcript': transcript}
+    breakpoint()
     with open(f'data/transcripts/{epname}-auto-with-names.json', 'w') as f:
         json.dump(with_names_tdata, f)
 
