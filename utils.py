@@ -1,7 +1,11 @@
 import re
+import os
+from dl_utils.tensor_funcs import numpyify, cudify
 import rouge
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+from natsort import natsorted
 
 
 rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
@@ -145,4 +149,21 @@ def prepare_for_pil(torch_im):
     np_im = normed_torch_im.permute(1,2,0).numpy()
     np_uint8_im = (np_im*255).astype(np.uint8)
     return np_uint8_im
+
+def showim(im):
+    import matplotlib.pyplot as plt
+    plt.imshow(im); plt.show()
+
+def tshim(t):
+    a = numpyify(t.permute(1,2,0))
+    showim(a)
+
+def shim(x):
+    plt.imshow(x); plt.show()
+
+def path_list(parent_dir):
+    return natsorted([os.path.join(parent_dir, child) for child in os.listdir(parent_dir)])
+
+def bernoulli_CE(p1, p2):
+    return -p1 * np.log(p2) - (1-p1)*np.log(1-p2)
 
