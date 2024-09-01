@@ -25,7 +25,7 @@ class SceneSegmenter():
         pass
 
     def get_ffmpeg_keyframe_times(self, epname, recompute, avg_kf_every=5):
-        self.framesdir = f'data/ffmpeg-scenes/{epname}'
+        self.framesdir = f'data/ffmpeg-frames/{epname}'
         check_dir(self.framesdir)
         if (not os.path.isfile(join(self.framesdir, 'frametimes.npy'))) or recompute:
             for fn in os.listdir(self.framesdir):

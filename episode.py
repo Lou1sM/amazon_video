@@ -84,7 +84,7 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
             print(line)
 
 def get_char_names(tlines):
-    return [x.split(':')[0] if not x.startswith('[') and ':' in x else -1 for x in tlines]
+    return [x.split(':')[0] if not x.startswith('[') and ':' in x else 'UNK' for x in tlines]
 
 def split_by_marker(tlines, marker):
     splits = np.array([i for i,x in enumerate(tlines) if x == marker])
