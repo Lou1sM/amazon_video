@@ -15,7 +15,7 @@ import imageio_ffmpeg
 from scipy.optimize import linear_sum_assignment
 from faces_train.train import FaceLearner, read_tfloat_im
 from PIL import Image
-from dl_utils.misc import check_dir
+from dl_utils.misc import check_dir, time_format
 from dl_utils.label_funcs import get_trans_dict_from_cost_mat, simple_get_trans_dict_from_cost_mat
 from dl_utils.tensor_funcs import numpyify, display_image
 from deepface import DeepFace # stupidly, this needs to be imported before "from transformers import AutoProcessor"
@@ -29,33 +29,38 @@ from time import time
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
-#mtcnn = MTCNN(image_size=160, margin=10, min_face_size=20, thresholds=[0.8, 0.8, 0.9], factor=0.709, post_process=True, device='cuda', keep_all=True)
-
 def segment_and_save(vidname_list):
     scene_segmenter = SceneSegmenter()
     for vn in vidname_list:
         new_pt, new_timepoints = scene_segmenter.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-        check_dir(kf_dir:=f'data/keyframes-by-scene/{vn}')
+        check_dir(kf_dir:=f'data/ffmpeg-keyframes-by-scene/{vn}')
         np.save(f'{kf_dir}/keyframe-timepoints.npy', new_timepoints)
         np.save(f'{kf_dir}/scene-split-timepoints.npy', new_pt)
         check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene0')
+        for fn in os.listdir(cur_scene_dir):
+            #print('removing',join(cur_scene_dir, fn))
+            os.remove(join(cur_scene_dir, fn))
         next_scene_idx = 1
         print(f'found {len(scene_segmenter.kf_scene_split_points)+1} scenes')
         # move keyframes for each scene to their own dir
         for i, kf in enumerate(natsorted(os.listdir(scene_segmenter.framesdir))):
             if i in scene_segmenter.kf_scene_split_points:
                 check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene{next_scene_idx}')
+                for fn in os.listdir(cur_scene_dir):
+                    #print('removing',join(cur_scene_dir, fn))
+                    os.remove(join(cur_scene_dir, fn))
                 next_scene_idx += 1
             if kf != 'frametimes.npy':
-                breakpoint()
                 #shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
-                os.rename(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
+                #print('creating link to', f'{scene_segmenter.framesdir}/{kf}', 'from',f'{cur_scene_dir}/{kf}')
+                os.symlink(os.path.abspath(f'{scene_segmenter.framesdir}/{kf}'), os.path.abspath(f'{cur_scene_dir}/{kf}'))
+    breakpoint()
     torch.cuda.empty_cache()
 
 def segment_audio_transcript(vidname, recompute):
     scene_idx = 0
     scenes = []
-    pt = np.load(f'data/keyframes-by-scene/{vidname}/scene-split-timepoints.npy')
+    pt = np.load(f'data/ffmpeg-keyframes-by-scene/{vidname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
     #vid_fpath = f"data/full_videos/{vidname}.mp4"
     check_dir(utframe_dir:=f'data/utterance-frames/{vidname}')
@@ -89,7 +94,7 @@ def segment_audio_transcript(vidname, recompute):
 
 def get_scene_faces(vidname, recompute):
     starttime = time()
-    keyframes_dir = f'data/keyframes-by-scene/{vidname}'
+    keyframes_dir = f'data/ffmpeg-keyframes-by-scene/{vidname}'
     faces_dir = f'data/faceframes/{vidname}'
     kf_scene_dirs = natsorted([x for x in os.listdir(keyframes_dir) if '_scene' in x])
     for kfsd in kf_scene_dirs:
@@ -145,7 +150,7 @@ def assign_char_names(vidname):
     char_scene_costs_list = []
     print('extracting faces from scenes')
     for scene_idx in tqdm(range(n_scenes)):
-        dfaces_dir = f'data/keyframes-by-scene/{vidname}/{vidname}_scene{scene_idx}'
+        dfaces_dir = f'data/ffmpeg-keyframes-by-scene/{vidname}/{vidname}_scene{scene_idx}'
         dface_feat_vecs_list = []
         for dface_fn in natsorted(os.listdir(dfaces_dir)):
             try:
