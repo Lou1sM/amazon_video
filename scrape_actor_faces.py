@@ -16,7 +16,7 @@ from PIL import Image
 #from utils import prepare_for_pil
 from deepface import DeepFace
 from nltk.corpus import names
-from utils import path_list
+from utils import path_list, shim
 
 male_names = names.words('male.txt')
 female_names = names.words('female.txt')
@@ -29,11 +29,16 @@ def save_and_crop_img_from_url(file_path:str,url:str, char_name):
         print(f"ERROR - Could not download {url} - {e}")
     image_file = io.BytesIO(image_content)
     image_ar = np.array(Image.open(image_file))
-    detected_faces = DeepFace.extract_faces(image_ar, enforce_detection=False)
+    detected_faces = DeepFace.extract_faces(image_ar, enforce_detection=False, detector_backend='fastmtcnn')
     detected_faces.sort(key=lambda x:x['confidence'], reverse=True)
 
-    if len(detected_faces)==1 and (conf:=detected_faces[0]['confidence']) > 0.5:
-        det_gender = DeepFace.analyze(image_ar, actions='gender')[0]['dominant_gender']
+    if len(detected_faces)>1:
+        print(f'Skipping cuz detected {len(detected_faces)} faces')
+    elif (conf:=detected_faces[0]['confidence']) < 0.5:
+        print(f'Skipping cuz conf only {conf}')
+    else:
+        assert len(detected_faces)==1
+        det_gender = DeepFace.analyze(image_ar, actions='gender', detector_backend='fastmtcnn')[0]['dominant_gender']
         if char_name.split(' ')[0] in female_names and det_gender == 'Man':
             print(f'excluding cuz name is female but face is male')
             return
@@ -41,6 +46,8 @@ def save_and_crop_img_from_url(file_path:str,url:str, char_name):
             print(f'excluding cuz name is male but face is female')
             return
         np.save(file_path, image_ar) # deepface expects whole image for comparison and extraction, not just the face
+        assert (np.load(file_path)==image_ar).all()
+        assert DeepFace.extract_faces(np.load(file_path), enforce_detection=False, detector_backend='fastmtcnn')[0]['confidence'] > 0.5
         print(f"SUCCESS - saved {url} - as {file_path}")
 
 def scrape_from_url(url, movie_name):
@@ -90,7 +97,7 @@ def scrape_from_url(url, movie_name):
                 cross_verified = np.eye(N)
                 for i in range(N):
                     for j in range(i+1,N):
-                        is_verified = DeepFace.verify(np.load(saved_fpaths[i]), np.load(saved_fpaths[j]))['verified']
+                        is_verified = DeepFace.verify(np.load(saved_fpaths[i]), np.load(saved_fpaths[j]), detector_backend='fastmtcnn')['verified']
                         cross_verified[i,j] = is_verified
                         cross_verified[j,i] = is_verified
 
@@ -113,4 +120,5 @@ def scrape_from_url(url, movie_name):
 
 
 
-scrape_from_url('https://www.imdb.com/title/tt0102926/?ref_=fn_al_tt_1', 'silence-of-lambs')
+#scrape_from_url('https://www.imdb.com/title/tt0102926/?ref_=fn_al_tt_1', 'silence-of-lambs')
+scrape_from_url('https://www.imdb.com/title/tt1798709/?ref_=tt_ch', 'her_2013')

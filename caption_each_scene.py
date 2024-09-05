@@ -19,7 +19,7 @@ from nltk.corpus import names
 #from src.datasets.data_utils.video_ops import extract_frames_from_video_path
 import torch
 import argparse
-from episode import episode_from_epname
+from episode import episode_from_name
 from transformers import AutoProcessor, AutoModelForVision2Seq
 from PIL import Image
 
@@ -83,13 +83,13 @@ class Captioner():
             print(f'unrecognized model name: {model_name}')
 
     def kosmos_scene_caps(self,epname):
-        ep_dir = os.path.join('data/keyframes',epname.removesuffix('-auto'))
+        ep_dir = os.path.join('data/keyframes-by-scene',epname.removesuffix('-auto'))
         scene_caps = []
         scene_locs = []
         n_frames_to_cap = 1
-        scene_fnames = sorted(os.listdir(ep_dir), key=lambda x: int(x.split('_')[1][5:]))
-        #scene_nums = sorted([int(x.split('_')[1][5:-4]) for x in scene_fnames])
-        scene_nums = sorted([int(x.split('.')[0].split('_')[1][5:]) for x in scene_fnames])
+        breakpoint()
+        scene_fnames = natsorted(x for x in os.listdir(ep_dir) if os.path.isdir(join(ep_dir,x)))
+        scene_nums = sorted(int(x.removeprefix(f'{epname}_scene')) for x in scene_fnames)
         for scene_dir in scene_fnames:
             caps_for_this_scene = []
             locs_for_this_scene = []
@@ -156,7 +156,7 @@ class Captioner():
 
     def filter_and_namify_scene_captions(self, epname, model_name):
         scenes_dir = f'data/video_scenes/{epname}'.removesuffix('-auto') # scenes come from vid only
-        ep = episode_from_epname(epname, infer_splits=False) # but here -auto has an effect
+        ep = episode_from_name(epname, infer_splits=False) # but here -auto has an effect
         with open(os.path.join(scenes_dir,f'{model_name}_raw_scene_caps.json')) as f:
             z = json.load(f)
             try:

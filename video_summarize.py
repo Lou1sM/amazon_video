@@ -1,4 +1,5 @@
 from copy import copy
+#import whisperx
 from tqdm import tqdm
 import json
 import os
@@ -19,54 +20,57 @@ from dl_utils.label_funcs import get_trans_dict_from_cost_mat, simple_get_trans_
 from dl_utils.tensor_funcs import numpyify, display_image
 from deepface import DeepFace # stupidly, this needs to be imported before "from transformers import AutoProcessor"
 from caption_each_scene import Captioner
-from episode import episode_from_epname, get_char_names
+from episode import episode_from_name, get_char_names
 from summarize_dialogue import SoapSummer
 from scene_detection import SceneSegmenter
 from utils import rouge_from_multiple_refs, display_rouges, bernoulli_CE
+from time import time
 
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
 #mtcnn = MTCNN(image_size=160, margin=10, min_face_size=20, thresholds=[0.8, 0.8, 0.9], factor=0.709, post_process=True, device='cuda', keep_all=True)
 
-def segment_and_save(epname_list):
+def segment_and_save(vidname_list):
     scene_segmenter = SceneSegmenter()
-    for en in epname_list:
-        new_pt, new_timepoints = scene_segmenter.scene_segment(en, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-        check_dir(kf_dir:=f'data/keyframes-by-scene/{en}')
+    for vn in vidname_list:
+        new_pt, new_timepoints = scene_segmenter.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+        check_dir(kf_dir:=f'data/keyframes-by-scene/{vn}')
         np.save(f'{kf_dir}/keyframe-timepoints.npy', new_timepoints)
         np.save(f'{kf_dir}/scene-split-timepoints.npy', new_pt)
-        check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene0')
+        check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene0')
         next_scene_idx = 1
         print(f'found {len(scene_segmenter.kf_scene_split_points)+1} scenes')
         # move keyframes for each scene to their own dir
         for i, kf in enumerate(natsorted(os.listdir(scene_segmenter.framesdir))):
             if i in scene_segmenter.kf_scene_split_points:
-                check_dir(cur_scene_dir:=f'{kf_dir}/{en}_scene{next_scene_idx}')
+                check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene{next_scene_idx}')
                 next_scene_idx += 1
             if kf != 'frametimes.npy':
-                shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
+                breakpoint()
+                #shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
+                os.rename(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
     torch.cuda.empty_cache()
 
-def segment_audio_transcript(epname, recompute):
+def segment_audio_transcript(vidname, recompute):
     scene_idx = 0
     scenes = []
-    pt = np.load(f'data/keyframes-by-scene/{epname}/scene-split-timepoints.npy')
+    pt = np.load(f'data/keyframes-by-scene/{vidname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
-    vid_fpath = f"data/videos/{epname}.mp4"
-    check_dir(utframe_dir:=f'data/utterance-frames/{epname}')
+    #vid_fpath = f"data/full_videos/{vidname}.mp4"
+    check_dir(utframe_dir:=f'data/utterance-frames/{vidname}')
     if os.path.exists(utframe_dir) and not recompute:
         return
-    with open(f'data/audio_transcripts/{epname}.json') as f:
+    with open(f'data/whisper_outputs/{vidname}.json') as f:
         audio_transcript = json.load(f)
 
     audio_transcript = [line for line in audio_transcript if not all(ord(x)>255 for x in line['text'].strip())]
     cur_scene = audio_transcript[:1]
     for i,ut in enumerate(audio_transcript[1:]):
         avg_time = (float(ut['start']) + float(ut['end'])) / 2
-        fp = f'data/utterance-frames/{epname}/ut{i}.jpg'
+        #fp = f'data/utterance-frames/{vidname}/ut{i}.jpg'
         #ffmpeg -ss 01:23:45 -i input -frames:v 1 -q:v 2 output.jpg
-        #subprocess.run([FFMPEG_PATH, '-ss', str(avg_time), '-i', vid_fpath, '-frames:v', '1', '-q:v', '2', fp, '-y'])
+        #subprocess.run([FFMPEG_PATH, '-ss', str(avg_time), '-i', vid_fpath, '-frames:v', '1', '-q:v', '2', fp, '-y']) # extract the frame closest to the utterance
         if avg_time < pt[scene_idx]:
             cur_scene.append(ut)
         else:
@@ -79,13 +83,14 @@ def segment_audio_transcript(epname, recompute):
     if ARGS.print_transcript:
         print(transcript)
 
-    tdata = {'Show Title': epname, 'Transcript': transcript}
-    with open(f'data/transcripts/{epname}-auto.json', 'w') as f:
+    tdata = {'Show Title': vidname, 'Transcript': transcript}
+    with open(f'data/transcripts/{vidname}-no-names.json', 'w') as f:
         json.dump(tdata, f)
 
-def get_scene_faces(epname, recompute):
-    keyframes_dir = f'data/keyframes-by-scene/{epname}'
-    faces_dir = f'data/faceframes/{epname}'
+def get_scene_faces(vidname, recompute):
+    starttime = time()
+    keyframes_dir = f'data/keyframes-by-scene/{vidname}'
+    faces_dir = f'data/faceframes/{vidname}'
     kf_scene_dirs = natsorted([x for x in os.listdir(keyframes_dir) if '_scene' in x])
     for kfsd in kf_scene_dirs:
         face_idx = 0
@@ -99,38 +104,31 @@ def get_scene_faces(epname, recompute):
             #batch_size = min(128, len(os.listdir(scene_keyframes_dir)))
             #frames = []
             for keyframe_fn in os.listdir(scene_keyframes_dir):
-                #image = Image.open(join(scene_keyframes_dir, keyframe_fn))
-                #import matplotlib.pyplot as plt
-                #plt.imshow(image); plt.show()
-                #frames.append(image)
-                #if len(frames)%batch_size == 0:
-                    #batched_face_locations = face_recognition.face_locations(frames[:3], model='cnn')
-                    #batched_faces = mtcnn(frames)
                 fpath = join(scene_keyframes_dir, keyframe_fn)
                 frame_faces = DeepFace.extract_faces(fpath, detector_backend='fastmtcnn', enforce_detection=False)
                 for dface in frame_faces:
                     if dface['confidence'] < 0.5:
                         continue
                     face_img = dface['face']
-                    breakpoint()
                     pil_face_img = Image.fromarray((face_img*255).astype(np.uint8) )
                     if face_img.shape[0] > 100 and face_img.shape[1] > 100:
                         save_fpath = join(scene_faces_dir, f'face{face_idx}.jpg')
-                        print('saving face to', save_fpath, face_img.shape)
+                        #print('saving face to', save_fpath, face_img.shape)
                         #Image.fromarray(face).save(save_fpath)
                         pil_face_img.save(save_fpath)
                         face_idx += 1
+    print(f'Faces from frames extraction time: {time_format(time()-starttime)}')
 
 def torch_load_jpg(fp):
     return torch.tensor(np.array(Image.open(fp)).transpose(2,0,1)).cuda().float()
 
-def assign_char_names(epname):
-    with open(f'data/transcripts/{epname}-auto.json') as f:
+def assign_char_names(vidname):
+    with open(f'data/transcripts/{vidname}-no-names.json') as f:
         transcript = json.load(f)['Transcript']
 
     transcript_scenes = '£'.join(transcript).split('[SCENE_BREAK]')
     n_scenes = transcript.count('[SCENE_BREAK]') + 1
-    check_dir(cfaces_dir:=f'data/scraped_char_faces/{epname}')
+    check_dir(cfaces_dir:=f'data/scraped_char_faces/{vidname}')
     cface_fnames = natsorted(os.listdir(cfaces_dir))
     cface_feat_vecs = []
     names_to_remove = []
@@ -140,17 +138,19 @@ def assign_char_names(epname):
         if len(im_fps) == 0:
             names_to_remove.append(acn)
             continue
-        feat_vecs = np.array([ DeepFace.represent(np.load(fp))[0]['embedding'] for fp in im_fps])
+        feat_vecs = np.array([ DeepFace.represent(np.load(fp), detector_backend='fastmtcnn')[0]['embedding'] for fp in im_fps])
         cface_feat_vecs.append(feat_vecs.mean(axis=0))
     cface_fnames = [x for x in cface_fnames if x not in names_to_remove]
     cface_feat_vecs = np.stack(cface_feat_vecs)
     char_scene_costs_list = []
-    for scene_idx in range(n_scenes):
-        dfaces_dir = f'data/keyframes-by-scene/{epname}/{epname}_scene{scene_idx}'
+    print('extracting faces from scenes')
+    for scene_idx in tqdm(range(n_scenes)):
+        dfaces_dir = f'data/keyframes-by-scene/{vidname}/{vidname}_scene{scene_idx}'
         dface_feat_vecs_list = []
         for dface_fn in natsorted(os.listdir(dfaces_dir)):
             try:
-                dfaces = DeepFace.represent(img_path=join(dfaces_dir, dface_fn))
+                dfaces = DeepFace.represent(img_path=join(dfaces_dir, dface_fn), detector_backend='fastmtcnn')
+                #DeepFace.represent(np.stack([np.array(Image.open(join(dfaces_dir, x))) for x in os.listdir(dfaces_dir)]), detector_backend='fastmtcnn')
             except ValueError: # means no face detected in the frame
                 continue
             dface_feat_vecs_list += [x['embedding'] for x in dfaces]
@@ -163,8 +163,6 @@ def assign_char_names(epname):
             char_scene_costs_list.append(dists.min(axis=1))
 
     char_scene_costs = np.stack(char_scene_costs_list, axis=1)
-    with open(f'data/transcripts/{epname}-auto.json') as f:
-        transcript = json.load(f)['Transcript']
     speakers_per_scene = [get_char_names(scene.split('£')) for scene in transcript_scenes]
     speakers_per_scene = [x for x in speakers_per_scene if x !=-1]
     assert len(speakers_per_scene) == n_scenes
@@ -177,7 +175,7 @@ def assign_char_names(epname):
             speaker_char_costs_scenes[i,j] = cost # of assigning speaker num i to char num j
     speaker_prominences = {s:'\n'.join(transcript).count(s) for s in all_speakers}
     speaker_prominences = {s:(c+1)/(sum(speaker_prominences.values())+1) for s,c in speaker_prominences.items()}
-    with open(f'data/nimages-per-char/{epname}-nimages-per-char.json') as f:
+    with open(f'data/nimages-per-char/{vidname}-nimages-per-char.json') as f:
         nimages_per_char = json.load(f)
     assert all(x in nimages_per_char.keys() for x in set(cface_fnames))
     char_prominences = {k:(v+1)/(sum(nimages_per_char.values())+1) for k,v in nimages_per_char.items()}
@@ -209,50 +207,49 @@ def assign_char_names(epname):
             char = cface_fnames[char_ind].removesuffix('.jpg')
         speaker2char[speaker] = char
 
-    print(speaker2char)
-    x = speaker_char_costs
+    #print(speaker2char)
+    #x = speaker_char_costs
     breakpoint()
-    print(speaker2char['SPEAKER_17'])
-    print(speaker2char['SPEAKER_39'])
     check_dir('data/speaker_char_mappings')
-    with open('data/speaker_char_mappings/{epname}.json', 'w') as f:
+    with open('data/speaker_char_mappings/{vidname}.json', 'w') as f:
         json.dump(speaker2char, f)
 
     for k,v in speaker2char.items():
         transcript = [line.replace(k, v) for line in transcript]
-    with_names_tdata = {'Show Title': epname, 'Transcript': transcript}
+    with_names_tdata = {'Show Title': vidname, 'Transcript': transcript}
     breakpoint()
-    with open('sol-autotranscript.txt') as f: gt = f.readlines()
-    gtn = [x.split(':')[0] for x in gt]
-    predn = [x.split(':')[0] for x in transcript]
-    n_correct = 0
-    denom = 0
-    for p,g in zip(predn, gtn):
-        if p==g: n_correct+=1
-        if 'SCENE_BREAK' not in p and p!='UNASSIGNED':
-            denom += 1
-    print(f'n-lines: {len(gt)} n-predicted: {denom} n-correct: {n_correct} acc:, {n_correct/denom:.3f} harsh_acc: {n_correct/len(gtn):.3f}')
-    with open(f'data/transcripts/{epname}-auto-with-names.json', 'w') as f:
+    #with open('sol-autotranscript.txt') as f: gt = f.readlines()
+    #gtn = [x.split(':')[0] for x in gt]
+    #predn = [x.split(':')[0] for x in transcript]
+    #n_correct = 0
+    #denom = 0
+    #for p,g in zip(predn, gtn):
+    #    if p==g: n_correct+=1
+    #    if 'SCENE_BREAK' not in p and p!='UNASSIGNED':
+    #        denom += 1
+    #print(f'n-lines: {len(gt)} n-predicted: {denom} n-correct: {n_correct} acc:, {n_correct/denom:.3f} harsh_acc: {n_correct/len(gtn):.3f}')
+    with open(f'data/transcripts/{vidname}.json', 'w') as f:
         json.dump(with_names_tdata, f)
 
-def caption_keyframes_and_save(epname_list, recompute):
+def caption_keyframes_and_save(vidname_list, recompute):
     captioner = Captioner()
-    if recompute or not all(os.path.exists(f'data/video_scenes/{en}-auto/kosmos_procced_scene_caps.json') for en in epname_list):
+    if recompute or not all(os.path.exists(f'data/video_scenes/{vn}/kosmos_procced_scene_caps.json') for vn in vidname_list):
         captioner.init_models('kosmos')
 
-        for en in epname_list:
-            raw_caps_fp = f'data/video_scenes/{en}/kosmos_raw_scene_caps.json'
+        for vn in vidname_list:
+            raw_caps_fp = f'data/video_scenes/{vn}/kosmos_raw_scene_caps.json'
             if not os.path.exists(raw_caps_fp):
-                captioner.kosmos_scene_caps(en)
-            procced_caps_fp = f'data/video_scenes/{en}/kosmos_procced_scene_caps.json'
+                captioner.kosmos_scene_caps(vn)
+            procced_caps_fp = f'data/video_scenes/{vn}/kosmos_procced_scene_caps.json'
             if not os.path.exists(procced_caps_fp):
-                captioner.filter_and_namify_scene_captions(en+'-auto-with-names', 'kosmos')
-                if os.path.exists(f'data/transcripts/{en}.json'):
-                    captioner.filter_and_namify_scene_captions(en, 'kosmos')
-            check_dir(f'data/video_scenes/{en}-auto')
-            shutil.copy(procced_caps_fp, f'data/video_scenes/{en}-auto/kosmos_procced_scene_caps.json')
+                #captioner.filter_and_namify_scene_captions(vn+'-auto-with-names', 'kosmos')
+                captioner.filter_and_namify_scene_captions(vn, 'kosmos')
+                if os.path.exists(f'data/transcripts/{vn}.json'):
+                    captioner.filter_and_namify_scene_captions(vn, 'kosmos')
+            #check_dir(f'data/video_scenes/{vn}')
+            #shutil.copy(procced_caps_fp, f'data/video_scenes/{vn}/kosmos_procced_scene_caps.json')
 
-def summarize_and_score(epname_list):
+def summarize_and_score(vidname_list):
     high_level_summ_mod_name = 'lucadiliello/bart-small' if ARGS.is_test else 'facebook/bart-large-cnn'
     summarizer_model = SoapSummer(model_name=high_level_summ_mod_name,
                     device='cuda',
@@ -271,13 +268,13 @@ def summarize_and_score(epname_list):
                     do_save_new_scenes=True,
                     is_test=ARGS.is_test)
 
-    pbar = tqdm(epname_list)
+    pbar = tqdm(vidname_list)
     all_our_scores = []
     all_og_scores = []
-    for en in pbar:
-        ep = episode_from_epname(f'{en}-auto', infer_splits=False)
-        concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto', min_len=360, max_len=400)
-        concatted_scene_summs, og_final_summ = summarizer_model.summarize_from_epname(f'{en}', min_len=360, max_len=400)
+    for vn in pbar:
+        ep = episode_from_name(f'{vn}', infer_splits=False)
+        concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn, min_len=360, max_len=400)
+        concatted_scene_summs, og_final_summ = summarizer_model.summarize_from_vidname(f'{vn}', min_len=360, max_len=400)
         new_our_scores = rouge_from_multiple_refs(final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
         new_og_scores = rouge_from_multiple_refs(og_final_summ, ep.summaries.values(), benchmark_rl=False, return_full=False)
         all_our_scores.append(new_our_scores)
@@ -296,7 +293,7 @@ parser.add_argument('--recompute-face-extraction', action='store_true')
 parser.add_argument('--recompute-char-names', action='store_true')
 parser.add_argument('--recompute-segment-trans', action='store_true')
 parser.add_argument('--print-transcript', action='store_true')
-parser.add_argument('--epname', type=str, default='oltl-10-18-10')
+parser.add_argument('--vidname', type=str, default='oltl-10-18-10')
 parser.add_argument('--dbs', type=int, default=8)
 parser.add_argument('--n-dpoints', type=int, default=3)
 parser.add_argument('--bs', type=int, default=1)
@@ -304,35 +301,42 @@ parser.add_argument('-t','--is_test', action='store_true')
 parser.add_argument('--vid-name', type=str, default='silence-of-lambs')
 ARGS = parser.parse_args()
 
-available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/videos/')]
-if ARGS.vid_name is None:
-    dset_info = pd.read_csv('dset_info.csv', index_col=0)
-    #test_mask = dset_info['usable'] & (dset_info['split']=='test')
-    test_mask = dset_info['usable']
-    test_epnames = dset_info.index[test_mask]
+available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/full_videos/')]
+if ARGS.vid_name == 'all':
+    with open('moviesumm_testset_names.txt') as f:
+        official_names = f.read().split('\n')
+    with open('clean-vid-names-to-command-line-names.json') as f:
+        clean2cl = json.load(f)
+    #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
+    assert all(x in official_names for x in clean2cl.keys())
+    test_vidnames = list(clean2cl.values())
+    #dset_info = pd.read_csv('dset_info.csv', index_col=0)
+    ##test_mask = dset_info['usable'] & (dset_info['split']=='test')
+    #test_mask = dset_info['usable']
+    #test_vidnames = dset_info.index[test_mask]
 
-    test_epnames = [x for x in test_epnames if x in available_with_vids]
-    test_epnames = test_epnames[:ARGS.n_dpoints]
+    #test_vidnames = [x for x in test_vidnames if x in available_with_vids]
+    #test_vidnames = test_vidnames[:ARGS.n_dpoints]
 else:
-    test_epnames = [ARGS.vid_name]
+    test_vidnames = [ARGS.vid_name]
 
-segment_and_save(test_epnames)
+segment_and_save(test_vidnames)
 torch.cuda.empty_cache()
-#whisper_and_save(test_epnames, ARGS.recompute_whisper)
+#whisper_and_save(test_vidnames, ARGS.recompute_whisper)
 torch.cuda.empty_cache()
-for en in test_epnames:
-    segment_audio_transcript(en, ARGS.recompute_segment_trans)
-    get_scene_faces(en, ARGS.recompute_face_extraction)
+for vn in test_vidnames:
+    segment_audio_transcript(vn, ARGS.recompute_segment_trans)
+    get_scene_faces(vn, ARGS.recompute_face_extraction)
     if ARGS.recompute_char_names:
-        assign_char_names(en)
+        assign_char_names(vn)
 
 torch.cuda.empty_cache()
-caption_keyframes_and_save(test_epnames, ARGS.recompute_captions)
+caption_keyframes_and_save(test_vidnames, ARGS.recompute_captions)
 torch.cuda.empty_cache()
 
 
 #if ARGS.vid_name is None:
-#    ours, og = summarize_and_score(test_epnames)
+#    ours, og = summarize_and_score(test_vidnames)
 #    with open('results-only-video.txt', 'w') as f:
 #        for sname, sval in zip(['video only', 'with transcript'], [ours, og]):
 #            avg_rouge_scores = np.array(sval).mean(axis=0)
@@ -359,7 +363,7 @@ summarizer_model = SoapSummer(
             is_test=ARGS.is_test)
 
 print(sum(x.numel() for x in summarizer_model.model.parameters()))
-concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'{en}-auto', min_len=500, max_len=600)
+concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn, min_len=500, max_len=600)
 print(concatted_scene_summs)
 with open(f'{ARGS.vid_name}-summary.txt', 'w') as f:
     f.write(final_summ)

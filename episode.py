@@ -8,7 +8,7 @@ import numpy as np
 from dl_utils.label_funcs import accuracy
 
 
-def episode_from_epname(epname, infer_splits):
+def episode_from_name(epname, infer_splits):
     with open(f'data/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
     tdata = transcript_data['Transcript']

@@ -9,7 +9,7 @@ import pandas as pd
 import os
 from os.path import join
 import json
-from episode import episode_from_epname
+from episode import episode_from_name
 from utils import chunkify, summ_short_scene, rouge_from_multiple_refs, get_fn
 import numpy as np
 from tqdm import tqdm
@@ -62,7 +62,7 @@ class SoapSummer():
         return padded, attention_mask
 
     def summ_scenes(self, epname, infer_splits):
-        ep = episode_from_epname(epname, infer_splits)
+        ep = episode_from_name(epname, infer_splits)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
         if len(scenes) == 1:
             print(f'no scene breaks for {epname}')
