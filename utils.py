@@ -5,6 +5,8 @@ import rouge
 import torch
 import numpy as np
 from natsort import natsorted
+from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq, get_scheduler
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel, PeftConfig
 
 
 rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
@@ -162,4 +164,21 @@ def path_list(parent_dir):
 
 def bernoulli_CE(p1, p2):
     return -p1 * np.log(p2) - (1-p1)*np.log(1-p2)
+
+def load_peft_model(base_model_name_or_path, chkpt_path):
+    print('loading model from', base_model_name_or_path)
+    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
+    if chkpt_path is None:
+        print('no peft chkpt to update from')
+        model = prepare_model_for_kbit_training(model)
+        lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
+        model = get_peft_model(model,lora_config)
+    else:
+        print('updating model with peft chkpt from', chkpt_path)
+        config = PeftConfig.from_pretrained(chkpt_path)
+        assert config.base_model_name_or_path==base_model_name_or_path
+        model.enable_input_require_grads()
+        model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
+        assert any([x.requires_grad for x in model.parameters()])
+    return model
 

@@ -83,11 +83,10 @@ class Captioner():
             print(f'unrecognized model name: {model_name}')
 
     def kosmos_scene_caps(self,epname):
-        ep_dir = os.path.join('data/keyframes-by-scene',epname.removesuffix('-auto'))
+        ep_dir = os.path.join('data/ffmpeg-keyframes-by-scene',epname.removesuffix('-auto'))
         scene_caps = []
         scene_locs = []
         n_frames_to_cap = 1
-        breakpoint()
         scene_fnames = natsorted(x for x in os.listdir(ep_dir) if os.path.isdir(join(ep_dir,x)))
         scene_nums = sorted(int(x.removeprefix(f'{epname}_scene')) for x in scene_fnames)
         for scene_dir in scene_fnames:

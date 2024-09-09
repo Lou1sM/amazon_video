@@ -10,25 +10,26 @@ import os
 from os.path import join
 import json
 from episode import episode_from_name
-from utils import chunkify, summ_short_scene, rouge_from_multiple_refs, get_fn
+from utils import chunkify, load_peft_model, rouge_from_multiple_refs, get_fn
 import numpy as np
 from tqdm import tqdm
 
-#llm = 'meta-llama/Meta-Llama-3.1-8B'
-llm = 'llamafactory/tiny-random-Llama-3'
 
 class SoapSummer():
-    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, llm_name, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
         self.device = device
-        self.model_name = self.dmodel_name = llm
-        self.dmodel = AutoModelForCausalLM.from_pretrained(self.dmodel_name).to(device)
+        self.model_name = self.dmodel_name = llm_name
+        if self.model_name == 'full-llama3':
+            self.dmodel = load_peft_model(self.model_name, chkpt_path=None)
+        else:
+            self.dmodel = AutoModelForCausalLM.from_pretrained(self.dmodel_name).to(device)
         self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name)
-        if self.model_name == self.dmodel_name: # either test, or startend/central
+        if self.model_name == self.dmodel_name:
             self.model = self.dmodel # avoid loading twice
             self.tokenizer = self.dtokenizer # avoid loading twice
-        else:
+        else: # this doesn't happen anymore, but may again as some baseline
             self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to(device)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         if caps.endswith('-only'):
@@ -159,7 +160,7 @@ class SoapSummer():
                     f.write('\n'.join(ss))
         return ss
 
-    def summarize_from_epname(self, epname, min_len, max_len):
+    def summarize_from_vidname(self, epname, min_len, max_len):
         scene_summs = self.get_scene_summs(epname, infer_splits=False)
         return self.summarize_scene_summs('\n'.join(scene_summs), min_len, max_len)
 

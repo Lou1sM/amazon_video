@@ -17,7 +17,7 @@ import json
 #Charade
 #Chasing Sleep
 #Nothing but a Man - can't find
-#Novitiat - can't find
+#Novitiate - can't find
 #Parenthood - too big
 #The Village - too big
 #Thirteen Days - can't find proper version that isn't huge

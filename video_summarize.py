@@ -54,7 +54,6 @@ def segment_and_save(vidname_list):
                 #shutil.copy(f'{scene_segmenter.framesdir}/{kf}', cur_scene_dir)
                 #print('creating link to', f'{scene_segmenter.framesdir}/{kf}', 'from',f'{cur_scene_dir}/{kf}')
                 os.symlink(os.path.abspath(f'{scene_segmenter.framesdir}/{kf}'), os.path.abspath(f'{cur_scene_dir}/{kf}'))
-    breakpoint()
     torch.cuda.empty_cache()
 
 def segment_audio_transcript(vidname, recompute):
@@ -63,12 +62,13 @@ def segment_audio_transcript(vidname, recompute):
     pt = np.load(f'data/ffmpeg-keyframes-by-scene/{vidname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
     #vid_fpath = f"data/full_videos/{vidname}.mp4"
-    check_dir(utframe_dir:=f'data/utterance-frames/{vidname}')
-    if os.path.exists(utframe_dir) and not recompute:
+    #if os.path.exists(utframe_dir:=f'data/utterance-frames/{vidname}') and os.path.exist(transc_no_names_fp:=f'data/transcripts/{vidname}-no-names.json') and not recompute:
+    if os.path.exists(transc_no_names_fp:=f'data/transcripts/{vidname}-no-names.json') and not recompute:
         return
     with open(f'data/whisper_outputs/{vidname}.json') as f:
         audio_transcript = json.load(f)
 
+    #check_dir(utframe_dir)
     audio_transcript = [line for line in audio_transcript if not all(ord(x)>255 for x in line['text'].strip())]
     cur_scene = audio_transcript[:1]
     for i,ut in enumerate(audio_transcript[1:]):
@@ -82,14 +82,13 @@ def segment_audio_transcript(vidname, recompute):
             scenes.append(copy(cur_scene))
             scene_idx += 1
             cur_scene = [ut]
-    breakpoint()
     scenes.append(cur_scene)
     transcript = '\n[SCENE_BREAK]\n'.join('\n'.join(x.get('speaker', 'UNK') + ': ' + x['text'] for x in s) for s in scenes).split('\n')
     if ARGS.print_transcript:
         print(transcript)
 
     tdata = {'Show Title': vidname, 'Transcript': transcript}
-    with open(f'data/transcripts/{vidname}-no-names.json', 'w') as f:
+    with open(transc_no_names_fp, 'w') as f:
         json.dump(tdata, f)
 
 def get_scene_faces(vidname, recompute):
@@ -127,7 +126,10 @@ def get_scene_faces(vidname, recompute):
 def torch_load_jpg(fp):
     return torch.tensor(np.array(Image.open(fp)).transpose(2,0,1)).cuda().float()
 
-def assign_char_names(vidname):
+def assign_char_names(vidname, recompute):
+    if os.path.exists(assigned_transcr_fp:=f'data/transcripts/{vidname}.json') and not recompute:
+        print(f'{assigned_transcr_fp} already exists')
+        return
     with open(f'data/transcripts/{vidname}-no-names.json') as f:
         transcript = json.load(f)['Transcript']
 
@@ -148,7 +150,7 @@ def assign_char_names(vidname):
     cface_fnames = [x for x in cface_fnames if x not in names_to_remove]
     cface_feat_vecs = np.stack(cface_feat_vecs)
     char_scene_costs_list = []
-    print('extracting faces from scenes')
+    print('extracting face features from scenes')
     for scene_idx in tqdm(range(n_scenes)):
         dfaces_dir = f'data/ffmpeg-keyframes-by-scene/{vidname}/{vidname}_scene{scene_idx}'
         dface_feat_vecs_list = []
@@ -233,7 +235,7 @@ def assign_char_names(vidname):
     #    if 'SCENE_BREAK' not in p and p!='UNASSIGNED':
     #        denom += 1
     #print(f'n-lines: {len(gt)} n-predicted: {denom} n-correct: {n_correct} acc:, {n_correct/denom:.3f} harsh_acc: {n_correct/len(gtn):.3f}')
-    with open(f'data/transcripts/{vidname}.json', 'w') as f:
+    with open(assigned_transcr_fp, 'w') as f:
         json.dump(with_names_tdata, f)
 
 def caption_keyframes_and_save(vidname_list, recompute):
@@ -303,7 +305,9 @@ parser.add_argument('--dbs', type=int, default=8)
 parser.add_argument('--n-dpoints', type=int, default=3)
 parser.add_argument('--bs', type=int, default=1)
 parser.add_argument('-t','--is_test', action='store_true')
-parser.add_argument('--vid-name', type=str, default='silence-of-lambs')
+parser.add_argument('--vid-name', type=str, default='the-silence-of-lambs_1991')
+parser.add_argument('--llm-name', type=str, default='tiny-llama3', choices=['tiny-llama3', 'full-llama3'])
+parser.add_argument('--summ-device', type=str, default='cuda', choices=['cuda', 'cpu'])
 ARGS = parser.parse_args()
 
 available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/full_videos/')]
@@ -331,9 +335,8 @@ torch.cuda.empty_cache()
 torch.cuda.empty_cache()
 for vn in test_vidnames:
     segment_audio_transcript(vn, ARGS.recompute_segment_trans)
-    get_scene_faces(vn, ARGS.recompute_face_extraction)
-    if ARGS.recompute_char_names:
-        assign_char_names(vn)
+    #get_scene_faces(vn, ARGS.recompute_face_extraction)
+    assign_char_names(vn, ARGS.recompute_char_names)
 
 torch.cuda.empty_cache()
 caption_keyframes_and_save(test_vidnames, ARGS.recompute_captions)
@@ -350,8 +353,11 @@ torch.cuda.empty_cache()
 #            print(to_display)
 #            f.write(to_display + '\n')
 #else:
+#llm = 'meta-llama/Meta-Llama-3.1-8B'
+llm = 'llamafactory/tiny-random-Llama-3'
 summarizer_model = SoapSummer(
-            device='cuda',
+            device=ARGS.summ_device,
+            llm_name='llamafactory/tiny-random-Llama-3' if ARGS.llm_name=='tiny-llama3' else 'meta-llama/Meta-Llama-3.1-8B',
             bs=ARGS.bs,
             dbs=ARGS.dbs,
             #tokenizer=tokenizer,
@@ -361,7 +367,7 @@ summarizer_model = SoapSummer(
             startendscenes=False,
             centralscenes=False,
             max_chunk_size=10000,
-            expdir='single-ep',
+            expdir='experiments',
             data_dir='./data',
             resumm_scenes=ARGS.recompute_scene_summs,
             do_save_new_scenes=True,

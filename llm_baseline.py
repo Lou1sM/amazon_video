@@ -14,7 +14,7 @@ import argparse
 import os
 from os.path import join
 import sys
-from utils import display_rouges
+from utils import display_rouges, load_peft_model
 
 
 parser = argparse.ArgumentParser()
@@ -58,23 +58,6 @@ else:
 tok_pp = tokenizer(prompt_prefix)['input_ids']
 tok_ps = tokenizer(prompt_suffix)['input_ids'][1:]
 
-
-def load_peft_model(base_model_name_or_path, chkpt_path):
-    print('loading model from', base_model_name_or_path)
-    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True)
-    if chkpt_path is None:
-        print('no peft chkpt to update from')
-        model = prepare_model_for_kbit_training(model)
-        lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
-        model = get_peft_model(model,lora_config)
-    else:
-        print('updating model with peft chkpt from', chkpt_path)
-        config = PeftConfig.from_pretrained(chkpt_path)
-        assert config.base_model_name_or_path==base_model_name_or_path
-        model.enable_input_require_grads()
-        model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
-        assert any([x.requires_grad for x in model.parameters()])
-    return model
 
 clip_len = min(4048, tokenizer.model_max_length)
 def get_clipped(inputs, labs):

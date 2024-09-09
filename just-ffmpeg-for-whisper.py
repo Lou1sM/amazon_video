@@ -9,7 +9,7 @@ with open('clean-vid-names-to-command-line-names.json') as f:
     official2cl = json.load(f)
 vid_names = official2cl.values()
 
-for vn in tqdm(list(vid_names)[23:]):
+for vn in tqdm(list(vid_names)[138:]):
     if os.path.exists(transc_fpath:=f'data/whisper_outputs/{vn}.json'):
         print(f'Transcription already exists at {transc_fpath}, skipping')
         continue
