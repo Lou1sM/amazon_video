@@ -37,9 +37,10 @@ class SceneSegmenter():
             assert os.path.exists(vid_fpath), f'{vid_fpath} does not exist'
             duration = float(ffmpeg.probe(vid_fpath)["format"]["duration"])
             desired_nkfs = int(duration/avg_kf_every)
-            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.1)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
+            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.1)'" ",showinfo" ",setpts=N/FR/TB", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
             timepoint_lines = [z for z in x.stderr.decode().split('\n') if ' n:' in z]
             timepoints = np.array([float(re.search(r'(?<= pts_time:)[0-9\.]+(?= )',tl).group()) for tl in timepoint_lines])
+            print('orig num kfs:', len(timepoint_lines), 'desired num kfs:', desired_nkfs)
             if len(timepoints)>desired_nkfs:
                 keep_idxs = np.linspace(0,len(timepoints)-1, desired_nkfs).astype(int)
                 for i in range(len(timepoints)):
@@ -64,7 +65,7 @@ class SceneSegmenter():
         #log_cov_det = np.log(sig).sum()
         mahala_dists = np.einsum('ij,ji->i', mean_dists/self.avg_sig, mean_dists.T)
         neg_log_probs = 0.5 * (nz*np.log(2*np.pi) + self.log_cov_det + mahala_dists)
-        return neg_log_probs.sum(axis=0) -neg_log_probs.max() + self.prec_cost*nz*(n-1)
+        return neg_log_probs.mean(axis=0)*len(neg_log_probs) -neg_log_probs.max() + self.prec_cost*nz*(n-1)
 
     def cost_of_span(self, x, range_size):
         n, nz = x.shape
@@ -82,6 +83,8 @@ class SceneSegmenter():
         data_cost = self.cost_under_params(x, sample_mu)
         cost = data_cost + mean_cost
         #print(n, data_cost, mean_cost, cost, cost/n)
+        if np.isinf(cost):
+            breakpoint()
         return cost
 
     def segment_from_feats_list(self, epname, feats_list, recompute):
@@ -100,20 +103,22 @@ class SceneSegmenter():
             self.log_cov_det = np.log(self.avg_sig).sum()
             range_size = feat_vecs.max() - feat_vecs.min()
 
-            base_costs = [[np.inf if j<=i or j-i>=max_scene_size else self.cost_of_span(feat_vecs[i:j], range_size) for j in range(N)] for i in tqdm(range(N))]
+            base_costs = [[np.inf if j<=i or j-i>=max_scene_size else self.cost_of_span(feat_vecs[i:j], range_size) for j in range(N+1)] for i in tqdm(range(N+1))]
             base_costs = np.array(base_costs)
-            best_costs = [base_costs[i,N-1] for i in range(N)]
-            best_splits = [[]]*N
-            print('searching for optimal split')
-            for start in tqdm(reversed(range(N))):
+            #base_costs = np.load('xmen-base-costs.npy')
+            opt_costs = [base_costs[i,N-1] for i in range(N)]
+            opt_splits = [[]]*N
+            for start in reversed(range(N-1)):
                 max_end = min(start+max_scene_size, N)
-                best_splits[start] = best_splits[max_end-1]
+                opt_splits[start] = opt_splits[max_end-1]
                 for possible_first_break in range(start+1, max_end):
-                    maybe_new_cost = base_costs[start, possible_first_break] + best_costs[possible_first_break]
-                    if maybe_new_cost < best_costs[start]:
-                        best_costs[start] = maybe_new_cost
-                        best_splits[start] = [possible_first_break] + best_splits[possible_first_break]
-            self.kf_scene_split_points = best_splits[0]
+                    maybe_new_cost = base_costs[start, possible_first_break] + opt_costs[possible_first_break]
+                    if maybe_new_cost < opt_costs[start]:
+                        opt_costs[start] = maybe_new_cost
+                        opt_splits[start] = [possible_first_break] + opt_splits[possible_first_break]
+                assert not np.isinf(opt_costs[start])
+
+            self.kf_scene_split_points = opt_splits[0]
             np.save(splits_fp, self.kf_scene_split_points)
         return self.kf_scene_split_points
 
@@ -156,7 +161,7 @@ class SceneSegmenter():
         self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
         pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
         from dl_utils.misc import time_format
-        for x in pt: print(time_format(x))
+        print('  '.join(time_format(x) for x in pt))
         return pt, timepoints
 
 if __name__ == '__main__':
