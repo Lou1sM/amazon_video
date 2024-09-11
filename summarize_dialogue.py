@@ -5,14 +5,14 @@ from torch.optim import AdamW
 from transformers import get_scheduler
 import torch
 from math import ceil
-import pandas as pd
 import os
 from os.path import join
 import json
 from episode import episode_from_name
-from utils import chunkify, load_peft_model, rouge_from_multiple_refs, get_fn
+from utils import chunkify, rouge_from_multiple_refs, get_fn
 import numpy as np
 from tqdm import tqdm
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel, PeftConfig
 
 
 class SoapSummer():
@@ -71,7 +71,7 @@ class SoapSummer():
         if self.caps == 'nocaptions':
             caps = ['']*len(scenes)
         else: # prepend vid caps to the scene summ
-            with open(join(self.data_dir,f'video_scenes/{epname}/{self.caps}_procced_scene_caps.json')) as f:
+            with open(join(self.data_dir,f'postprocessed-video-captions/{epname}/{self.caps}_procced_scene_caps.json')) as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
             caps = [cdd.get(f'{epname}s{i}','') for i in range(len(scenes))]
@@ -149,13 +149,15 @@ class SoapSummer():
 
     def get_scene_summs(self, epname, infer_splits):
         epname_ = f'{epname}-inferred' if infer_splits else epname
-        maybe_scene_summ_path = join(self.data_dir,f'scene_summs/{epname_}_{self.fn}.txt')
+        scene_summ_dir = join(self.data_dir, 'scene_summs')
+        maybe_scene_summ_path = join(scene_summ_dir, f'{epname_}_{self.fn}.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = [x.strip() for x in f.readlines()]
         else:
             ss = self.summ_scenes(epname, infer_splits)
             if self.do_save_new_scenes:
+                check_dir(scene_summ_dir)
                 with open(maybe_scene_summ_path,'w') as f:
                     f.write('\n'.join(ss))
         return ss
@@ -176,7 +178,6 @@ class SoapSummer():
         else:
             min_chunk_len = min_len//len(chunks) + 5 # +5 cuz will cut off incomplete sents
             max_chunk_len = max_len//len(chunks) + 5
-        breakpoint()
         meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len)
         meta_chunk_toks = meta_chunk_toks[:, pbatch.shape[1]:]
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
@@ -205,6 +206,7 @@ class SoapSummer():
         return data_list
 
     def build_dset(self, scene_caps, n_dpoints, dset_fragment_name):
+        import pandas as pd
         dset_info = pd.read_csv('dset_info.csv', index_col=0)
         base_dset_fragment_name = dset_fragment_name.removesuffix('-inferred')
         mask = dset_info['usable'] & (dset_info['split']==base_dset_fragment_name)
@@ -223,7 +225,7 @@ class SoapSummer():
         else:
             epnames = [x for x in epnames if x!=epname_to_be_first]
 
-        assert all([os.path.isdir(join(self.data_dir,f'video_scenes/{x}')) for x in epnames])
+        assert all([os.path.isdir(join(self.data_dir,f'postprocessed-video-captions/{x}')) for x in epnames])
         infer_splits = dset_fragment_name.endswith('-inferred')
         dpoints = self.dpoints_from_epnames(epnames, scene_caps, infer_splits)
         if base_dset_fragment_name in ('val', 'test'):
@@ -354,40 +356,78 @@ class SoapSummer():
 def drop_trailing_halfsent(s):
     return '. '.join(x for x in s.split('. '))
 
+def load_peft_model(base_model_name_or_path, chkpt_path):
+    print('loading model from', base_model_name_or_path)
+    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True, padding_side='left')
+    if chkpt_path is None:
+        print('no peft chkpt to update from')
+        model = prepare_model_for_kbit_training(model)
+        lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
+        model = get_peft_model(model,lora_config)
+    else:
+        print('updating model with peft chkpt from', chkpt_path)
+        config = PeftConfig.from_pretrained(chkpt_path)
+        assert config.base_model_name_or_path==base_model_name_or_path
+        model.enable_input_require_grads()
+        model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
+        assert any([x.requires_grad for x in model.parameters()])
+    return model
+
 if __name__ == '__main__':
     import argparse
 
     #openai.api_key = "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"
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-dpoints','-n', type=int, default=2)
-    parser.add_argument('--do-shuffle', action='store_true')
-    parser.add_argument('--do-check-gpt', action='store_true')
-    parser.add_argument('--only-check-gpt', action='store_true')
     parser.add_argument('--summ-scenes-only', action='store_true')
     parser.add_argument('--resumm-scenes', action='store_true')
     parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'],default='nocaptions')
     parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is-test', action='store_true')
+    parser.add_argument('--recompute-scene-summs', action='store_true')
+    parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
+    parser.add_argument('--dbs', type=int, default=8)
+    parser.add_argument('--bs', type=int, default=1)
+    parser.add_argument('--llm-name', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
+    parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
     ARGS = parser.parse_args()
 
+    if ARGS.vidname == 'all':
+        with open('moviesumm_testset_names.txt') as f:
+            official_names = f.read().split('\n')
+        with open('clean-vid-names-to-command-line-names.json') as f:
+            clean2cl = json.load(f)
+        assert all(x in official_names for x in clean2cl.keys())
+        test_vidnames = list(clean2cl.values())
+    else:
+        test_vidnames = [ARGS.vidname]
+    llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
+                'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B',
+                'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B',
+                }
     summarizer_model = SoapSummer(
-                device='cuda',
-                bs=8,
-                dbs=1,
+                device=ARGS.device,
+                llm_name=llm_dict[ARGS.llm_name],
+                bs=ARGS.bs,
+                dbs=ARGS.dbs,
                 caps='kosmos',
                 scene_order='identity',
                 uniform_breaks=False,
                 startendscenes=False,
                 centralscenes=False,
                 max_chunk_size=10000,
-                expdir='single-ep',
+                expdir='experiments',
                 data_dir='./data',
-                resumm_scenes=ARGS.resumm_scenes,
+                resumm_scenes=ARGS.recompute_scene_summs,
                 do_save_new_scenes=True,
                 is_test=ARGS.is_test)
 
-    concatted_scene_summs, final_summ = summarizer_model.summarize_from_epname(f'silence-of-lambs-auto', min_len=500, max_len=600)
-    print(concatted_scene_summs)
-    with open(f'silence-of-lambs-summary.txt', 'w') as f:
-        f.write(final_summ)
-    print(final_summ)
+    nparams = sum(x.numel() for x in summarizer_model.model.parameters())
+    print(f'Summarization model has {nparams} parameters')
+    for vn in test_vidnames:
+        concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn, min_len=500, max_len=600)
+        print(concatted_scene_summs)
+        check_dir(f'experiments/{vn}')
+        with open(f'experiments/{vn}/{vn}-summary.txt', 'w') as f:
+            f.write(final_summ)
+        print(final_summ)
