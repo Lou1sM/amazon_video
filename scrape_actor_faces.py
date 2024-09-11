@@ -17,6 +17,7 @@ from PIL import Image
 #from utils import prepare_for_pil
 from deepface import DeepFace
 from nltk.corpus import names
+import re
 from utils import path_list, shim
 from difflib import SequenceMatcher
 
@@ -60,6 +61,8 @@ def save_and_crop_img_from_url(file_path:str,url:str, char_name):
         np.save(file_path, image_ar) # deepface expects whole image for comparison and extraction, not just the face
         assert (np.load(file_path)==image_ar).all()
         assert DeepFace.extract_faces(np.load(file_path), enforce_detection=False, detector_backend='fastmtcnn')[0]['confidence'] > 0.5
+        if file_path == 'data/scraped_char_faces/starship-troopers_1997/Katrina/img5.npy':
+            breakpoint()
         print(f"SUCCESS - saved {url} - as {file_path}")
 
 def scrape_movie_faces(movie_name):
@@ -68,8 +71,11 @@ def scrape_movie_faces(movie_name):
     search_box.send_keys(movie_name.replace('-',' ').replace('_',' '))
     search_box.send_keys(Keys.ENTER)
     search_results = wd.find_elements(By.CSS_SELECTOR, 'a[class=ipc-metadata-list-summary-item__t]')
-    matches = [x for x in search_results if x.text.lower().replace('\'','').replace(':','').replace('.','')==movie_name.split('_')[0].replace('-',' ')]
+    #matches = [x for x in search_results if re.sub('r[\':\.\(\)]', '', x.text.lower().replace('\'','').replace(':','').replace('.','').replace('-',' ')==movie_name.split('_')[0].replace('-',' ')]
+    matches = [x for x in search_results if re.sub(r'[\':\.\(\)]', '', x.text.lower().replace('-',' '))==movie_name.split('_')[0].replace('-',' ')]
     #matches = sorted(search_results, key=lambda x: SequenceMatcher(None,x.text.lower().replace('\'','').replace(':',''), movie_name.split('_')[0].replace('-',' ')).ratio())
+    if movie_name == 'the-shawshank-redemption_1994':
+        breakpoint()
     if len(matches)==0:
         print(f'couldnt find matches for {movie_name}')
         return
