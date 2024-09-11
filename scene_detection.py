@@ -48,12 +48,12 @@ class SceneSegmenter():
                         os.remove(f'{self.framesdir}/{i:05d}.jpg')
                 timepoints = timepoints[keep_idxs]
             np.save(join(self.framesdir, 'frametimes.npy'), timepoints)
+            print(f'Keyframe extraction time: {time_format(time()-starttime)}')
         else:
             timepoints = np.load(join(self.framesdir, 'frametimes.npy'))
         if len(timepoints) != len(os.listdir(self.framesdir))-1:
             breakpoint()
         assert len(timepoints)+1 == len(os.listdir(self.framesdir)) # +1 for frametimes.npy
-        print(f'Keyframe extraction time: {time_format(time()-starttime)}')
         return timepoints
 
     def cost_under_params(self, x, mu):
@@ -120,6 +120,7 @@ class SceneSegmenter():
 
             self.kf_scene_split_points = opt_splits[0]
             np.save(splits_fp, self.kf_scene_split_points)
+            print(f'found {len(self.kf_scene_split_points)+1} scenes')
         return self.kf_scene_split_points
 
     def scene_segment(self, epname, recompute_keyframes, recompute_feats, recompute_best_split):
@@ -160,8 +161,8 @@ class SceneSegmenter():
 
         self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
         pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
-        from dl_utils.misc import time_format
-        print('  '.join(time_format(x) for x in pt))
+        #from dl_utils.misc import time_format
+        #print('  '.join(time_format(x) for x in pt))
         return pt, timepoints
 
 if __name__ == '__main__':

@@ -1,4 +1,3 @@
-import pandas as pd
 import re
 import json
 import os
@@ -153,6 +152,7 @@ def labels_from_splits(splits, n):
 
 
 if __name__ == '__main__':
+    import pandas as pd
     from sklearn.metrics import normalized_mutual_info_score, adjusted_rand_score
     from tqdm import tqdm
     #print(mdl_split([8,2,2,8,3,1,1,3,3,1,4,5,4,5,4,5]))
