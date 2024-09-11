@@ -1,0 +1,9 @@
+data/full_videos
+data/audio
+data/faceframes
+data/ffmpeg-keyframes
+data/manual-transcripts
+data/ffmpeg-frame-features
+torrented-vids
+cleaned-torrented-vids
+failed-torrented-vids
