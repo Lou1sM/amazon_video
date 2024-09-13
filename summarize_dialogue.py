@@ -1,4 +1,5 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq
+from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq,  BitsAndBytesConfig
+#from bitsandbytes import
 from dl_utils.misc import check_dir
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
@@ -16,22 +17,25 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, Pe
 
 
 class SoapSummer():
-    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, llm_name, resumm_scenes=False, do_save_new_scenes=False, is_test=False):
+    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, model_name, model_prec, resumm_scenes=False, do_save_new_scenes=False, is_test=False, verbose=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
         self.device = device
-        self.model_name = self.dmodel_name = llm_name
-        if self.model_name == 'full-llama3':
-            self.dmodel = load_peft_model(self.model_name, chkpt_path=None)
-        else:
-            self.dmodel = AutoModelForCausalLM.from_pretrained(self.dmodel_name).to(device)
-        self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name)
+        self.model_prec = model_prec
+        self.model_name = self.dmodel_name = model_name
+        self.verbose = verbose
+        self.dmodel = load_peft_model(self.model_name, chkpt_path=None, precision=self.model_prec)
+        self.dmodel.to(self.device)
+        #else:
+            #self.dmodel = AutoModelForCausalLM.from_pretrained(self.dmodel_name).to(device)
+        self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name, padding_side='left')
+        self.dtokenizer.pad_token_id = self.dtokenizer.eos_token_id
         if self.model_name == self.dmodel_name:
             self.model = self.dmodel # avoid loading twice
             self.tokenizer = self.dtokenizer # avoid loading twice
         else: # this doesn't happen anymore, but may again as some baseline
             self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to(device)
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side='left')
         if caps.endswith('-only'):
             self.caps = caps[:-5]
             self.caps_only = True
@@ -57,7 +61,7 @@ class SoapSummer():
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
         attention_mask = torch.stack([torch.cat([torch.ones(len(c)),torch.zeros(N-len(c))]) for c in batch], dim=0).to(self.device)
-        padded = [b+[tokenizer.eos_token_id]*(N-len(b)) for b in batch]
+        padded = [[tokenizer.eos_token_id]*(N-len(b))+b for b in batch]
         padded = torch.tensor(padded).to(self.device)
         assert padded.shape == attention_mask.shape
         return padded, attention_mask
@@ -129,6 +133,8 @@ class SoapSummer():
                 assert attn[0].all()
                 len_first_unpadded = attn.shape[1]
             remaining_chunk_summs += summ
+            if self.verbose:
+                print(summ)
         chunk_summs = short_chunk_summs + remaining_chunk_summs
         chunk_summs = [drop_trailing_halfsent(cs) for cs in chunk_summs]
 
@@ -163,8 +169,9 @@ class SoapSummer():
         return ss
 
     def summarize_from_vidname(self, epname, min_len, max_len):
-        scene_summs = self.get_scene_summs(epname, infer_splits=False)
-        return self.summarize_scene_summs('\n'.join(scene_summs), min_len, max_len)
+        with torch.no_grad():
+            scene_summs = self.get_scene_summs(epname, infer_splits=False)
+            return self.summarize_scene_summs('\n'.join(scene_summs), min_len, max_len)
 
     def summarize_scene_summs(self, concatted_scene_summs, min_len=360, max_len=400):
         summarize_prompt = 'Here is a sequence of summaries of each scene of a movie. Combine them into a single summary for the entire movie:'
@@ -356,21 +363,29 @@ class SoapSummer():
 def drop_trailing_halfsent(s):
     return '. '.join(x for x in s.split('. '))
 
-def load_peft_model(base_model_name_or_path, chkpt_path):
+def load_peft_model(base_model_name_or_path, chkpt_path, precision):
     print('loading model from', base_model_name_or_path)
-    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, load_in_8bit=True, padding_side='left')
-    if chkpt_path is None:
-        print('no peft chkpt to update from')
-        model = prepare_model_for_kbit_training(model)
-        lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
-        model = get_peft_model(model,lora_config)
+    if precision==32:
+        quant_cfg = None
+    elif precision==8:
+        quant_cfg = BitsAndBytesConfig(load_in_8bit=True)
     else:
-        print('updating model with peft chkpt from', chkpt_path)
-        config = PeftConfig.from_pretrained(chkpt_path)
-        assert config.base_model_name_or_path==base_model_name_or_path
-        model.enable_input_require_grads()
-        model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
-        assert any([x.requires_grad for x in model.parameters()])
+        quant_cfg = BitsAndBytesConfig(load_in_4bit=True)
+        assert precision==4
+    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, quantization_config=quant_cfg)
+    #if chkpt_path is None:
+    #    print('no peft chkpt to update from')
+    #    model = prepare_model_for_kbit_training(model)
+    #    lora_config = LoraConfig(r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM")
+    #    model = get_peft_model(model,lora_config)
+    #else:
+    #    print('updating model with peft chkpt from', chkpt_path)
+    #    config = PeftConfig.from_pretrained(chkpt_path)
+    #    assert config.base_model_name_or_path==base_model_name_or_path
+    #    model.enable_input_require_grads()
+    #    model = PeftModel.from_pretrained(model, chkpt_path, is_trainable=True)
+    #    assert any([x.requires_grad for x in model.parameters()])
+    model.eval()
     return model
 
 if __name__ == '__main__':
@@ -380,15 +395,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-dpoints','-n', type=int, default=2)
     parser.add_argument('--summ-scenes-only', action='store_true')
+    parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--resumm-scenes', action='store_true')
     parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'],default='nocaptions')
     parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is-test', action='store_true')
     parser.add_argument('--recompute-scene-summs', action='store_true')
+    parser.add_argument('--prec', type=int, default=32, choices=[32,8,4])
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('--dbs', type=int, default=8)
     parser.add_argument('--bs', type=int, default=1)
-    parser.add_argument('--llm-name', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
+    parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
     ARGS = parser.parse_args()
 
@@ -407,7 +424,8 @@ if __name__ == '__main__':
                 }
     summarizer_model = SoapSummer(
                 device=ARGS.device,
-                llm_name=llm_dict[ARGS.llm_name],
+                model_name=llm_dict[ARGS.model],
+                model_prec=ARGS.prec,
                 bs=ARGS.bs,
                 dbs=ARGS.dbs,
                 caps='kosmos',
@@ -420,7 +438,9 @@ if __name__ == '__main__':
                 data_dir='./data',
                 resumm_scenes=ARGS.recompute_scene_summs,
                 do_save_new_scenes=True,
-                is_test=ARGS.is_test)
+                is_test=ARGS.is_test,
+                verbose=ARGS.verbose,
+                )
 
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
