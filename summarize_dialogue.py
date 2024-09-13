@@ -95,12 +95,17 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = 'Summarize the dialogue from the following scene from the movie {vidname}. Make the summary as short as possible while capturing the main points.'
+        scene_summarize_prompt = 'Give a short summary of the import events from the following scene from the movie {vidname}. Make the summary as short as possible while capturing the main points.'
         combined_scenes = [f'{scene_summarize_prompt}\n{c}' for c in combined_scenes]
+        global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
+        print(len(combined_scenes))
+        combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
+        print(len(combined_scenes))
+        breakpoint()
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks
-        avg_scene_summ_len = self.dmax_chunk_size//len(chunks)
+        #avg_scene_summ_len = self.dmax_chunk_size//len(chunks)
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
         sort_idxs = np.argsort([len(x) for x in tok_chunks])
         reversed_sort_idxs = np.argsort(sort_idxs)
@@ -111,7 +116,6 @@ class SoapSummer():
         N = ceil(len(remaining_chunks)/self.dbs)
         remaining_chunk_summs = []
         #n_toks_in_whole_movie = len(self.dtokenizer(' '.join(combined_scenes)).input_ids)
-        global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         for i in range(N):
             padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
             #n_toks_in_scene = len(remaining_chunks[i*self.dbs])
