@@ -59,30 +59,31 @@ class SoapSummer():
         self.bs = bs
         self.dbs = dbs
         self.fn = get_fn(caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test)
+        self.desired_summ_len = 635 # mean in Moviesumm testset
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
-        attention_mask = torch.stack([torch.cat([torch.ones(len(c)),torch.zeros(N-len(c))]) for c in batch], dim=0).to(self.device)
+        attention_mask = torch.stack([torch.cat([torch.zeros(N-len(c)),torch.ones(len(c))]) for c in batch], dim=0).to(self.device)
         padded = [[tokenizer.eos_token_id]*(N-len(b))+b for b in batch]
         padded = torch.tensor(padded).to(self.device)
         assert padded.shape == attention_mask.shape
+        assert (padded[~attention_mask.bool()]==tokenizer.pad_token_id).all()
         return padded, attention_mask
 
-    def summ_scenes(self, epname, infer_splits):
-        ep = episode_from_name(epname, infer_splits)
+    def summ_scenes(self, vidname, infer_splits):
+        ep = episode_from_name(vidname, infer_splits)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
         if len(scenes) == 1:
-            print(f'no scene breaks for {epname}')
+            print(f'no scene breaks for {vidname}')
             breakpoint()
         if self.caps == 'nocaptions':
             caps = ['']*len(scenes)
         else: # prepend vid caps to the scene summ
-            with open(join(self.data_dir,f'postprocessed-video-captions/{epname}/{self.caps}_procced_scene_caps.json')) as f:
+            with open(join(self.data_dir,f'postprocessed-video-captions/{vidname}/{self.caps}_procced_scene_caps.json')) as f:
                 caps_data = json.load(f)
             cdd = {c['scene_id']:c['with_names'] for c in caps_data}
-            caps = [cdd.get(f'{epname}s{i}','') for i in range(len(scenes))]
-            if not len(caps)==len(scenes):
-                breakpoint()
+            caps = [cdd.get(f'{vidname}s{i}','') for i in range(len(scenes))]
+            assert len(caps)==len(scenes)
         assert all('talking' not in x for x in caps)
         if self.uniform_breaks:
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
@@ -94,33 +95,29 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = 'Summarize the dialogue from the following scene. Make the summary as short as possible while capturing the main points.'
+        scene_summarize_prompt = 'Summarize the dialogue from the following scene from the movie {vidname}. Make the summary as short as possible while capturing the main points.'
         combined_scenes = [f'{scene_summarize_prompt}\n{c}' for c in combined_scenes]
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks
         avg_scene_summ_len = self.dmax_chunk_size//len(chunks)
-
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
         sort_idxs = np.argsort([len(x) for x in tok_chunks])
         reversed_sort_idxs = np.argsort(sort_idxs)
         sorted_tok_chunks = [tok_chunks[i] for i in sort_idxs]
-        #sorted_chunks = [chunks[i] for i in sort_idxs]
-        #v_short_chunk_idxs = [i for i,sc in enumerate(sorted_tok_chunks) if len(sc) < avg_scene_summ_len]
-        #n_shorts = len(v_short_chunk_idxs)
-        #assert v_short_chunk_idxs == list(range(n_shorts))
-        #short_chunk_summs = [summ_short_scene(sc) for sc in sorted_chunks[:n_shorts]]
-        #remaining_chunks = sorted_tok_chunks[n_shorts:]
         short_chunk_summs = []
         remaining_chunks = sorted_tok_chunks
         assert all([sorted_tok_chunks[reversed_sort_idxs[i]]==c for i,c in enumerate(tok_chunks)])
         N = ceil(len(remaining_chunks)/self.dbs)
         remaining_chunk_summs = []
-        n_toks_in_whole_movie = len(self.dtokenizer(' '.join(combined_scenes)).input_ids)
+        #n_toks_in_whole_movie = len(self.dtokenizer(' '.join(combined_scenes)).input_ids)
+        global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         for i in range(N):
             padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
-            n_toks_in_scene = len(remaining_chunks[i*self.dbs])
-            expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
+            #n_toks_in_scene = len(remaining_chunks[i*self.dbs])
+            #expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
+            mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt).input_ids)
+            expected_len = mean_scene_len / global_contraction_rate**.5
             max_len = int(expected_len * 10/9)
             min_len = int(expected_len * 9/10)
             if padded.shape[1] > self.dmax_chunk_size:
@@ -130,13 +127,13 @@ class SoapSummer():
             summ_tokens = summ_tokens[:, padded.shape[1]:]
             assert summ_tokens.shape[1] <= max_len
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
-            len_first_unpadded = attn[0].argmin()
-            if len_first_unpadded==0:
-                assert attn[0].all()
-                len_first_unpadded = attn.shape[1]
+            assert attn[-1].all()
+            if attn[0].argmax()==0:
+                assert attn.all()
             remaining_chunk_summs += summ
             if self.verbose:
-                print(summ)
+                print(i,summ)
+            #self.dtokenizer.decode(self.dmodel.generate(torch.tensor([self.dtokenizer("Give me a simple sentence with the word 'long' in it").input_ids], device='cuda'), min_length=100)[0])
         chunk_summs = short_chunk_summs + remaining_chunk_summs
         chunk_summs = [drop_trailing_halfsent(cs) for cs in chunk_summs]
 
@@ -170,13 +167,13 @@ class SoapSummer():
                     f.write('\n'.join(ss))
         return ss
 
-    def summarize_from_vidname(self, epname, min_len, max_len):
+    def summarize_from_vidname(self, vidname, min_len, max_len):
         with torch.no_grad():
-            scene_summs = self.get_scene_summs(epname, infer_splits=False)
-            return self.summarize_scene_summs('\n'.join(scene_summs), min_len, max_len)
+            scene_summs = self.get_scene_summs(vidname, infer_splits=False)
+            return self.summarize_scene_summs('\n'.join(scene_summs), vidname, min_len, max_len)
 
-    def summarize_scene_summs(self, concatted_scene_summs, min_len=360, max_len=400):
-        summarize_prompt = 'Here is a sequence of summaries of each scene of a movie. Combine them into a single summary for the entire movie:'
+    def summarize_scene_summs(self, concatted_scene_summs, vidname):
+        summarize_prompt = 'Here is a sequence of summaries of each scene of movie {vidname}. Combine them into a single summary for the entire movie:'
         concatted_scene_summs = f'{summarize_prompt}\n{concatted_scene_summs}'
         chunks = chunkify(concatted_scene_summs, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
@@ -185,8 +182,8 @@ class SoapSummer():
             min_chunk_len = 80
             max_chunk_len = 100
         else:
-            min_chunk_len = min_len//len(chunks) + 5 # +5 cuz will cut off incomplete sents
-            max_chunk_len = max_len//len(chunks) + 5
+            min_chunk_len = self.desired_summ_len//len(chunks) + 5 # +5 cuz will cut off incomplete sents
+            max_chunk_len = self.desired_summ_len//len(chunks) + 5
         meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len)
         meta_chunk_toks = meta_chunk_toks[:, pbatch.shape[1]:]
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
@@ -371,9 +368,11 @@ def load_peft_model(base_model_name_or_path, chkpt_path, precision):
         quant_cfg = None
     elif precision==8:
         quant_cfg = BitsAndBytesConfig(load_in_8bit=True)
-    else:
+    elif precision==4:
         quant_cfg = BitsAndBytesConfig(load_in_4bit=True)
-        assert precision==4
+    else:
+        assert precision==2
+        quant_cfg = BitsAndBytesConfig(load_in_2bit=True)
     model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, quantization_config=quant_cfg)
     #if chkpt_path is None:
     #    print('no peft chkpt to update from')
@@ -403,7 +402,7 @@ if __name__ == '__main__':
     parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is-test', action='store_true')
     parser.add_argument('--recompute-scene-summs', action='store_true')
-    parser.add_argument('--prec', type=int, default=32, choices=[32,8,4])
+    parser.add_argument('--prec', type=int, default=32, choices=[32,8,4,2])
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('--dbs', type=int, default=8)
     parser.add_argument('--bs', type=int, default=1)
@@ -422,8 +421,8 @@ if __name__ == '__main__':
         test_vidnames = [ARGS.vidname]
     assert (ARGS.device=='cpu') == (ARGS.prec==32)
     llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
-                'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B',
-                'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B',
+                'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
+                'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
                 }
     summarizer_model = SoapSummer(
                 device=ARGS.device,
