@@ -95,13 +95,13 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = 'Give a short summary of the import events from the following scene from the movie {vidname}. Make the summary as short as possible while capturing the main points.'
-        combined_scenes = [f'{scene_summarize_prompt}\n{c}' for c in combined_scenes]
+        scene_summarize_prompt = lambda i: f'Give a short summary of the important events from the following scene from the movie {vidname}. The summary should start with "In scene{i+1}"...'
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
-        combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
+        #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
+        combined_scenes = [s for s in combined_scenes if len(s.split())/global_contraction_rate**.5 > 10]
         print(len(combined_scenes))
-        breakpoint()
+        combined_scenes = [f'{scene_summarize_prompt(i)}\n{c}' for i,c in enumerate(combined_scenes)]
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks
@@ -120,7 +120,7 @@ class SoapSummer():
             padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
             #n_toks_in_scene = len(remaining_chunks[i*self.dbs])
             #expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
-            mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt).input_ids)
+            mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt(0)).input_ids)
             expected_len = mean_scene_len / global_contraction_rate**.5
             max_len = int(expected_len * 10/9)
             min_len = int(expected_len * 9/10)
