@@ -167,10 +167,10 @@ class SoapSummer():
                     f.write('\n'.join(ss))
         return ss
 
-    def summarize_from_vidname(self, vidname, min_len, max_len):
+    def summarize_from_vidname(self, vidname):
         with torch.no_grad():
             scene_summs = self.get_scene_summs(vidname, infer_splits=False)
-            return self.summarize_scene_summs('\n'.join(scene_summs), vidname, min_len, max_len)
+            return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
         summarize_prompt = 'Here is a sequence of summaries of each scene of movie {vidname}. Combine them into a single summary for the entire movie:'
@@ -447,7 +447,7 @@ if __name__ == '__main__':
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
     for vn in test_vidnames:
-        concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn, min_len=500, max_len=600)
+        concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn)
         print(concatted_scene_summs)
         check_dir(f'experiments/{vn}')
         with open(f'experiments/{vn}/{vn}-summary.txt', 'w') as f:
