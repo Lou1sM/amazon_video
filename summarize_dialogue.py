@@ -24,8 +24,10 @@ class SoapSummer():
         self.model_prec = model_prec
         self.model_name = self.dmodel_name = model_name
         self.verbose = verbose
-        self.dmodel = load_peft_model(self.model_name, chkpt_path=None, precision=self.model_prec)
-        self.dmodel.to(self.device)
+        if self.device == 'cpu':
+            self.dmodel = AutoModelForCausalLM.from_pretrained(self.model_name)
+        else:
+            self.dmodel = load_peft_model(self.model_name, chkpt_path=None, precision=self.model_prec)
         #else:
             #self.dmodel = AutoModelForCausalLM.from_pretrained(self.dmodel_name).to(device)
         self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name, padding_side='left')
@@ -418,6 +420,7 @@ if __name__ == '__main__':
         test_vidnames = list(clean2cl.values())
     else:
         test_vidnames = [ARGS.vidname]
+    assert (ARGS.device=='cpu') == (ARGS.prec==32)
     llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B',
