@@ -180,7 +180,7 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Do not say anything about what appears on camera. Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Do not say anything about what appears on camera. Do not just ignore scenes from the middle or end of the list, but pay attention to all scenes. Based on the scene-wise information provided, the following is a summary of the entire movie:'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
@@ -374,15 +374,14 @@ def drop_trailing_halfsent(s):
 def load_peft_model(base_model_name_or_path, chkpt_path, precision):
     print('loading model from', base_model_name_or_path)
     if precision==32:
-        quant_cfg = None
+        model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path).cuda()
     elif precision==8:
-        quant_cfg = BitsAndBytesConfig(load_in_8bit=True)
+        model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, quantization_config=BitsAndBytesConfig(load_in_8bit=True))
     elif precision==4:
-        quant_cfg = BitsAndBytesConfig(load_in_4bit=True)
+        model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, quantization_config=BitsAndBytesConfig(load_in_4bit=True))
     else:
         assert precision==2
-        quant_cfg = BitsAndBytesConfig(load_in_2bit=True)
-    model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, quantization_config=quant_cfg)
+        model = AutoModelForCausalLM.from_pretrained(base_model_name_or_path, quantization_config=BitsAndBytesConfig(load_in_4bit=True))
     #if chkpt_path is None:
     #    print('no peft chkpt to update from')
     #    model = prepare_model_for_kbit_training(model)
@@ -469,4 +468,3 @@ if __name__ == '__main__':
         check_dir(f'experiments/{vn}')
         with open(f'experiments/{vn}/{vn}-summary.txt', 'w') as f:
             f.write(final_summ)
-        print(final_summ)
