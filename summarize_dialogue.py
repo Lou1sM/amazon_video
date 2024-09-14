@@ -180,7 +180,7 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = f'Here is a sequence of summaries of each scene of movie {vidname}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being". Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {vidname}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Do not say anything about what appears on camera. Based on the scene-wise information provided, the following is a summary of the entire movie:'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
@@ -188,9 +188,9 @@ class SoapSummer():
             min_chunk_len = 80
             max_chunk_len = 100
         else:
-            min_chunk_len = self.desired_summ_len//len(chunks)
+            min_chunk_len = self.desired_summ_len//len(chunks)-30
             #min_chunk_len = 80
-            max_chunk_len = min_chunk_len + 10
+            max_chunk_len = min_chunk_len + 60
         meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len, num_beams=self.n_beams)
         meta_chunk_toks = meta_chunk_toks[:, pbatch.shape[1]:]
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
