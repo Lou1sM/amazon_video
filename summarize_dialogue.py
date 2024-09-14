@@ -97,7 +97,7 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {vidname}. Please summarize the main events in this scene that are relevant to the plot of the movie. Do not give any analysis of themes or characters, or include information from outside this scene, just describe the important events in short, simple sentences. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, '
+        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please summarize the main events in this scene that are relevant to the plot of the movie. Do not give any analysis of themes or characters, or include information from outside this scene, just describe the important events in short, simple sentences. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
         #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
@@ -180,7 +180,7 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {vidname}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Do not say anything about what appears on camera. Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Do not say anything about what appears on camera. Based on the scene-wise information provided, the following is a summary of the entire movie:'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
@@ -398,6 +398,11 @@ def load_peft_model(base_model_name_or_path, chkpt_path, precision):
     model.eval()
     return model
 
+def titleify(vn):
+     title_lower = vn.split('_')[0].replace('-', ' ')
+     title = ' '.join([w[0].upper()+w[1:] for w in title_lower.split()])
+     return title
+
 if __name__ == '__main__':
     import argparse
 
@@ -429,7 +434,7 @@ if __name__ == '__main__':
         test_vidnames = list(clean2cl.values())
     else:
         test_vidnames = [ARGS.vidname]
-    assert (ARGS.device=='cpu') == (ARGS.prec==32)
+    #assert (ARGS.device=='cpu') == (ARGS.prec==32)
     llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
