@@ -17,10 +17,12 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, Pe
 
 
 class SoapSummer():
-    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, model_name, model_prec, resumm_scenes=False, do_save_new_scenes=False, is_test=False, verbose=False):
+    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, model_name, model_prec, n_beams, n_dbeams, resumm_scenes=False, do_save_new_scenes=False, is_test=False, verbose=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
         self.device = device
+        self.n_beams = n_beams
+        self.n_dbeams = n_dbeams
         self.model_prec = model_prec
         self.model_name = self.dmodel_name = model_name
         self.verbose = verbose
@@ -95,13 +97,13 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = lambda i: f'Give a short summary of the important events from the following scene from the movie {vidname}. The summary should start with "In scene{i+1}"...'
+        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {vidname}. Please summarize the main events in this scene that are relevant to the plot of the movie. Do not give any analysis of themes or characters, or include information from outside this scene, just describe the important events in short, simple sentences. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
         #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
         combined_scenes = [s for s in combined_scenes if len(s.split())/global_contraction_rate**.5 > 10]
         print(len(combined_scenes))
-        combined_scenes = [f'{scene_summarize_prompt(i)}\n{c}' for i,c in enumerate(combined_scenes)]
+        combined_scenes = [scene_summarize_prompt(i,c) for i,c in enumerate(combined_scenes)]
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks
@@ -120,14 +122,14 @@ class SoapSummer():
             padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
             #n_toks_in_scene = len(remaining_chunks[i*self.dbs])
             #expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
-            mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt(0)).input_ids)
+            mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt(0,'')).input_ids)
             expected_len = mean_scene_len / global_contraction_rate**.5
             max_len = int(expected_len * 10/9)
             min_len = int(expected_len * 9/10)
             if padded.shape[1] > self.dmax_chunk_size:
                 padded = padded[:,:self.dmax_chunk_size]
                 attn = attn[:,:self.dmax_chunk_size]
-            summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_new_tokens=min_len, max_new_tokens=max_len)
+            summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_new_tokens=min_len, max_new_tokens=max_len, num_beams=self.n_dbeams)
             summ_tokens = summ_tokens[:, padded.shape[1]:]
             assert summ_tokens.shape[1] <= max_len
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -151,7 +153,8 @@ class SoapSummer():
             count+=len(cl)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
-        ss_with_caps = [f'{sc} {x}' for sc,x in zip(combined_caps,desplit)]
+        ss_with_caps = [f'In scene {i},{sc[0].lower()}{sc[1:]} What we see on camera is that {x}' for i, (sc,x) in enumerate(zip(desplit, combined_caps))]
+        breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
@@ -177,22 +180,24 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = 'Here is a sequence of summaries of each scene of movie {vidname}. Combine them into a single summary for the entire movie:'
-        concatted_scene_summs = f'{summarize_prompt}\n{concatted_scene_summs}'
-        chunks = chunkify(concatted_scene_summs, self.max_chunk_size)
+        summarize_prompt = f'Here is a sequence of summaries of each scene of movie {vidname}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being". Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        chunks = chunkify(summarize_prompt, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         if self.caps_only:
             min_chunk_len = 80
             max_chunk_len = 100
         else:
-            min_chunk_len = self.desired_summ_len//len(chunks) + 5 # +5 cuz will cut off incomplete sents
-            max_chunk_len = self.desired_summ_len//len(chunks) + 5
-        meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len)
+            min_chunk_len = self.desired_summ_len//len(chunks)
+            #min_chunk_len = 80
+            max_chunk_len = min_chunk_len + 10
+        meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len, num_beams=self.n_beams)
         meta_chunk_toks = meta_chunk_toks[:, pbatch.shape[1]:]
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
         text_mcss = [drop_trailing_halfsent(tmcs) for tmcs in text_mcss]
         final_summ = ' '.join(text_mcss)
+        print(final_summ)
+        breakpoint()
         return concatted_scene_summs, final_summ
 
     def dpoints_from_epnames(self, epname_list, scene_caps, infer_splits):
@@ -398,7 +403,8 @@ if __name__ == '__main__':
 
     #openai.api_key = "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"
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n-dpoints','-n', type=int, default=2)
+    parser.add_argument('--n-beams', type=int, default=3)
+    parser.add_argument('--n-dbeams','-n', type=int, default=3)
     parser.add_argument('--summ-scenes-only', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--resumm-scenes', action='store_true')
@@ -433,6 +439,8 @@ if __name__ == '__main__':
                 model_name=llm_dict[ARGS.model],
                 model_prec=ARGS.prec,
                 bs=ARGS.bs,
+                n_dbeams=ARGS.n_beams,
+                n_beams=ARGS.n_dbeams,
                 dbs=ARGS.dbs,
                 caps='kosmos',
                 scene_order='identity',
