@@ -10,7 +10,7 @@ import os
 from os.path import join
 import json
 from episode import episode_from_name
-from utils import chunkify, rouge_from_multiple_refs, get_fn
+from utils import chunkify, rouge_from_multiple_refs, get_fn, get_all_testnames
 import numpy as np
 from tqdm import tqdm
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel, PeftConfig
@@ -124,7 +124,7 @@ class SoapSummer():
             #expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
             mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt(0,'')).input_ids)
             expected_len = mean_scene_len / global_contraction_rate**.5
-            min_len = int(expected_len * 9/10) - ARGS.scene_min_minus
+            min_len = int(expected_len) - ARGS.scene_min_minus
             max_len = min_len + 10
             if padded.shape[1] > self.dmax_chunk_size:
                 padded = padded[:,:self.dmax_chunk_size]
@@ -154,7 +154,7 @@ class SoapSummer():
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
         ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
-        caps = ['' if sc=='' or 'UNK' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
+        caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
         ss_with_caps = [x+sc for sc,x in zip(ss, caps)]
         breakpoint()
         if self.caps == 'nocaptions':
@@ -435,12 +435,13 @@ if __name__ == '__main__':
     ARGS = parser.parse_args()
 
     if ARGS.vidname == 'all':
-        with open('moviesumm_testset_names.txt') as f:
-            official_names = f.read().split('\n')
-        with open('clean-vid-names-to-command-line-names.json') as f:
-            clean2cl = json.load(f)
-        assert all(x in official_names for x in clean2cl.keys())
-        test_vidnames = list(clean2cl.values())
+        #with open('moviesumm_testset_names.txt') as f:
+        #    official_names = f.read().split('\n')
+        #with open('clean-vid-names-to-command-line-names.json') as f:
+        #    clean2cl = json.load(f)
+        #assert all(x in official_names for x in clean2cl.keys())
+        #test_vidnames = list(clean2cl.values())
+        test_vidnames, clean2cl = get_all_testnames()
     else:
         test_vidnames = [ARGS.vidname]
     #assert (ARGS.device=='cpu') == (ARGS.prec==32)
