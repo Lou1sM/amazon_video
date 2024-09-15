@@ -153,7 +153,7 @@ class SoapSummer():
             count+=len(cl)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
-        ss_with_caps = [f'In scene {i},{sc[0].lower()}{sc[1:]} What we see on camera is that {x}' for i, (sc,x) in enumerate(zip(desplit, combined_caps))]
+        ss_with_caps = [f'In scene {i},{sc[0].lower()}{sc[1:]} On camera, {x}' for i, (sc,x) in enumerate(zip(desplit, combined_caps))]
         breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
@@ -180,7 +180,7 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a detailed summary of the plot of the movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Focus only on the plot events, no analysis or discussion of themes and characters.'
         #summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
