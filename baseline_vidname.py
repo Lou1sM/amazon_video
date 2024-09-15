@@ -1,7 +1,9 @@
 from summarize_dialogue import load_peft_model
+from tqdm import tqdm
 from transformers import AutoTokenizer
 import torch
 from utils import get_all_testnames
+from dl_utils.misc import check_dir
 
 
 import argparse
@@ -32,14 +34,18 @@ if ARGS.vidname == 'all':
     test_vidnames, clean2cl = get_all_testnames()
 else:
     test_vidnames = [ARGS.vidname]
-for vn in test_vidnames:
+for vn in tqdm(test_vidnames):
     summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Focus only on the plot events, no analysis or discussion of themes and characters.'
     tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])
     model = load_peft_model(model_name, None, ARGS.prec)
     model.eval()
     with torch.no_grad():
         attention_mask = torch.ones_like(tok_ids)
-        #summ_tokens = model.generate(tok_ids, attention_mask=attn, min_new_tokens=600, max_new_tokens=650, num_beams=ARGS.n_beams)
         summ_tokens = model.generate(tok_ids, min_new_tokens=600, max_new_tokens=650, num_beams=ARGS.n_beams)
-        summ = tokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        #summ_tokens = model.generate(tok_ids, min_new_tokens=6, max_new_tokens=6, num_beams=ARGS.n_beams)
+        summ_tokens = summ_tokens[0,tok_ids.shape[1]:]
+        summ = tokenizer.decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
         print(summ)
+        check_dir('baseline-summs')
+        with open('baseline-summs/{vn}.txt', 'w') as f:
+            f.write(summ)
