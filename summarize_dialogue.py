@@ -101,7 +101,7 @@ class SoapSummer():
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
         #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
-        combined_scenes = [s for s in combined_scenes if len(s.split())/global_contraction_rate**.5 > 10]
+        combined_scenes = [s for s in combined_scenes if len(s.split())/global_contraction_rate**.5 > 10][:ARGS.exclude_scenes_after]
         print(len(combined_scenes))
         combined_scenes = [scene_summarize_prompt(i,c) for i,c in enumerate(combined_scenes)]
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
@@ -153,7 +153,9 @@ class SoapSummer():
             count+=len(cl)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
-        ss_with_caps = [f'In scene {i},{sc[0].lower()}{sc[1:]} On camera, {x}' for i, (sc,x) in enumerate(zip(desplit, combined_caps))]
+        ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(combined_caps)]
+        caps = ['' if sc=='' else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
+        ss_with_caps = [x+sc for sc,x in zip(desplit, combined_caps)]
         breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
@@ -180,18 +182,19 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a detailed summary of the plot of the movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Focus only on the plot events, no analysis or discussion of themes and characters.'
-        #summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
-        chunks = chunkify(summarize_prompt, self.max_chunk_size)
-        tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
-        pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         if self.caps_only:
             min_chunk_len = 80
             max_chunk_len = 100
         else:
-            min_chunk_len = self.desired_summ_len//len(chunks)-ARGS.min_minus
+            min_chunk_len = int((self.desired_summ_len-ARGS.min_minus)*4/3)
             #min_chunk_len = 80
             max_chunk_len = min_chunk_len + 60
+        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Focus only on the plot events, no analysis or discussion of themes and characters.'
+        chunks = chunkify(summarize_prompt, self.max_chunk_size)
+        assert len(chunks) == 1
+        tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
+        pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
+        summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
         meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len, num_beams=self.n_beams)
         meta_chunk_toks = meta_chunk_toks[:, pbatch.shape[1]:]
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
@@ -370,7 +373,10 @@ class SoapSummer():
         return test_rouges, alltime_best_rouges, all_rouges
 
 def drop_trailing_halfsent(s):
-    return '. '.join(x for x in s.split('. '))
+    s = s.replace('Dr.','XXX')
+    s = '. '.join(x for x in s.split('. ')[:-1])
+    s = s.replace('XXX', 'Dr.')
+    return s
 
 def load_peft_model(base_model_name_or_path, chkpt_path, precision):
     print('loading model from', base_model_name_or_path)
@@ -423,6 +429,7 @@ if __name__ == '__main__':
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('--dbs', type=int, default=8)
     parser.add_argument('--bs', type=int, default=1)
+    parser.add_argument('--exclude-scenes-after', type=int, default=99999)
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
     ARGS = parser.parse_args()
