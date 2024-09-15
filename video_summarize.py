@@ -16,6 +16,7 @@ from deepface import DeepFace # stupidly, this needs to be imported before "from
 from caption_each_scene import Captioner
 from episode import get_char_names
 from scene_detection import SceneSegmenter
+from utils import get_all_testnames
 
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
@@ -44,7 +45,7 @@ def segment_and_save(vidname_list):
     torch.cuda.empty_cache()
 
 def segment_audio_transcript(vidname, recompute):
-    scene_idx = 0
+    scene_idx =
     scenes = []
     pt = np.load(f'data/ffmpeg-keyframes-by-scene/{vidname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
@@ -224,13 +225,7 @@ ARGS = parser.parse_args()
 
 available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/full_videos/')]
 if ARGS.vid_name == 'all':
-    with open('moviesumm_testset_names.txt') as f:
-        official_names = f.read().split('\n')
-    with open('clean-vid-names-to-command-line-names.json') as f:
-        clean2cl = json.load(f)
-    #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
-    assert all(x in official_names for x in clean2cl.keys())
-    test_vidnames = list(clean2cl.values())
+    test_vidnames, _ = get_all_testnames()
 else:
     test_vidnames = [ARGS.vid_name]
 

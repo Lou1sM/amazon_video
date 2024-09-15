@@ -1,4 +1,5 @@
 import re
+import json
 import os
 from dl_utils.tensor_funcs import numpyify, cudify
 import rouge
@@ -157,6 +158,16 @@ def shim(im):
 def tshim(t):
     a = numpyify(t.permute(1,2,0))
     shim(a)
+
+def get_all_testnames():
+    with open('moviesumm_testset_names.txt') as f:
+        official_names = f.read().split('\n')
+    with open('clean-vid-names-to-command-line-names.json') as f:
+        clean2cl = json.load(f)
+    #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
+    assert all(x in official_names for x in clean2cl.keys())
+    test_vidnames = list(clean2cl.values())
+    return test_vidnames, clean2cl
 
 def path_list(parent_dir):
     return natsorted([os.path.join(parent_dir, child) for child in os.listdir(parent_dir)])

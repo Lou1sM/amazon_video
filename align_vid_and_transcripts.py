@@ -1,8 +1,6 @@
-from episode import infer_scene_splits
 import pandas as pd
 import numpy as np
 from time import time
-from contextlib import redirect_stdout
 import os
 from dl_utils.misc import check_dir
 #from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
@@ -33,14 +31,16 @@ def cc_clean(line):
 def align(xlines,ylines):
     dist_mat_ = []
     sm = SequenceMatcher()
-    for xl in xlines:
+    for i,xl in enumerate(xlines):
         if len(xl)==0:
             dist_mat_.append([1]*len(ylines))
         else:
             sm.set_seq2(xl)
             new = []
-            for yl in ylines:
+            for j,yl in enumerate(ylines):
                 if len(yl)==0:
+                    new.append(1)
+                elif abs(i/len(xlines) - j/len(ylines)) > 0.33:
                     new.append(1)
                 else:
                     sm.set_seq1(yl)
@@ -59,6 +59,7 @@ def secs_from_timestamp(timestamp):
     return 3600*float(hrs) + 60*float(mins) + float(secs) + 1e-3*float(msecs)
 
 def split_by_alignment(epname,verbose):
+    from episode import infer_scene_splits
     global N_WITHOUT_SCENE_BREAKS
     global N_WITHOUT_SCENE_CAPTIONS
     global N_WITH_HIDDEN_SCENE_BREAKS
