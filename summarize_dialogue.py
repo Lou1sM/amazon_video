@@ -153,9 +153,9 @@ class SoapSummer():
             count+=len(cl)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
-        ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(combined_caps)]
-        caps = ['' if sc=='' else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
-        ss_with_caps = [x+sc for sc,x in zip(desplit, combined_caps)]
+        ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
+        caps = ['' if sc=='' or 'UNK' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
+        ss_with_caps = [x+sc for sc,x in zip(ss, caps)]
         breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
@@ -417,7 +417,7 @@ if __name__ == '__main__':
     parser.add_argument('--n-beams', type=int, default=3)
     parser.add_argument('--n-dbeams','-n', type=int, default=3)
     parser.add_argument('--min-minus', type=int, default=30)
-    parser.add_argument('--scene-min-minus', type=int, default=10)
+    parser.add_argument('--scene-min-minus', type=int, default=5)
     parser.add_argument('--summ-scenes-only', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--resumm-scenes', action='store_true')
