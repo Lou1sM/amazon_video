@@ -97,7 +97,7 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please summarize the main events in this scene that are relevant to the plot of the movie. Do not give any analysis of themes or characters, or include information from outside this scene, just describe the important events in short, simple sentences. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, '
+        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please give a few bullet points of its main events. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
         #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
@@ -124,8 +124,8 @@ class SoapSummer():
             #expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
             mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt(0,'')).input_ids)
             expected_len = mean_scene_len / global_contraction_rate**.5
-            max_len = int(expected_len * 10/9)
-            min_len = int(expected_len * 9/10)
+            min_len = int(expected_len * 9/10) - ARGS.scene_min_minus
+            max_len = min_len + 10
             if padded.shape[1] > self.dmax_chunk_size:
                 padded = padded[:,:self.dmax_chunk_size]
                 attn = attn[:,:self.dmax_chunk_size]
@@ -180,7 +180,8 @@ class SoapSummer():
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
-        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}, along with a short description of what is happening on camera during each scene. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Do not say anything about what appears on camera. Do not just ignore scenes from the middle or end of the list, but pay attention to all scenes. Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a single summary for the entire movie. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Based on the scene-wise information provided, the following is a summary of the entire movie:'
+        #summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
@@ -188,7 +189,7 @@ class SoapSummer():
             min_chunk_len = 80
             max_chunk_len = 100
         else:
-            min_chunk_len = self.desired_summ_len//len(chunks)-30
+            min_chunk_len = self.desired_summ_len//len(chunks)-ARGS.min_minus
             #min_chunk_len = 80
             max_chunk_len = min_chunk_len + 60
         meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len, num_beams=self.n_beams)
@@ -409,6 +410,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-beams', type=int, default=3)
     parser.add_argument('--n-dbeams','-n', type=int, default=3)
+    parser.add_argument('--min-minus', type=int, default=30)
+    parser.add_argument('--scene-min-minus', type=int, default=10)
     parser.add_argument('--summ-scenes-only', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--resumm-scenes', action='store_true')
