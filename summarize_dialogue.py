@@ -1,6 +1,6 @@
 from nltk.tokenize import sent_tokenize
 import nltk
-nltk.download('punkt')
+nltk.download('punkt_tab')
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq,  BitsAndBytesConfig
 #from bitsandbytes import
 from dl_utils.misc import check_dir
