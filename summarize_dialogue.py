@@ -97,7 +97,10 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please describe its main events in bullet points. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, here are a few main events:\n\n* '
+        if ARGS.short_prompt:
+            scene_summarize_prompt = lambda i,s: f'Summarize this \n{s}\n'
+        else:
+            scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please describe its main events in bullet points. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, here are a few main events:\n\n* '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
         #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
@@ -153,9 +156,13 @@ class SoapSummer():
             count+=len(cl)
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
-        ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
+        #ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
         caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
-        ss_with_caps = [x+sc for sc,x in zip(ss, caps)]
+        if ARGS.filter_no_dialogue_summs:
+            ss_with_caps = [x+sc for sc,x in zip(desplit, caps) if x!='']
+        else:
+            ss_with_caps = [x+sc for sc,x in zip(desplit, caps)]
+        ss_with_caps = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(combined_caps)]
         breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
@@ -189,7 +196,11 @@ class SoapSummer():
             min_chunk_len = int((self.desired_summ_len-ARGS.min_minus)*4/3)
             #min_chunk_len = 80
             max_chunk_len = min_chunk_len + 60
-        summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end. Focus only on the plot events, no analysis or discussion of themes and characters.'
+        #summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scene. Discuss only plot events, no analysis or discussion of themes and characters.'
+        if ARGS.short_prompt:
+            summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
+        else:
+            summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scenes. Discuss only plot events, no analysis or discussion of themes and characters.'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         assert len(chunks) == 1
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
@@ -373,9 +384,13 @@ class SoapSummer():
         return test_rouges, alltime_best_rouges, all_rouges
 
 def drop_trailing_halfsent(s):
-    s = s.replace('Dr.','XXX')
+    s = s.replace('Dr.','DRXXX')
+    s = s.replace('Lt.','LtXXX')
+    s = s.replace('Mr.','LtXXX')
+    s = s.replace('Mrs.','LtXXX')
+    s = s.replace('Ms.','LtXXX')
     s = '. '.join(x for x in s.split('. ')[:-1])
-    s = s.replace('XXX', 'Dr.')
+    s = s.replace('XXX', '.')
     return s
 
 def load_peft_model(base_model_name_or_path, chkpt_path, precision):
@@ -425,6 +440,8 @@ if __name__ == '__main__':
     parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is-test', action='store_true')
     parser.add_argument('--recompute-scene-summs', action='store_true')
+    parser.add_argument('--filter-no-dialogue-summs', action='store_true')
+    parser.add_argument('--short-prompt', action='store_true')
     parser.add_argument('--prec', type=int, default=32, choices=[32,8,4,2])
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('--dbs', type=int, default=8)
