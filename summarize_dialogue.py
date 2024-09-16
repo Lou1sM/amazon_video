@@ -157,12 +157,12 @@ class SoapSummer():
         assert (desplit==desorted_chunk_summs) or (set([len(x) for x in chunk_list])!=set([1]))
         # if some were chunked together, may differ because of the join
         #ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
-        caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)]
+        caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)] # len doesn't change
         if ARGS.filter_no_dialogue_summs:
-            ss_with_caps = [x+sc for sc,x in zip(desplit, caps) if x!='']
+            ss_with_caps = [x+sc for sc,x in zip(desplit, caps) if x!=''] # len changes
         else:
             ss_with_caps = [x+sc for sc,x in zip(desplit, caps)]
-        ss_with_caps = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(combined_caps)]
+        ss_with_caps = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(ss_with_caps)]
         breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
