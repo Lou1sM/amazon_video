@@ -103,14 +103,12 @@ class SoapSummer():
             scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please describe its main events in bullet points. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, here are a few main events:\n\n* '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
-        #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
         combined_scenes = [s for s in combined_scenes if len(s.split())/global_contraction_rate**.5 > 10][:ARGS.exclude_scenes_after]
         print(len(combined_scenes))
         combined_scenes = [scene_summarize_prompt(i,c) for i,c in enumerate(combined_scenes)]
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
         assert (chunks==combined_scenes) or not self.uniform_breaks
-        #avg_scene_summ_len = self.dmax_chunk_size//len(chunks)
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
         sort_idxs = np.argsort([len(x) for x in tok_chunks])
         reversed_sort_idxs = np.argsort(sort_idxs)
@@ -120,7 +118,6 @@ class SoapSummer():
         assert all([sorted_tok_chunks[reversed_sort_idxs[i]]==c for i,c in enumerate(tok_chunks)])
         N = ceil(len(remaining_chunks)/self.dbs)
         remaining_chunk_summs = []
-        #n_toks_in_whole_movie = len(self.dtokenizer(' '.join(combined_scenes)).input_ids)
         for i in range(N):
             padded, attn = self.pad_batch(remaining_chunks[i*self.dbs:(i+1)*self.dbs],self.dtokenizer)
             #n_toks_in_scene = len(remaining_chunks[i*self.dbs])
@@ -159,10 +156,10 @@ class SoapSummer():
         #ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
         caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)] # len doesn't change
         if ARGS.filter_no_dialogue_summs:
-            ss_with_caps = [x+sc for sc,x in zip(desplit, caps) if x!=''] # len changes
+            ss_with_caps = [x+sc for x, sc in zip(desplit, caps) if x!=''] # len changes
         else:
-            ss_with_caps = [x+sc for sc,x in zip(desplit, caps)]
-        ss_with_caps = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(ss_with_caps)]
+            ss_with_caps = [x+sc for x, sc in zip(desplit, caps)]
+        ss_with_caps = ['' if x=='' else f'In scene {i}, {x[0].lower()}{x[1:]}' for i,x in enumerate(ss_with_caps)]
         breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
@@ -200,7 +197,7 @@ class SoapSummer():
         if ARGS.short_prompt:
             summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
         else:
-            summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scenes. Discuss only plot events, no analysis or discussion of themes and characters.'
+            summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         assert len(chunks) == 1
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
@@ -386,9 +383,9 @@ class SoapSummer():
 def drop_trailing_halfsent(s):
     s = s.replace('Dr.','DRXXX')
     s = s.replace('Lt.','LtXXX')
-    s = s.replace('Mr.','LtXXX')
-    s = s.replace('Mrs.','LtXXX')
-    s = s.replace('Ms.','LtXXX')
+    s = s.replace('Mr.','MrXXX')
+    s = s.replace('Mrs.','MrsXXX')
+    s = s.replace('Ms.','MsXXX')
     s = '. '.join(x for x in s.split('. ')[:-1])
     s = s.replace('XXX', '.')
     return s
