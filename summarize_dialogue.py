@@ -1,3 +1,6 @@
+from nltk.tokenize import sent_tokenize
+import nltk
+nltk.download('punkt')
 from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq,  BitsAndBytesConfig
 #from bitsandbytes import
 from dl_utils.misc import check_dir
@@ -155,12 +158,12 @@ class SoapSummer():
         # if some were chunked together, may differ because of the join
         #ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
         caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)] # len doesn't change
+        breakpoint()
         if ARGS.filter_no_dialogue_summs:
             ss_with_caps = [x+sc for x, sc in zip(desplit, caps) if x!=''] # len changes
         else:
             ss_with_caps = [x+sc for x, sc in zip(desplit, caps)]
         ss_with_caps = ['' if x=='' else f'In scene {i}, {x[0].lower()}{x[1:]}' for i,x in enumerate(ss_with_caps)]
-        breakpoint()
         if self.caps == 'nocaptions':
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
@@ -386,7 +389,8 @@ def drop_trailing_halfsent(s):
     s = s.replace('Mr.','MrXXX')
     s = s.replace('Mrs.','MrsXXX')
     s = s.replace('Ms.','MsXXX')
-    s = '. '.join(x for x in s.split('. ')[:-1])
+    #s = '. '.join(x for x in s.split('. ')[:-1])
+    s = ' '.join(x for x in sent_tokenize(s) if x.endswith('.'))
     s = s.replace('XXX', '.')
     return s
 
