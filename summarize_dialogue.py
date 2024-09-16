@@ -158,7 +158,8 @@ class SoapSummer():
         # if some were chunked together, may differ because of the join
         #ss = ['' if x=='' else f'In scene {i},{x[0].lower()}{x[1:]}' for i,x in enumerate(desplit)]
         caps = ['' if sc=='' or 'UNK' in sc or 'at the camera' in sc else f'On camera, {sc}' for i,sc in enumerate(combined_caps)] # len doesn't change
-        breakpoint()
+        if ARGS.db_scene_summs:
+            breakpoint()
         if ARGS.filter_no_dialogue_summs:
             ss_with_caps = [x+sc for x, sc in zip(desplit, caps) if x!=''] # len changes
         else:
@@ -212,7 +213,8 @@ class SoapSummer():
         text_mcss = [drop_trailing_halfsent(tmcs) for tmcs in text_mcss]
         final_summ = ' '.join(text_mcss)
         print(final_summ)
-        breakpoint()
+        if ARGS.db_summs:
+            breakpoint()
         return concatted_scene_summs, final_summ
 
     def dpoints_from_epnames(self, epname_list, scene_caps, infer_splits):
@@ -436,7 +438,8 @@ if __name__ == '__main__':
     parser.add_argument('--scene-min-minus', type=int, default=5)
     parser.add_argument('--summ-scenes-only', action='store_true')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('--resumm-scenes', action='store_true')
+    parser.add_argument('--db-summs', action='store_true')
+    parser.add_argument('--db-scene-summs', action='store_true')
     parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'],default='nocaptions')
     parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is-test', action='store_true')
