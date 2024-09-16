@@ -97,7 +97,7 @@ class SoapSummer():
 
         if self.caps_only:
             return combined_caps
-        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please give a few bullet points of its main events. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, '
+        scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please describe its main events in bullet points. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, here are a few main events:\n\n* '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
         print(len(combined_scenes))
         #combined_scenes = [s for s in combined_scenes if len(s.removeprefix(scene_summarize_prompt).split())/global_contraction_rate**.5 > 10]
@@ -124,7 +124,7 @@ class SoapSummer():
             #expected_len = self.dmax_chunk_size * n_toks_in_scene/n_toks_in_whole_movie
             mean_scene_len = (sum([len(c) for c in remaining_chunks[i*self.dbs:(i+1)*self.dbs]]) / self.dbs) - len(self.dtokenizer(scene_summarize_prompt(0,'')).input_ids)
             expected_len = mean_scene_len / global_contraction_rate**.5
-            min_len = int(expected_len) - ARGS.scene_min_minus
+            min_len = int(((expected_len) - ARGS.scene_min_minus) * 4/3)
             max_len = min_len + 10
             if padded.shape[1] > self.dmax_chunk_size:
                 padded = padded[:,:self.dmax_chunk_size]
