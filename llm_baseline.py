@@ -53,7 +53,8 @@ for vn in tqdm(test_vidnames):
         gt_match_name = cl2clean[vn]
         gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
         gt_script = gt_match['script']
-        summarize_prompt = f'Summarize the movie {vn} based on the following script:\n{gt_script}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
+        summarize_prompt = f'Based on the following script:\n{gt_script}\nsummarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
+        #summarize_prompt = f'Summarize the movie {vn} based on the following script:\n{gt_script}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
 
     elif ARGS.with_whisper_transcript:
         with open(f'data/transcripts/{vn}-no-names.json') as f:
@@ -61,7 +62,7 @@ for vn in tqdm(test_vidnames):
         gt_match_name = cl2clean[vn]
         gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
         gt_script = gt_match['script']
-        summarize_prompt = f'Summarize the movie {vn} based on the following transcript:\n{whisper_transcript}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
+        summarize_prompt = f'Based on the following transcript:\n{whisper_transcript}\nsummarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
 
     else:
         summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
