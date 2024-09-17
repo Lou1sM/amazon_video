@@ -24,6 +24,7 @@ llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
             }
 model_name = llm_dict[ARGS.model]
 tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
+model = load_peft_model(model_name, None, ARGS.prec)
 if ARGS.vidname == 'all':
     test_vidnames, clean2cl = get_all_testnames()
 else:
@@ -33,7 +34,6 @@ for vn in tqdm(test_vidnames):
         print(f'Summ already at {maybe_summ_path}')
     summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
     tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])
-    model = load_peft_model(model_name, None, ARGS.prec)
     model.eval()
     n_beams = ARGS.n_beams
     min_len=600
