@@ -132,7 +132,7 @@ class SoapSummer():
             if padded.shape[1] > self.dmax_chunk_size:
                 padded = padded[:,:self.dmax_chunk_size]
                 attn = attn[:,:self.dmax_chunk_size]
-            for i in range(8):
+            for _ in range(8):
                 try:
                     summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_new_tokens=min_len, max_new_tokens=max_len, num_beams=self.n_dbeams)
                     break
@@ -503,12 +503,21 @@ if __name__ == '__main__':
 
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
+    errored = []
     for vn in tqdm(test_vidnames):
         if os.path.exists(maybe_summ_path:=f'experiments/{vn}/{vn}-summary.txt') and not ARGS.recompute_final_summs:
             print(f'summ already exists at {maybe_summ_path}')
             continue
-        concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn)
-        print(concatted_scene_summs)
-        check_dir(f'experiments/{vn}')
-        with open(maybe_summ_path, 'w') as f:
-            f.write(final_summ)
+        try:
+            concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn)
+            print(concatted_scene_summs)
+            check_dir(f'experiments/{vn}')
+            with open(maybe_summ_path, 'w') as f:
+                f.write(final_summ)
+        except ValueError as e:
+            print(f'Error for {vn}: {e}')
+            errored.append(vn)
+
+    print(errored)
+    with open('errored.txt', 'w') as f:
+        f.write('\n'.join(errored))
