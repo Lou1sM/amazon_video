@@ -444,6 +444,7 @@ def titleify(vn):
 if __name__ == '__main__':
     import argparse
 
+    #openai.api_key = "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"
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-beams', type=int, default=3)
     parser.add_argument('--n-dbeams','-n', type=int, default=3)
@@ -502,7 +503,7 @@ if __name__ == '__main__':
 
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
-    for vn in test_vidnames:
+    for vn in tqdm(test_vidnames):
         if os.path.exists(maybe_summ_path:=f'experiments/{vn}/{vn}-summary.txt') and not ARGS.recompute_final_summs:
             print(f'summ already exists at {maybe_summ_path}')
             continue
