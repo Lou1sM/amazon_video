@@ -65,7 +65,7 @@ for vn in tqdm(test_vidnames):
 
     else:
         summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
-    tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])[-10000:]
+    tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])[:, -10000:]
     model.eval()
     n_beams = ARGS.n_beams
     min_len=600
@@ -75,11 +75,11 @@ for vn in tqdm(test_vidnames):
         summ_tokens = None
         for n_tries in range(8):
             try:
+                print('trying with', tok_ids.shape)
                 summ_tokens = model.generate(tok_ids, min_new_tokens=min_len, max_new_tokens=max_len, num_beams=n_beams)
                 break
             except torch.OutOfMemoryError:
-                tok_ids = tok_ids[:,5000:]
-                print(tok_ids.shape)
+                tok_ids = tok_ids[:,1000:]
                 n_beams = max(1, n_beams-1)
                 max_len -= 50
                 min_len -= 50
