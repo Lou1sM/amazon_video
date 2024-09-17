@@ -65,7 +65,7 @@ for vn in tqdm(test_vidnames):
 
     else:
         summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
-    tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])
+    tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])[-10000:]
     model.eval()
     n_beams = ARGS.n_beams
     min_len=600
@@ -91,5 +91,6 @@ for vn in tqdm(test_vidnames):
         summ = tokenizer.decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
         print(summ)
         check_dir(outdir)
+        print('writing to', maybe_summ_path)
         with open(maybe_summ_path, 'w') as f:
             f.write(summ)
