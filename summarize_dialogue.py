@@ -132,7 +132,14 @@ class SoapSummer():
             if padded.shape[1] > self.dmax_chunk_size:
                 padded = padded[:,:self.dmax_chunk_size]
                 attn = attn[:,:self.dmax_chunk_size]
-            summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_new_tokens=min_len, max_new_tokens=max_len, num_beams=self.n_dbeams)
+            for i in range(8):
+                try:
+                    summ_tokens = self.dmodel.generate(padded, attention_mask=attn, min_new_tokens=min_len, max_new_tokens=max_len, num_beams=self.n_dbeams)
+                    break
+                except torch.OutOfMemoryError:
+                    max_len -= 50
+                    min_len -= 50
+                    print(f'Scene OOM, reducing min,max to {min_len}, {max_len}')
             summ_tokens = summ_tokens[:, padded.shape[1]:]
             assert summ_tokens.shape[1] <= max_len
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -169,15 +176,15 @@ class SoapSummer():
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
-    def get_scene_summs(self, epname, infer_splits):
-        epname_ = f'{epname}-inferred' if infer_splits else epname
-        scene_summ_dir = join(self.data_dir, 'scene_summs')
-        maybe_scene_summ_path = join(scene_summ_dir, f'{epname_}_{self.fn}.txt')
+    def get_scene_summs(self, vidname, infer_splits):
+        vidname_ = f'{vidname}-inferred' if infer_splits else vidname
+        scene_summ_dir = join('experiments', vidname, 'scene_summs')
+        maybe_scene_summ_path = join(scene_summ_dir, f'{vidname_}_scene_summs.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = [x.strip() for x in f.readlines()]
         else:
-            ss = self.summ_scenes(epname, infer_splits)
+            ss = self.summ_scenes(vidname, infer_splits)
             if self.do_save_new_scenes:
                 check_dir(scene_summ_dir)
                 with open(maybe_scene_summ_path,'w') as f:
@@ -201,13 +208,20 @@ class SoapSummer():
         if ARGS.short_prompt:
             summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
         else:
-            summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
+            summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
         assert len(chunks) == 1
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
-        meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len, num_beams=self.n_beams)
+        for i in range(8):
+            try:
+                meta_chunk_toks = self.model.generate(pbatch, attention_mask=attn, min_new_tokens=min_chunk_len, max_new_tokens=max_chunk_len, num_beams=self.n_beams)
+                break
+            except torch.OutOfMemoryError:
+                max_chunk_len -= 50
+                min_chunk_len -= 50
+                print(f'Got OOM, reducing min,max to {min_chunk_len}, {max_chunk_len}')
         meta_chunk_toks = meta_chunk_toks[:, pbatch.shape[1]:]
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
         text_mcss = [drop_trailing_halfsent(tmcs) for tmcs in text_mcss]
@@ -430,7 +444,6 @@ def titleify(vn):
 if __name__ == '__main__':
     import argparse
 
-    #openai.api_key = "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"
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-beams', type=int, default=3)
     parser.add_argument('--n-dbeams','-n', type=int, default=3)
@@ -444,6 +457,7 @@ if __name__ == '__main__':
     parser.add_argument('--order', type=str, choices=['identity','optimal','rand'], default='identity')
     parser.add_argument('-t','--is-test', action='store_true')
     parser.add_argument('--recompute-scene-summs', action='store_true')
+    parser.add_argument('--recompute-final-summs', action='store_true')
     parser.add_argument('--filter-no-dialogue-summs', action='store_true')
     parser.add_argument('--short-prompt', action='store_true')
     parser.add_argument('--prec', type=int, default=32, choices=[32,8,4,2])
@@ -456,12 +470,6 @@ if __name__ == '__main__':
     ARGS = parser.parse_args()
 
     if ARGS.vidname == 'all':
-        #with open('moviesumm_testset_names.txt') as f:
-        #    official_names = f.read().split('\n')
-        #with open('clean-vid-names-to-command-line-names.json') as f:
-        #    clean2cl = json.load(f)
-        #assert all(x in official_names for x in clean2cl.keys())
-        #test_vidnames = list(clean2cl.values())
         test_vidnames, clean2cl = get_all_testnames()
     else:
         test_vidnames = [ARGS.vidname]
@@ -495,8 +503,11 @@ if __name__ == '__main__':
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
     for vn in test_vidnames:
+        if os.path.exists(maybe_summ_path:=f'experiments/{vn}/{vn}-summary.txt') and not ARGS.recompute_final_summs:
+            print(f'summ already exists at {maybe_summ_path}')
+            continue
         concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn)
         print(concatted_scene_summs)
         check_dir(f'experiments/{vn}')
-        with open(f'experiments/{vn}/{vn}-summary.txt', 'w') as f:
+        with open(maybe_summ_path, 'w') as f:
             f.write(final_summ)
