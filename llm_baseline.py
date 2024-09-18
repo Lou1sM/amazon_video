@@ -48,6 +48,7 @@ erroreds = []
 for vn in tqdm(test_vidnames):
     if os.path.exists(maybe_summ_path:=f'{outdir}/{vn}.txt') and not ARGS.recompute:
         print(f'Summ already at {maybe_summ_path}')
+        continue
 
     if ARGS.with_script:
         gt_match_name = cl2clean[vn]
