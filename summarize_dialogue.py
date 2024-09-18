@@ -139,7 +139,7 @@ class SoapSummer():
                 except torch.OutOfMemoryError:
                     max_len -= 50
                     min_len -= 50
-                    print(f'Scene OOM, reducing min,max to {min_len}, {max_len}')
+                    print(f'Scene OOM, reducing min, max to {min_len}, {max_len}')
             summ_tokens = summ_tokens[:, padded.shape[1]:]
             assert summ_tokens.shape[1] <= max_len
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -514,7 +514,7 @@ if __name__ == '__main__':
             check_dir(f'experiments/{vn}')
             with open(maybe_summ_path, 'w') as f:
                 f.write(final_summ)
-        except ValueError as e:
+        except (ValueError, UnboundLocalError) as e: # ValueError if max_len goes <0
             print(f'Error for {vn}: {e}')
             errored.append(vn)
 
