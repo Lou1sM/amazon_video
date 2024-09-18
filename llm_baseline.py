@@ -66,13 +66,12 @@ for vn in tqdm(test_vidnames):
 
     else:
         summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
-    tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])[:, -10000:]
+    tok_ids = torch.tensor([tokenizer(summarize_prompt).input_ids])[:, -10000:].cuda()
     model.eval()
     n_beams = ARGS.n_beams
     min_len=600
     max_len=650
     with torch.no_grad():
-        attention_mask = torch.ones_like(tok_ids)
         summ_tokens = None
         for n_tries in range(8):
             try:
