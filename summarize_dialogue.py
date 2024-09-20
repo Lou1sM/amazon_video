@@ -102,6 +102,8 @@ class SoapSummer():
             return combined_caps
         if ARGS.short_prompt:
             scene_summarize_prompt = lambda i,s: f'Summarize this \n{s}\n'
+        elif ARGS.mask_name:
+            scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of a movie. Please describe its main events in bullet points. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, here are a few main events:\n\n* '
         else:
             scene_summarize_prompt = lambda i,s: f'Here is the dialogue from scene {i} of the movie {titleify(vidname)}. Please describe its main events in bullet points. Don\'t include information from outside this scene. Do not answer in progressive aspect, i.e., don\'t use -ing verbs or "is being".\n{s}\nIn this scene, here are a few main events:\n\n* '
         global_contraction_rate = sum(len(s.split()) for s in combined_scenes) / self.desired_summ_len
@@ -140,6 +142,8 @@ class SoapSummer():
                     max_len -= 50
                     min_len -= 50
                     print(f'Scene OOM, reducing min, max to {min_len}, {max_len}')
+                    if min_len < 0:
+                        raise ValueError
             summ_tokens = summ_tokens[:, padded.shape[1]:]
             assert summ_tokens.shape[1] <= max_len
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -207,6 +211,8 @@ class SoapSummer():
         #summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scene. Discuss only plot events, no analysis or discussion of themes and characters.'
         if ARGS.short_prompt:
             summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
+        elif ARGS.mask_names:
+            summarize_prompt = f'Here is a sequence of summaries of each scene of a movie. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
         else:
             summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
@@ -461,6 +467,7 @@ if __name__ == '__main__':
     parser.add_argument('--recompute-final-summs', action='store_true')
     parser.add_argument('--filter-no-dialogue-summs', action='store_true')
     parser.add_argument('--short-prompt', action='store_true')
+    parser.add_argument('--mask-name', action='store_true')
     parser.add_argument('--prec', type=int, default=32, choices=[32,8,4,2])
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('--dbs', type=int, default=8)
@@ -511,7 +518,7 @@ if __name__ == '__main__':
         try:
             concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn)
             print(concatted_scene_summs)
-            check_dir(f'experiments/{vn}')
+            check_dir(f'experiments/main/generations_test/{vn}')
             with open(maybe_summ_path, 'w') as f:
                 f.write(final_summ)
         except (ValueError, UnboundLocalError) as e: # ValueError if max_len goes <0
