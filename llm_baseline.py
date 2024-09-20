@@ -45,9 +45,11 @@ cl2clean = {v:k for k,v in clean2cl.items()}
 
 outdir = 'baseline-summs'
 if ARGS.with_script:
-    outdir += 'with-script'
+    outdir += '-with-script'
 elif ARGS.with_whisper_transcript:
-    outdir += 'with-whisper'
+    outdir += '-with-whisper'
+if ARGS.mask_name:
+    outdir += '-masked-name'
 erroreds = []
 for vn in tqdm(test_vidnames):
     if os.path.exists(maybe_summ_path:=f'{outdir}/{vn}.txt') and not ARGS.recompute:
