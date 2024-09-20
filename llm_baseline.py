@@ -18,6 +18,7 @@ parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
 parser.add_argument('--recompute', action='store_true')
 parser.add_argument('--with-script', action='store_true')
 parser.add_argument('--with-whisper-transcript', action='store_true')
+parser.add_argument('--mask-name', action='store_true')
 parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
 parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
 ARGS = parser.parse_args()
@@ -34,6 +35,9 @@ if ARGS.vidname == 'all':
     test_vidnames, clean2cl = get_all_testnames()
 else:
     test_vidnames = [ARGS.vidname]
+
+if ARGS.mask_name:
+    assert ARGS.with_script or ARGS.with_whisper_transcript
 
 ds = load_dataset("rohitsaxena/MovieSum")
 test_vidnames, clean2cl = get_all_testnames()
