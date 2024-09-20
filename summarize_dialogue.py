@@ -211,7 +211,7 @@ class SoapSummer():
         #summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scene. Discuss only plot events, no analysis or discussion of themes and characters.'
         if ARGS.short_prompt:
             summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
-        elif ARGS.mask_names:
+        elif ARGS.mask_name:
             summarize_prompt = f'Here is a sequence of summaries of each scene of a movie. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
         else:
             summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
