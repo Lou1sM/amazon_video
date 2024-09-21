@@ -19,7 +19,7 @@ from tqdm import tqdm
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel, PeftConfig
 
 
-class SoapSummer():
+class HierarchicalSummarizer():
     def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, model_name, model_prec, n_beams, n_dbeams, resumm_scenes=False, do_save_new_scenes=False, is_test=False, verbose=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
@@ -486,7 +486,7 @@ if __name__ == '__main__':
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
                 }
-    summarizer_model = SoapSummer(
+    summarizer_model = HierarchicalSummarizer(
                 device=ARGS.device,
                 model_name=llm_dict[ARGS.model],
                 model_prec=ARGS.prec,
@@ -508,17 +508,23 @@ if __name__ == '__main__':
                 verbose=ARGS.verbose,
                 )
 
+    expname =  'ours-masked-name' if ARGS.mask_name else 'ours'
+    if ARGS.model=='llama3-tiny':
+        expname += '-tiny'
+    elif ARGS.model=='llama3-8b':
+        expname += '-8b'
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
     errored = []
+    check_dir(gen_dir:=join('experiments', expname))
     for vn in tqdm(test_vidnames):
-        if os.path.exists(maybe_summ_path:=f'experiments/{vn}/{vn}-summary.txt') and not ARGS.recompute_final_summs:
+        check_dir(ep_gen_dir:=join('experiments', expname, vn))
+        if os.path.exists(maybe_summ_path:=join(ep_gen_dir, f'{vn}-summary.txt')) and not ARGS.recompute_final_summs:
             print(f'summ already exists at {maybe_summ_path}')
             continue
         try:
             concatted_scene_summs, final_summ = summarizer_model.summarize_from_vidname(vn)
             print(concatted_scene_summs)
-            check_dir(f'experiments/main/generations_test/{vn}')
             with open(maybe_summ_path, 'w') as f:
                 f.write(final_summ)
         except (ValueError, UnboundLocalError) as e: # ValueError if max_len goes <0

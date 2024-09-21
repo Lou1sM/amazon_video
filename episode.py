@@ -7,7 +7,7 @@ import numpy as np
 from dl_utils.label_funcs import accuracy
 
 
-def episode_from_name(epname, infer_splits):
+def episode_from_name(epname, infer_splits=False):
     with open(f'data/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
     tdata = transcript_data['Transcript']
@@ -54,7 +54,7 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
         else:
             self.scenes, _, had_markers = infer_scene_splits(self.transcript, force_infer=force_infer)
             if not had_markers:
-                with_explicit_breaks = '£[SCENE_BREAK]£'.join(self.scenes).split('£')
+                with_explicit_breaks = '£££[SCENE_BREAK]£££'.join(self.scenes).split('£££')
                 assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
                 os.rename(f'data/transcripts/{epname}.json',f'data/transcripts/{epname}-without-explicit-breaks.json')
                 with open(f'data/transcripts/{epname}.json','w') as f:
