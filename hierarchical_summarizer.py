@@ -182,7 +182,7 @@ class HierarchicalSummarizer():
 
     def get_scene_summs(self, vidname, infer_splits):
         vidname_ = f'{vidname}-inferred' if infer_splits else vidname
-        scene_summ_dir = join('experiments', vidname, 'scene_summs')
+        scene_summ_dir = join(self.expdir, vidname, 'scene_summs')
         maybe_scene_summ_path = join(scene_summ_dir, f'{vidname_}_scene_summs.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
@@ -486,6 +486,11 @@ if __name__ == '__main__':
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
                 }
+    expname =  'ours-masked-name' if ARGS.mask_name else 'ours'
+    if ARGS.model=='llama3-tiny':
+        expname += '-tiny'
+    elif ARGS.model=='llama3-8b':
+        expname += '-8b'
     summarizer_model = HierarchicalSummarizer(
                 device=ARGS.device,
                 model_name=llm_dict[ARGS.model],
@@ -500,7 +505,7 @@ if __name__ == '__main__':
                 startendscenes=False,
                 centralscenes=False,
                 max_chunk_size=10000,
-                expdir='experiments',
+                expdir=join('experiments', expname),
                 data_dir='./data',
                 resumm_scenes=ARGS.recompute_scene_summs,
                 do_save_new_scenes=True,
@@ -508,11 +513,6 @@ if __name__ == '__main__':
                 verbose=ARGS.verbose,
                 )
 
-    expname =  'ours-masked-name' if ARGS.mask_name else 'ours'
-    if ARGS.model=='llama3-tiny':
-        expname += '-tiny'
-    elif ARGS.model=='llama3-8b':
-        expname += '-8b'
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
     errored = []
@@ -527,7 +527,7 @@ if __name__ == '__main__':
             print(concatted_scene_summs)
             with open(maybe_summ_path, 'w') as f:
                 f.write(final_summ)
-        except (ValueError, UnboundLocalError) as e: # ValueError if max_len goes <0
+        except (ValueError, UnboundLocalError, TypeError) as e: # ValueError if max_len goes <0
             print(f'Error for {vn}: {e}')
             errored.append(vn)
 
