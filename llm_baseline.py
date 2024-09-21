@@ -1,6 +1,6 @@
 import os
 import json
-from summarize_dialogue import load_peft_model
+from hierarchical_summarizer import load_peft_model
 from tqdm import tqdm
 from transformers import AutoTokenizer
 import torch
@@ -31,10 +31,6 @@ llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
 model_name = llm_dict[ARGS.model]
 tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
 model = load_peft_model(model_name, None, ARGS.prec)
-if ARGS.vidname == 'all':
-    test_vidnames, clean2cl = get_all_testnames()
-else:
-    test_vidnames = [ARGS.vidname]
 
 if ARGS.mask_name:
     assert ARGS.with_script or ARGS.with_whisper_transcript
@@ -42,6 +38,8 @@ if ARGS.mask_name:
 ds = load_dataset("rohitsaxena/MovieSum")
 test_vidnames, clean2cl = get_all_testnames()
 cl2clean = {v:k for k,v in clean2cl.items()}
+if ARGS.vidname != 'all':
+    test_vidnames = [ARGS.vidname]
 
 outdir = 'baseline-summs'
 if ARGS.with_script:
@@ -50,6 +48,11 @@ elif ARGS.with_whisper_transcript:
     outdir += '-with-whisper'
 if ARGS.mask_name:
     outdir += '-masked-name'
+
+if ARGS.model=='llama3-tiny':
+    outdir += '-tiny'
+elif ARGS.model=='llama3-8b':
+    outdir += '-8b'
 erroreds = []
 for vn in tqdm(test_vidnames):
     if os.path.exists(maybe_summ_path:=f'{outdir}/{vn}.txt') and not ARGS.recompute:
