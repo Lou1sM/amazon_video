@@ -159,13 +159,15 @@ def tshim(t):
     a = numpyify(t.permute(1,2,0))
     shim(a)
 
-def get_all_testnames():
+def get_all_testnames(exclude_non_english=True):
     with open('moviesumm_testset_names.txt') as f:
         official_names = f.read().split('\n')
     with open('clean-vid-names-to-command-line-names.json') as f:
         clean2cl = json.load(f)
     #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
     assert all(x in official_names for x in clean2cl.keys())
+    if exclude_non_english:
+        clean2cl = {k:v for k,v in clean2cl.items() if v not in ['the-girl-with-the-dragon-tattoo_2011']}
     test_vidnames = list(clean2cl.values())
     return test_vidnames, clean2cl
 
@@ -174,4 +176,17 @@ def path_list(parent_dir):
 
 def bernoulli_CE(p1, p2):
     return -p1 * np.log(p2) - (1-p1)*np.log(1-p2)
+
+def is_prisma_wellformed(sent):
+    if len(sent.split())==2 and sent.strip().startswith('The'):
+        return False
+    if len(sent.split())==1:
+        return False
+    if any(ord(c)>=128 for c in list(sent)):
+        return False
+    if ':' in sent or '?' in sent:
+        return False
+    if any(x in sent.split() for x in ['I', 'you', 'we']):
+        return False
+    return True
 
