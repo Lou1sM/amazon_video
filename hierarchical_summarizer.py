@@ -51,7 +51,8 @@ class HierarchicalSummarizer():
 
         if model_name == 'barts':
             self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
-            self.model_name = 'facebook/bart-large-cnn'
+            #self.model_name = 'facebook/bart-large-cnn'
+            self.model_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
             self.dmodel = AutoModelForSeq2SeqLM.from_pretrained(self.dmodel_name).to(device)
             self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(device)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -480,7 +481,7 @@ if __name__ == '__main__':
     parser.add_argument('--dbs', type=int, default=8)
     parser.add_argument('--bs', type=int, default=1)
     parser.add_argument('--exclude-scenes-after', type=int, default=99999)
-    parser.add_argument('--exp-dir-prefix', type=str, default='./experiments')
+    parser.add_argument('--expdir-prefix', type=str, default='./experiments')
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
     ARGS = parser.parse_args()
@@ -533,9 +534,9 @@ if __name__ == '__main__':
     nparams = sum(x.numel() for x in summarizer_model.model.parameters())
     print(f'Summarization model has {nparams} parameters')
     errored = []
-    check_dir(gen_dir:=join('experiments', expname))
+    check_dir(gen_dir:=join(ARGS.expdir_prefix, expname, 'generations_test'))
     for vn in tqdm(test_vidnames):
-        check_dir(ep_gen_dir:=join('experiments', expname, vn))
+        check_dir(ep_gen_dir:=join(ARGS.expdir_prefix, expname, vn))
         if os.path.exists(maybe_summ_path:=join(ep_gen_dir, f'{vn}-summary.txt')) and not ARGS.recompute_final_summs:
             print(f'summ already exists at {maybe_summ_path}')
             continue
