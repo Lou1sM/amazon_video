@@ -64,8 +64,8 @@ class HierarchicalSummarizer():
             else:
                 self.dmodel = load_peft_model(self.model_name, chkpt_path=None, precision=self.model_prec)
             self.model = self.dmodel # avoid loading twice
-            self.tokenizer = self.dtokenizer # avoid loading twice
             self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name, padding_side='left')
+            self.tokenizer = self.dtokenizer # avoid loading twice
         self.dtokenizer.pad_token_id = self.dtokenizer.eos_token_id
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         self.max_chunk_size = min(self.tokenizer.model_max_length, self.model.config.max_position_embeddings)
