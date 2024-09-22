@@ -1,7 +1,7 @@
 from nltk.tokenize import sent_tokenize
 import nltk
 nltk.download('punkt_tab')
-from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq,  BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq,  BitsAndBytesConfig
 #from bitsandbytes import
 from dl_utils.misc import check_dir
 from torch.utils.data import DataLoader
@@ -27,22 +27,7 @@ class HierarchicalSummarizer():
         self.n_beams = n_beams
         self.n_dbeams = n_dbeams
         self.model_prec = model_prec
-        self.model_name = self.dmodel_name = model_name
         self.verbose = verbose
-        if self.device == 'cpu':
-            self.dmodel = AutoModelForCausalLM.from_pretrained(self.model_name)
-        else:
-            self.dmodel = load_peft_model(self.model_name, chkpt_path=None, precision=self.model_prec)
-        #else:
-            #self.dmodel = AutoModelForCausalLM.from_pretrained(self.dmodel_name).to(device)
-        self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name, padding_side='left')
-        self.dtokenizer.pad_token_id = self.dtokenizer.eos_token_id
-        if self.model_name == self.dmodel_name:
-            self.model = self.dmodel # avoid loading twice
-            self.tokenizer = self.dtokenizer # avoid loading twice
-        else: # this doesn't happen anymore, but may again as some baseline
-            self.model = AutoModelForCausalLM.from_pretrained(self.model_name).to(device)
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, padding_side='left')
         if caps.endswith('-only'):
             self.caps = caps[:-5]
             self.caps_only = True
@@ -56,8 +41,6 @@ class HierarchicalSummarizer():
         self.uniform_breaks = uniform_breaks
         self.startendscenes = startendscenes
         self.centralscenes = centralscenes
-        self.max_chunk_size = min(self.tokenizer.model_max_length, self.model.config.max_position_embeddings)
-        self.dmax_chunk_size = min(self.dtokenizer.model_max_length, self.dmodel.config.max_position_embeddings)
         self.resumm_scenes = resumm_scenes
         self.do_save_new_scenes = do_save_new_scenes
         self.is_test = is_test
@@ -65,6 +48,27 @@ class HierarchicalSummarizer():
         self.dbs = dbs
         self.fn = get_fn(caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test)
         self.desired_summ_len = 635 # mean in Moviesumm testset
+
+        if model_name == 'barts':
+            self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
+            self.model_name = 'facebook/bart-large-cnn'
+            self.dmodel = AutoModelForSeq2SeqLM.from_pretrained(self.dmodel_name).to(device)
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(device)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name)
+        else:
+            self.model_name = self.dmodel_name = model_name
+            if self.device == 'cpu':
+                self.dmodel = AutoModelForCausalLM.from_pretrained(self.model_name)
+            else:
+                self.dmodel = load_peft_model(self.model_name, chkpt_path=None, precision=self.model_prec)
+            self.model = self.dmodel # avoid loading twice
+            self.tokenizer = self.dtokenizer # avoid loading twice
+            self.dtokenizer = AutoTokenizer.from_pretrained(self.dmodel_name, padding_side='left')
+        self.dtokenizer.pad_token_id = self.dtokenizer.eos_token_id
+        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        self.max_chunk_size = min(self.tokenizer.model_max_length, self.model.config.max_position_embeddings)
+        self.dmax_chunk_size = min(self.dtokenizer.model_max_length, self.dmodel.config.max_position_embeddings)
 
     def pad_batch(self,batch,tokenizer):
         N=max([len(c) for c in batch])
@@ -75,8 +79,11 @@ class HierarchicalSummarizer():
         assert (padded[~attention_mask.bool()]==tokenizer.pad_token_id).all()
         return padded, attention_mask
 
-    def summ_scenes(self, vidname, infer_splits):
-        ep = episode_from_name(vidname, infer_splits)
+    def summ_scenes(self, vidname):
+        if ARGS.prev_model_baseline:
+            ep = episode_from_name(vidname+'-no-names', infer_splits=True)
+        else:
+            ep = episode_from_name(vidname)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
         if len(scenes) == 1:
             print(f'no scene breaks for {vidname}')
@@ -180,15 +187,14 @@ class HierarchicalSummarizer():
             assert self.tokenizer.model_max_length + 15*len(chunks) >= len(self.dtokenizer(''.join(ss_with_caps))[0])
         return ss_with_caps
 
-    def get_scene_summs(self, vidname, infer_splits):
-        vidname_ = f'{vidname}-inferred' if infer_splits else vidname
+    def get_scene_summs(self, vidname):
         scene_summ_dir = join(self.expdir, vidname, 'scene_summs')
-        maybe_scene_summ_path = join(scene_summ_dir, f'{vidname_}_scene_summs.txt')
+        maybe_scene_summ_path = join(scene_summ_dir, f'{vidname}_scene_summs.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = [x.strip() for x in f.readlines()]
         else:
-            ss = self.summ_scenes(vidname, infer_splits)
+            ss = self.summ_scenes(vidname)
             if self.do_save_new_scenes:
                 check_dir(scene_summ_dir)
                 with open(maybe_scene_summ_path,'w') as f:
@@ -197,7 +203,7 @@ class HierarchicalSummarizer():
 
     def summarize_from_vidname(self, vidname):
         with torch.no_grad():
-            scene_summs = self.get_scene_summs(vidname, infer_splits=False)
+            scene_summs = self.get_scene_summs(vidname)
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
 
     def summarize_scene_summs(self, concatted_scene_summs, vidname):
@@ -468,11 +474,13 @@ if __name__ == '__main__':
     parser.add_argument('--filter-no-dialogue-summs', action='store_true')
     parser.add_argument('--short-prompt', action='store_true')
     parser.add_argument('--mask-name', action='store_true')
+    parser.add_argument('--prev-model-baseline', action='store_true')
     parser.add_argument('--prec', type=int, default=32, choices=[32,8,4,2])
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('--dbs', type=int, default=8)
     parser.add_argument('--bs', type=int, default=1)
     parser.add_argument('--exclude-scenes-after', type=int, default=99999)
+    parser.add_argument('--exp-dir-prefix', type=str, default='./experiments')
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
     ARGS = parser.parse_args()
@@ -486,14 +494,23 @@ if __name__ == '__main__':
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
                 }
-    expname =  'ours-masked-name' if ARGS.mask_name else 'ours'
-    if ARGS.model=='llama3-tiny':
+    if ARGS.prev_model_baseline:
+        expname =  'prev-model'
+        assert not ARGS.mask_name
+    elif ARGS.mask_name:
+        expname =  'ours-masked-name'
+    else:
+        expname = 'ours'
+
+    if ARGS.model=='llama3-tiny' and not ARGS.prev_model_baseline:
         expname += '-tiny'
-    elif ARGS.model=='llama3-8b':
+    elif ARGS.model=='llama3-8b' and not ARGS.prev_model_baseline:
         expname += '-8b'
+
+    model_name = 'barts' if ARGS.prev_model_baseline else llm_dict[ARGS.model]
     summarizer_model = HierarchicalSummarizer(
                 device=ARGS.device,
-                model_name=llm_dict[ARGS.model],
+                model_name=model_name,
                 model_prec=ARGS.prec,
                 bs=ARGS.bs,
                 n_dbeams=ARGS.n_beams,
@@ -505,7 +522,7 @@ if __name__ == '__main__':
                 startendscenes=False,
                 centralscenes=False,
                 max_chunk_size=10000,
-                expdir=join('experiments', expname),
+                expdir=join(ARGS.expdir_prefix, expname),
                 data_dir='./data',
                 resumm_scenes=ARGS.recompute_scene_summs,
                 do_save_new_scenes=True,

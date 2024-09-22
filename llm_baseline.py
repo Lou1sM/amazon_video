@@ -20,6 +20,7 @@ parser.add_argument('--with-script', action='store_true')
 parser.add_argument('--with-whisper-transcript', action='store_true')
 parser.add_argument('--mask-name', action='store_true')
 parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
+parser.add_argument('--expdir-prefix', type=str, default='experiments')
 parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
 ARGS = parser.parse_args()
 
@@ -41,11 +42,13 @@ cl2clean = {v:k for k,v in clean2cl.items()}
 if ARGS.vidname != 'all':
     test_vidnames = [ARGS.vidname]
 
-outdir = 'baseline-summs'
 if ARGS.with_script:
-    outdir += '-with-script'
+    outdir = 'script-direct'
 elif ARGS.with_whisper_transcript:
-    outdir += '-with-whisper'
+    outdir = 'with-whisper-direct'
+else:
+    outdir = 'vidname-only'
+
 if ARGS.mask_name:
     outdir += '-masked-name'
 
@@ -53,9 +56,12 @@ if ARGS.model=='llama3-tiny':
     outdir += '-tiny'
 elif ARGS.model=='llama3-8b':
     outdir += '-8b'
+
+outdir = os.path.join(ARGS.expdir_prefix, outdir)
+
 erroreds = []
 for vn in tqdm(test_vidnames):
-    if os.path.exists(maybe_summ_path:=f'{outdir}/{vn}.txt') and not ARGS.recompute:
+    if os.path.exists(maybe_summ_path:=f'{outdir}/{vn}-summary.txt') and not ARGS.recompute:
         print(f'Summ already at {maybe_summ_path}')
         continue
 
