@@ -83,6 +83,8 @@ class HierarchicalSummarizer():
     def summ_scenes(self, vidname):
         if ARGS.prev_model_baseline or ARGS.no_cnames:
             ep = episode_from_name(vidname+'-no-names', infer_splits=True)
+        elif ARGS.no_cnames:
+            ep = episode_from_name(vidname+'-no-names')
         else:
             ep = episode_from_name(vidname)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes

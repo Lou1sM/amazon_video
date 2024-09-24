@@ -17,7 +17,8 @@ def episode_from_name(epname, infer_splits=False):
         with open(f'data/transcripts/{epname}.json','w') as f:
             json.dump(transcript_data,f)
     # same ref summmary for auto version
-    summary_fpath = f'data/summaries/{epname.removesuffix("-auto")}.json'
+    #summary_fpath = f'data/summaries/{epname.removesuffix("-auto")}.json'
+    summary_fpath = f'data/summaries/{epname}.json'
     if os.path.exists(summary_fpath):
         with open(summary_fpath) as f:
             summary_data = json.load(f)
@@ -56,7 +57,6 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
             if not had_markers:
                 with_explicit_breaks = '£££[SCENE_BREAK]£££'.join(self.scenes).split('£££')
                 assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
-                os.rename(f'data/transcripts/{epname}.json',f'data/transcripts/{epname}-without-explicit-breaks.json')
                 with open(f'data/transcripts/{epname}.json','w') as f:
                     json.dump(dict(transcript_data, Transcript=with_explicit_breaks),f)
 
@@ -126,26 +126,14 @@ def mdl_split(x):
     vs = len(set(x))
     base_costs = np.array([[0 if j<i else dl_from_counts(np.bincount(x[i:j+1]),vs)
                             for j in range(N)] for i in range(N)])
-    best_costs = np.empty([N,N])
-    best_splits = np.empty([N,N], dtype='object')
-    for length in range(1,N+1):
-        #if length==N:
-            #breakpoint()
-        for start in range(N-length+1):
-            stop = start+length-1
-            #if (start,stop) == (6,11):
-                #breakpoint()
-            no_split = base_costs[start,stop], []
-            options = [no_split]
-            for k in range(start+1,stop):
-                split_cost = best_costs[start,k] + best_costs[k+1,stop]
-                split = best_splits[start,k] + [k] + best_splits[k+1,stop]
-                options.append((split_cost,split))
-            new_best_cost, new_best_splits = min(options, key=lambda x: x[0])
-            best_costs[start,stop] = new_best_cost
-            best_splits[start,stop] = new_best_splits
-    #print(best_splits[0,N-1])
-    return best_splits[0,N-1]
+    best_costs = base_costs[:,N-1]
+    best_splits = [[]]*N
+    for start in reversed(range(N)):
+        for k in range(start+1,N):
+            if base_costs[start, k] + best_costs[k] < best_costs[start]:
+                best_costs[start] = base_costs[start, k] + best_costs[k]
+                best_splits[start] = [k] + best_splits[k]
+    return best_splits[0]
 
 def labels_from_splits(splits, n):
     return (np.expand_dims(np.arange(n),1) > splits).sum(axis=1)
