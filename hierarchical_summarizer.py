@@ -51,8 +51,8 @@ class HierarchicalSummarizer():
 
         if model_name == 'barts':
             self.dmodel_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
-            #self.model_name = 'facebook/bart-large-cnn'
-            self.model_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
+            self.model_name = 'facebook/bart-large-cnn'
+            #self.model_name = 'kabita-choudhary/finetuned-bart-for-conversation-summary'
             self.dmodel = AutoModelForSeq2SeqLM.from_pretrained(self.dmodel_name).to(device)
             self.model = AutoModelForSeq2SeqLM.from_pretrained(self.model_name).to(device)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
@@ -81,14 +81,14 @@ class HierarchicalSummarizer():
         return padded, attention_mask
 
     def summ_scenes(self, vidname):
-        if ARGS.prev_model_baseline:
+        if ARGS.prev_model_baseline or ARGS.no_cnames:
             ep = episode_from_name(vidname+'-no-names', infer_splits=True)
         else:
             ep = episode_from_name(vidname)
         scenes = ['']*len(ep.scenes) if self.caps_only else ep.scenes
         if len(scenes) == 1:
             print(f'no scene breaks for {vidname}')
-            breakpoint()
+            raise ValueError
         if self.caps == 'nocaptions':
             caps = ['']*len(scenes)
         else: # prepend vid caps to the scene summ
@@ -157,7 +157,7 @@ class HierarchicalSummarizer():
             summ = self.dtokenizer.batch_decode(summ_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
             assert attn[-1].all()
             if attn[0].argmax()==0:
-                assert attn.all()
+                assert attn.all() or (attn[0]==0).all() # latter when empty dsum[0]
             remaining_chunk_summs += summ
             if self.verbose:
                 print(i,summ)
@@ -189,7 +189,7 @@ class HierarchicalSummarizer():
         return ss_with_caps
 
     def get_scene_summs(self, vidname):
-        scene_summ_dir = join(self.expdir, vidname, 'scene_summs')
+        scene_summ_dir = join(self.expdir, vidname)
         maybe_scene_summ_path = join(scene_summ_dir, f'{vidname}_scene_summs.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
@@ -475,6 +475,7 @@ if __name__ == '__main__':
     parser.add_argument('--filter-no-dialogue-summs', action='store_true')
     parser.add_argument('--short-prompt', action='store_true')
     parser.add_argument('--mask-name', action='store_true')
+    parser.add_argument('--no-cnames', action='store_true')
     parser.add_argument('--prev-model-baseline', action='store_true')
     parser.add_argument('--prec', type=int, default=32, choices=[32,8,4,2])
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
@@ -508,6 +509,9 @@ if __name__ == '__main__':
     elif ARGS.model=='llama3-8b' and not ARGS.prev_model_baseline:
         expname += '-8b'
 
+    if ARGS.no_cnames:
+        expname += '-no-cnames'
+
     model_name = 'barts' if ARGS.prev_model_baseline else llm_dict[ARGS.model]
     summarizer_model = HierarchicalSummarizer(
                 device=ARGS.device,
@@ -536,7 +540,7 @@ if __name__ == '__main__':
     errored = []
     check_dir(gen_dir:=join(ARGS.expdir_prefix, expname, 'generations_test'))
     for vn in tqdm(test_vidnames):
-        check_dir(ep_gen_dir:=join(ARGS.expdir_prefix, expname, vn))
+        check_dir(ep_gen_dir:=join(gen_dir, vn))
         if os.path.exists(maybe_summ_path:=join(ep_gen_dir, f'{vn}-summary.txt')) and not ARGS.recompute_final_summs:
             print(f'summ already exists at {maybe_summ_path}')
             continue
