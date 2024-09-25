@@ -483,7 +483,7 @@ if __name__ == '__main__':
     parser.add_argument('--recompute-scene-summs', action='store_true')
     parser.add_argument('--scene-min-minus', type=int, default=5)
     parser.add_argument('--short-prompt', action='store_true')
-    parser.add_argument('--start-from', type=int, default=99999)
+    parser.add_argument('--start-from', type=int, default=-1)
     parser.add_argument('--summ-scenes-only', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
