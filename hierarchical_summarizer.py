@@ -205,6 +205,9 @@ class HierarchicalSummarizer():
         return ss
 
     def summarize_from_vidname(self, vidname):
+        if ARGS.hierarchical_summ_abl:
+            ep = episode_from_name(vidname)
+            return self.summarize_scene_summs('\n'.join(ep.scenes), vidname)
         with torch.no_grad():
             scene_summs = self.get_scene_summs(vidname)
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
@@ -225,7 +228,7 @@ class HierarchicalSummarizer():
         else:
             summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
         chunks = chunkify(summarize_prompt, self.max_chunk_size)
-        assert len(chunks) == 1
+        #assert len(chunks) == 1
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
         summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
@@ -470,6 +473,7 @@ if __name__ == '__main__':
     parser.add_argument('--exclude-scenes-after', type=int, default=99999)
     parser.add_argument('--expdir-prefix', type=str, default='./experiments')
     parser.add_argument('--filter-no-dialogue-summs', action='store_true')
+    parser.add_argument('--hierarchical-summ-abl', action='store_true')
     parser.add_argument('--mask-name', action='store_true')
     parser.add_argument('--min-minus', type=int, default=30)
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
@@ -514,6 +518,9 @@ if __name__ == '__main__':
 
     if ARGS.no_cnames:
         expname += '-no-cnames'
+
+    if ARGS.hierarchical_summ_abl:
+        expname += '-hierarchical-summ-abl'
 
     model_name = 'barts' if ARGS.prev_model_baseline else llm_dict[ARGS.model]
     summarizer_model = HierarchicalSummarizer(
