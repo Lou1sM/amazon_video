@@ -191,23 +191,28 @@ class HierarchicalSummarizer():
         return ss_with_caps
 
     def get_scene_summs(self, vidname):
-        scene_summ_dir = join(self.expdir, vidname)
-        maybe_scene_summ_path = join(scene_summ_dir, f'{vidname}_scene_summs.txt')
+        #scene_summ_dir = join(self.expdir, vidname)
+        maybe_scene_summ_path = join(self.expdir, f'{vidname}_scene_summs.txt')
         if os.path.exists(maybe_scene_summ_path) and not self.resumm_scenes:
             with open(maybe_scene_summ_path) as f:
                 ss = [x.strip() for x in f.readlines()]
         else:
             ss = self.summ_scenes(vidname)
             if self.do_save_new_scenes:
-                check_dir(scene_summ_dir)
+                check_dir(self.expdir)
                 with open(maybe_scene_summ_path,'w') as f:
                     f.write('\n'.join(ss))
         return ss
 
     def summarize_from_vidname(self, vidname):
         if ARGS.hierarchical_summ_abl:
-            ep = episode_from_name(vidname)
-            return self.summarize_scene_summs('\n'.join(ep.scenes), vidname)
+            scenes = episode_from_name(vidname).scenes
+            with open(join(self.data_dir,f'postprocessed-video-captions/{vidname}/{self.caps}_procced_scene_caps.json')) as f:
+                caps_data = json.load(f)
+            cdd = {c['scene_id']:c['with_names'] for c in caps_data}
+            caps = [cdd.get(f'{vidname}s{i}','') for i in range(len(scenes))]
+            to_summ = '\n'.join(f'{s} {c}' for s,c in zip(scenes, caps))
+            return self.summarize_scene_summs(to_summ, vidname)
         with torch.no_grad():
             scene_summs = self.get_scene_summs(vidname)
             return self.summarize_scene_summs('\n'.join(scene_summs), vidname)
@@ -221,7 +226,7 @@ class HierarchicalSummarizer():
             #min_chunk_len = 80
             max_chunk_len = min_chunk_len + 60
         #summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scene. Discuss only plot events, no analysis or discussion of themes and characters.'
-        if ARGS.short_prompt:
+        if ARGS.short_prompt or ARGS.hierarchical_summ_abl:
             summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
         elif ARGS.mask_name:
             summarize_prompt = f'Here is a sequence of summaries of each scene of a movie. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Be sure to include information from all scenes, especially those at the end, don\'t focus too much on early scenes. Discuss only plot events, no analysis or discussion of themes and characters.\n\nBased on the information provided, here is a plot synopsis of the move {titleify(vidname)}:\n\n'
@@ -231,6 +236,8 @@ class HierarchicalSummarizer():
         #assert len(chunks) == 1
         tok_chunks = [self.tokenizer(c)['input_ids'] for c in chunks]
         pbatch, attn = self.pad_batch(tok_chunks,self.tokenizer)
+        pbatch = pbatch[:, :5000]
+        attn = attn[:, :5000]
         summarize_prompt = f'{concatted_scene_summs}\nCombine them into a single summary for the entire movie. '
         for i in range(8):
             try:
@@ -244,7 +251,6 @@ class HierarchicalSummarizer():
         text_mcss = self.tokenizer.batch_decode(meta_chunk_toks,skip_special_tokens=True)
         text_mcss = [drop_trailing_halfsent(tmcs) for tmcs in text_mcss]
         final_summ = ' '.join(text_mcss)
-        print(final_summ)
         if ARGS.db_summs:
             breakpoint()
         return concatted_scene_summs, final_summ
@@ -552,8 +558,7 @@ if __name__ == '__main__':
     for i, vn in enumerate(tqdm(test_vidnames)):
         if i < ARGS.start_from:
             continue
-        check_dir(ep_gen_dir:=join(gen_dir, vn))
-        if os.path.exists(maybe_summ_path:=join(ep_gen_dir, f'{vn}-summary.txt')) and not ARGS.recompute_final_summs:
+        if os.path.exists(maybe_summ_path:=join(gen_dir, f'{vn}-summary.txt')) and not ARGS.recompute_final_summs:
             print(f'summ already exists at {maybe_summ_path}')
             continue
         try:
