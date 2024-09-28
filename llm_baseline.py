@@ -7,6 +7,8 @@ import torch
 from utils import get_all_testnames
 from dl_utils.misc import check_dir
 from datasets import load_dataset
+from episode import episode_from_name
+from os.path import join
 
 
 import argparse
@@ -18,6 +20,7 @@ parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
 parser.add_argument('--recompute', action='store_true')
 parser.add_argument('--with-script', action='store_true')
 parser.add_argument('--with-whisper-transcript', action='store_true')
+parser.add_argument('--with-caps', action='store_true')
 parser.add_argument('--mask-name', action='store_true')
 parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
 parser.add_argument('--expdir-prefix', type=str, default='experiments')
@@ -45,7 +48,9 @@ if ARGS.vidname != 'all':
 if ARGS.with_script:
     outdir = 'script-direct'
 elif ARGS.with_whisper_transcript:
-    outdir = 'with-whisper-direct'
+    outdir = 'whisper-direct'
+elif ARGS.with_caps:
+    outdir = 'whisper-and-caps'
 else:
     outdir = 'vidname-only'
 
@@ -70,7 +75,6 @@ for vn in tqdm(test_vidnames):
         gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
         gt_script = gt_match['script']
         summarize_prompt = f'Based on the following script:\n{gt_script}\nsummarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
-        #summarize_prompt = f'Summarize the movie {vn} based on the following script:\n{gt_script}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
 
     elif ARGS.with_whisper_transcript:
         with open(f'data/transcripts/{vn}-no-names.json') as f:
@@ -79,6 +83,14 @@ for vn in tqdm(test_vidnames):
         gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
         gt_script = gt_match['script']
         summarize_prompt = f'Based on the following transcript:\n{whisper_transcript}\nsummarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
+    elif ARGS.with_caps:
+        ep = episode_from_name(vn)
+        with open(join(f'data/postprocessed-video-captions/{vn}/kosmos_procced_scene_caps.json')) as f:
+            caps_data = json.load(f)
+        cdd = {c['scene_id']:c['with_names'] for c in caps_data}
+        caps = [cdd.get(f'{vn}s{i}','') for i in range(len(ep.scenes))]
+        combined_caps = [f'{s} {c}' for s,c in zip(ep.scenes, caps)]
+        summarize_prompt = f'Based on the following transcript:\n{combined_caps}\nsummarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
 
     else:
         summarize_prompt = f'Summarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
