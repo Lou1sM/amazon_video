@@ -84,7 +84,10 @@ for vn in tqdm(test_vidnames):
         gt_script = gt_match['script']
         summarize_prompt = f'Based on the following transcript:\n{whisper_transcript}\nsummarize the movie {vn}. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Focus only on the plot events, no analysis or discussion of themes and characters.'
     elif ARGS.with_caps:
-        ep = episode_from_name(vn)
+        try:
+            ep = episode_from_name(vn)
+        except TypeError:
+            erroreds.append(vn)
         with open(join(f'data/postprocessed-video-captions/{vn}/kosmos_procced_scene_caps.json')) as f:
             caps_data = json.load(f)
         cdd = {c['scene_id']:c['with_names'] for c in caps_data}
@@ -122,3 +125,7 @@ for vn in tqdm(test_vidnames):
         print('writing to', maybe_summ_path)
         with open(maybe_summ_path, 'w') as f:
             f.write(summ)
+
+print(errored)
+with open('errored.txt', 'w') as f:
+    f.write('\n'.join(errored))
