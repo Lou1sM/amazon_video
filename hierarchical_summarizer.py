@@ -102,7 +102,8 @@ class HierarchicalSummarizer():
         assert all('talking' not in x for x in caps)
         if self.uniform_breaks:
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
-            combined_scenes = chunkify(transcript_wo_scene_marks, self.dmax_chunk_size)
+            #combined_scenes = chunkify(transcript_wo_scene_marks, self.dmax_chunk_size)
+            combined_scenes = chunkify(transcript_wo_scene_marks, 250)
             combined_caps = caps
         else:
             combined_scenes = scenes
@@ -495,6 +496,7 @@ if __name__ == '__main__':
     parser.add_argument('--short-prompt', action='store_true')
     parser.add_argument('--start-from', type=int, default=-1)
     parser.add_argument('--summ-scenes-only', action='store_true')
+    parser.add_argument('--unif-breaks', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('-t','--is-test', action='store_true')
@@ -528,6 +530,9 @@ if __name__ == '__main__':
     if ARGS.hierarchical_summ_abl:
         expname += '-hierarchical-summ-abl'
 
+    if ARGS.unif_breaks:
+        expname += '-unif-breaks'
+
     model_name = 'barts' if ARGS.prev_model_baseline else llm_dict[ARGS.model]
     summarizer_model = HierarchicalSummarizer(
                 device=ARGS.device,
@@ -539,7 +544,7 @@ if __name__ == '__main__':
                 dbs=ARGS.dbs,
                 caps='kosmos',
                 scene_order='identity',
-                uniform_breaks=False,
+                uniform_breaks=ARGS.unif_breaks,
                 startendscenes=False,
                 centralscenes=False,
                 max_chunk_size=10000,
