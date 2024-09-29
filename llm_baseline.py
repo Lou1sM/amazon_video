@@ -88,6 +88,7 @@ for vn in tqdm(test_vidnames):
             ep = episode_from_name(vn)
         except TypeError:
             erroreds.append(vn)
+            continue
         with open(join(f'data/postprocessed-video-captions/{vn}/kosmos_procced_scene_caps.json')) as f:
             caps_data = json.load(f)
         cdd = {c['scene_id']:c['with_names'] for c in caps_data}
@@ -126,6 +127,6 @@ for vn in tqdm(test_vidnames):
         with open(maybe_summ_path, 'w') as f:
             f.write(summ)
 
-print(errored)
+print(erroreds)
 with open('errored.txt', 'w') as f:
-    f.write('\n'.join(errored))
+    f.write('\n'.join(erroreds))
