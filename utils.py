@@ -167,7 +167,7 @@ def get_all_testnames(exclude_non_english=True):
     #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
     assert all(x in official_names for x in clean2cl.keys())
     if exclude_non_english:
-        clean2cl = {k:v for k,v in clean2cl.items() if v not in ['the-girl-with-the-dragon-tattoo_2011']}
+        clean2cl = {k:v for k,v in clean2cl.items() if v not in ['the-girl-with-the-dragon-tattoo_2011', 'austin-powers-international-man-of-mystery_1997']}
     test_vidnames = list(clean2cl.values())
     return test_vidnames, clean2cl
 
@@ -178,6 +178,10 @@ def bernoulli_CE(p1, p2):
     return -p1 * np.log(p2) - (1-p1)*np.log(1-p2)
 
 def is_prisma_wellformed(sent):
+    if any(x in sent for x in ['Vs', 'v&h', '(v/Kv)', 'V2', 'V3', 'V4', 'V&S', 'V&H', 'v&S', 'html', '.com', '.co.uk']): # Bart garbage
+        return False
+    if any(sent.endswith(x) for x in ['the', 'a', 'is']):
+        return False
     if len(sent.split())==2 and sent.strip().startswith('The'):
         return False
     if len(sent.split())==1:
@@ -186,7 +190,16 @@ def is_prisma_wellformed(sent):
         return False
     if ':' in sent or '?' in sent:
         return False
+    return True
+
+def postfilter(sent):
     if any(x in sent.split() for x in ['I', 'you', 'we']):
+        return False
+    if 'please note' in sent.lower():
+        return False
+    if any(w in sent.split() for w in ['genre', 'classic', 'style', 'director', 'directed']):
+        return False
+    if 'SPEAKER' in sent:
         return False
     return True
 

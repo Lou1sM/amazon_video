@@ -45,7 +45,7 @@ def segment_and_save(vidname_list):
     torch.cuda.empty_cache()
 
 def segment_audio_transcript(vidname, recompute):
-    scene_idx =
+    scene_idx = 0
     scenes = []
     pt = np.load(f'data/ffmpeg-keyframes-by-scene/{vidname}/scene-split-timepoints.npy')
     pt = np.append(pt, np.inf)
