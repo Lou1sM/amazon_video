@@ -22,22 +22,25 @@ from os.path import join
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
 class SceneSegmenter():
-    def __init__(self):
+    def __init__(self, dset_name):
+        self.dset_name = dset_name
         pass
 
-    def get_ffmpeg_keyframe_times(self, epname, recompute, avg_kf_every=5):
+    def get_ffmpeg_keyframe_times(self, vidname, recompute, avg_kf_every=5):
         starttime = time()
-        self.framesdir = f'data/ffmpeg-keyframes/{epname}'
+        self.framesdir = f'data/ffmpeg-keyframes/{vidname}'
         check_dir(self.framesdir)
         if (not os.path.isfile(join(self.framesdir, 'frametimes.npy'))) or recompute:
             for fn in os.listdir(self.framesdir):
                 os.remove(join(self.framesdir, fn))
             print('extracting ffmpeg frames to', self.framesdir)
-            vid_fpath = f"data/full_videos/{epname}.mp4"
+            vid_fpath = f"data/{self.dset_name}-videos/{vidname}.mp4"
             assert os.path.exists(vid_fpath), f'{vid_fpath} does not exist'
             duration = float(ffmpeg.probe(vid_fpath)["format"]["duration"])
             desired_nkfs = int(duration/avg_kf_every)
-            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.1)'" ",showinfo" ",setpts=N/FR/TB", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
+            x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.05)'" ",showinfo" ",setpts=N/FR/TB", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
+            if 'Error submitting video frame to the encoder' in x.stderr.decode():
+                x = subprocess.run([FFMPEG_PATH, "-i", vid_fpath, "-filter:v", "select=" "'gt(scene,0.1)'" ",showinfo", "-vsync", "0", f"{self.framesdir}/%05d.jpg"], capture_output=True)
             timepoint_lines = [z for z in x.stderr.decode().split('\n') if ' n:' in z]
             timepoints = np.array([float(re.search(r'(?<= pts_time:)[0-9\.]+(?= )',tl).group()) for tl in timepoint_lines])
             print('orig num kfs:', len(timepoint_lines), 'desired num kfs:', desired_nkfs)
@@ -87,11 +90,11 @@ class SceneSegmenter():
             breakpoint()
         return cost
 
-    def segment_from_feats_list(self, epname, feats_list, recompute):
+    def segment_from_feats_list(self, vidname, feats_list, recompute):
         N = len(feats_list)
         max_scene_size = 50
         splits_fp = check_dir('data/inferred-vid-splits')
-        splits_fp = f'data/inferred-vid-splits/{epname}-inferred-vid-splits.npy'
+        splits_fp = f'data/inferred-vid-splits/{vidname}-inferred-vid-splits.npy'
         if os.path.exists(splits_fp) and not recompute:
             print(f'loading splits from {splits_fp}')
             self.kf_scene_split_points = np.load(splits_fp)
@@ -123,13 +126,13 @@ class SceneSegmenter():
             print(f'found {len(self.kf_scene_split_points)+1} scenes')
         return self.kf_scene_split_points
 
-    def scene_segment(self, epname, recompute_keyframes, recompute_feats, recompute_best_split):
-        timepoints = self.get_ffmpeg_keyframe_times(epname, recompute=recompute_keyframes)
+    def scene_segment(self, vidname, recompute_keyframes, recompute_feats, recompute_best_split):
+        timepoints = self.get_ffmpeg_keyframe_times(vidname, recompute=recompute_keyframes)
         fns = [x for x in os.listdir(self.framesdir) if x.endswith('.jpg')]
         assert len(timepoints) == len(fns)
         sorted_fns = natsorted(fns)
 
-        check_dir(framefeatsdir:=f'data/ffmpeg-frame-features/{epname}')
+        check_dir(framefeatsdir:=f'data/ffmpeg-frame-features/{vidname}')
         if recompute_feats or any(not os.path.exists(f'{framefeatsdir}/{x.split(".")[0]}.npy') for x in fns):
             if not hasattr(self, 'model'):
                 import open_clip
@@ -159,7 +162,7 @@ class SceneSegmenter():
         else:
             feats_list = [np.load(featp) for featp in feat_paths]
 
-        self.segment_from_feats_list(epname, feats_list, recompute=recompute_best_split)
+        self.segment_from_feats_list(vidname, feats_list, recompute=recompute_best_split)
         pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
         #from dl_utils.misc import time_format
         #print('  '.join(time_format(x) for x in pt))
@@ -168,26 +171,55 @@ class SceneSegmenter():
 if __name__ == '__main__':
 
     import argparse
+    from osvd_names import vidname2fps, get_scene_split_times
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--recompute-keyframes', action='store_true')
     parser.add_argument('--recompute-frame-features', action='store_true')
     parser.add_argument('--recompute-best-split', action='store_true')
-    parser.add_argument('--epname', type=str, default='oltl-10-18-10')
+    parser.add_argument('--recompute-all', action='store_true')
+    parser.add_argument('-d', '--dset', type=str, default='osvd')
     ARGS = parser.parse_args()
-    ss = SceneSegmenter()
-    pt, timepoints = ss.scene_segment(ARGS.epname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-    gt_scene_times = pd.read_csv(f'data/video_scenes/{ARGS.epname}/startendtimes-from-transcript.csv')
-    gt = gt_scene_times['end'][:-1].to_numpy()
-    ts = np.arange(0,timepoints[-1],0.1)
-    breakpoint()
-    gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
-    pred_point_labs = (np.expand_dims(ts,1)>pt).sum(axis=1)
-    gt_n_scenes = len(gt_scene_times)
-    n_to_repeat = int(math.ceil(len(gt_point_labs)/gt_n_scenes))
-    unif_point_labs = np.repeat(np.arange(gt_n_scenes), n_to_repeat)[:len(gt_point_labs)]
-    for pred_name, preds, in zip(['ours', 'uniform'], [pred_point_labs, unif_point_labs]):
-        print(pred_name)
-        for mname ,mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
-            score = mfunc(preds, gt_point_labs)
-            print(f'{mname}: {score:.4f}')
+    if ARGS.recompute_all:
+        ARGS.recompute_keyframes = True
+        ARGS.recompute_frame_features = True
+        ARGS.recompute_best_split = True
+    ss = SceneSegmenter(ARGS.dset)
+
+    method_names = ['ours', 'uniform', 'uniform-oracle']
+    all_results = {m:{} for m in method_names}
+    x = 0
+    if ARGS.dset=='osvd':
+        for vn, fps in vidname2fps.items():
+            if isinstance(fps, str):
+                print(f'Cant process video {vn} because {fps}')
+                continue
+            ssts = get_scene_split_times(vn)
+            pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+            #gt_scene_times = pd.read_csv(f'data/video_scenes/{ARGS.vidname}/startendtimes-from-transcript.csv')
+            #gt = gt_scene_times['end'][:-1].to_numpy()
+            gt = [x[1] for x in ssts[:-1]]
+            ts = np.arange(0, all_timepoints[-1],0.1)
+            gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+            pred_point_labs = (np.expand_dims(ts,1)>pred_split_points).sum(axis=1)
+            x += len(pred_split_points)
+            gt_n_scenes = len(ssts)
+            n_to_repeat = int(math.ceil(len(gt_point_labs)/22))
+            n_to_repeat_oracle = int(math.ceil(len(gt_point_labs)/gt_n_scenes))
+            unif_point_labs = np.repeat(np.arange(22), n_to_repeat)[:len(gt_point_labs)]
+            unif_oracle_point_labs = np.repeat(np.arange(gt_n_scenes), n_to_repeat_oracle)[:len(gt_point_labs)]
+            if len(unif_point_labs)!=len(gt_point_labs) or len(unif_oracle_point_labs)!=len(gt_point_labs):
+                breakpoint()
+            for pred_name, preds, in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
+                results = {}
+                for mname ,mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
+                    score = mfunc(gt_point_labs, preds)
+                    #print(f'{mname}: {score:.4f}')
+                    results[mname] = score
+                all_results[pred_name][vn] = results
+
+    print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
+    for m in method_names:
+        print(m)
+        results_df = pd.DataFrame(all_results[m])
+        print(results_df.mean(axis=1))
