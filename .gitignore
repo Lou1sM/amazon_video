@@ -1,3 +1,9 @@
+data/**
+torrented-vids/**
+video_abstractive_summarization/**
+openai-apikey
+hf_token
+bbcdata-readme.txt
 run.sh
 slurm*.out
 experiments_before_fix_dset_fragments/**
