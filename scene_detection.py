@@ -171,13 +171,17 @@ class SceneSegmenter():
 if __name__ == '__main__':
 
     import argparse
-    from osvd_names import vidname2fps, get_scene_split_times
+    from osvd_names import vidname2fps as osvd_vn2fps
+    from get_bbc_times import annot_fns_list as bbc_annot_fns_list
+    from osvd_names import get_scene_split_times as osvd_scene_split_times
+    from get_bbc_times import get_scene_split_times as bbc_scene_split_times
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--recompute-keyframes', action='store_true')
     parser.add_argument('--recompute-frame-features', action='store_true')
     parser.add_argument('--recompute-best-split', action='store_true')
     parser.add_argument('--recompute-all', action='store_true')
+    parser.add_argument('--cut-first-n-secs', type=int, default=0)
     parser.add_argument('-d', '--dset', type=str, default='osvd')
     ARGS = parser.parse_args()
     if ARGS.recompute_all:
@@ -186,40 +190,70 @@ if __name__ == '__main__':
         ARGS.recompute_best_split = True
     ss = SceneSegmenter(ARGS.dset)
 
+    def get_preds(pred_split_points, gt_n_scenes):
+        pred_point_labs = (np.expand_dims(ts,1)>pred_split_points).sum(axis=1)
+        avg_gt_scenes = 22 if ARGS.dset=='osvd' else 48
+        n_to_repeat = int(math.ceil(len(pred_point_labs)/avg_gt_scenes))
+        n_to_repeat_oracle = int(math.ceil(len(pred_point_labs)/gt_n_scenes))
+        unif_point_labs = np.repeat(np.arange(avg_gt_scenes), n_to_repeat)[:len(pred_point_labs)]
+        unif_oracle_point_labs = np.repeat(np.arange(gt_n_scenes), n_to_repeat_oracle)[:len(pred_point_labs)]
+        if len(unif_point_labs)!=len(pred_point_labs) or len(unif_oracle_point_labs)!=len(pred_point_labs):
+            breakpoint()
+        return pred_point_labs, unif_point_labs, unif_oracle_point_labs
+
     method_names = ['ours', 'uniform', 'uniform-oracle']
-    all_results = {m:{} for m in method_names}
     x = 0
     if ARGS.dset=='osvd':
-        for vn, fps in vidname2fps.items():
+        all_results = {m:{} for m in method_names}
+        for vn, fps in osvd_vn2fps.items():
             if isinstance(fps, str):
                 print(f'Cant process video {vn} because {fps}')
                 continue
-            ssts = get_scene_split_times(vn)
             pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-            #gt_scene_times = pd.read_csv(f'data/video_scenes/{ARGS.vidname}/startendtimes-from-transcript.csv')
-            #gt = gt_scene_times['end'][:-1].to_numpy()
-            gt = [x[1] for x in ssts[:-1]]
-            ts = np.arange(0, all_timepoints[-1],0.1)
-            gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
-            pred_point_labs = (np.expand_dims(ts,1)>pred_split_points).sum(axis=1)
             x += len(pred_split_points)
-            gt_n_scenes = len(ssts)
-            n_to_repeat = int(math.ceil(len(gt_point_labs)/22))
-            n_to_repeat_oracle = int(math.ceil(len(gt_point_labs)/gt_n_scenes))
-            unif_point_labs = np.repeat(np.arange(22), n_to_repeat)[:len(gt_point_labs)]
-            unif_oracle_point_labs = np.repeat(np.arange(gt_n_scenes), n_to_repeat_oracle)[:len(gt_point_labs)]
-            if len(unif_point_labs)!=len(gt_point_labs) or len(unif_oracle_point_labs)!=len(gt_point_labs):
-                breakpoint()
-            for pred_name, preds, in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
+            #ts = np.arange(0, all_timepoints[-1],0.1)
+            ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
+            ssts = osvd_scene_split_times(vn)
+            gt = [x[1] for x in ssts[:-1]]
+            pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(ssts))
+            gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+            for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
                 results = {}
-                for mname ,mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
+                for mname, mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
                     score = mfunc(gt_point_labs, preds)
-                    #print(f'{mname}: {score:.4f}')
                     results[mname] = score
                 all_results[pred_name][vn] = results
+        print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
+        for m in method_names:
+            print(m)
+            results_df = pd.DataFrame(all_results[m])
+            print(results_df.mean(axis=1))
 
-    print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
-    for m in method_names:
-        print(m)
-        results_df = pd.DataFrame(all_results[m])
-        print(results_df.mean(axis=1))
+    elif ARGS.dset=='bbc':
+        all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
+        for vn in range(11):
+            annotwise_ssts = bbc_scene_split_times(vn)
+            pred_split_points, all_timepoints = ss.scene_segment(f'bbc_{vn+1:02}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+            #ts = np.arange(0, all_timepoints[-1],0.1)
+            ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
+            for annot_num, gt in enumerate(annotwise_ssts):
+                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(gt)+1)
+                gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+                x += len(gt)
+                for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
+                    results = {}
+                    for mname, mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
+                        score = mfunc(gt_point_labs, preds)
+                        results[mname] = score
+                    all_results_by_annot[annot_num][pred_name][vn] = results
+
+        print(x//55, 'avg scenes')
+        df=pd.json_normalize(all_results_by_annot)
+        df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
+        max_avgs = df.max(axis=0).unstack().groupby(axis=0, level=0).mean()
+        mean_avgs = df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()
+        print('MAX')
+        print(max_avgs)
+        print('MEAN')
+        print(mean_avgs)
+

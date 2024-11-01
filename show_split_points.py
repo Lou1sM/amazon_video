@@ -8,4 +8,4 @@ if isinstance(ssts, str):
     sys.exit(ssts)
 
 for i, (start, end) in enumerate(ssts):
-    print(f'Scene {i}: {time_format(start)} - {time_format(end)}')
+    print(f'Scene{i}: {time_format(start)} - {time_format(end)}')
