@@ -13,11 +13,9 @@ import imageio_ffmpeg
 import ffmpeg
 import re
 import pandas as pd
-from sklearn.metrics import normalized_mutual_info_score as nmi
-from sklearn.metrics import adjusted_rand_score as ari
-from dl_utils.label_funcs import accuracy as acc
 from dl_utils.misc import time_format
 from os.path import join
+from utils import segmentation_metrics
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -44,17 +42,23 @@ class SceneSegmenter():
             timepoint_lines = [z for z in x.stderr.decode().split('\n') if ' n:' in z]
             timepoints = np.array([float(re.search(r'(?<= pts_time:)[0-9\.]+(?= )',tl).group()) for tl in timepoint_lines])
             print('orig num kfs:', len(timepoint_lines), 'desired num kfs:', desired_nkfs)
+            print('num feat files', len(os.listdir(f'data/ffmpeg-frame-features/{vidname}')))
             if len(timepoints)>desired_nkfs:
                 keep_idxs = np.linspace(0,len(timepoints)-1, desired_nkfs).astype(int)
                 for i in range(len(timepoints)):
                     if i not in keep_idxs:
                         os.remove(f'{self.framesdir}/{i:05d}.jpg')
+                        if os.path.exists(maybe_feat_fp:=f'data/ffmpeg-frame-features/{vidname}/{i:05d}.npy'):
+                            os.remove(maybe_feat_fp)
+                            print('removing', f'data/ffmpeg-frame-features/{vidname}/{i:05d}.jpg','now n feat files is', len(os.listdir(f'data/ffmpeg-frame-features/{vidname}')))
                 timepoints = timepoints[keep_idxs]
             np.save(join(self.framesdir, 'frametimes.npy'), timepoints)
             print(f'Keyframe extraction time: {time_format(time()-starttime)}')
         else:
             timepoints = np.load(join(self.framesdir, 'frametimes.npy'))
         if len(timepoints) != len(os.listdir(self.framesdir))-1:
+            breakpoint()
+        if len(timepoints) < len(os.listdir(f'data/ffmpeg-frame-features/{vidname}')):
             breakpoint()
         assert len(timepoints)+1 == len(os.listdir(self.framesdir)) # +1 for frametimes.npy
         return timepoints
@@ -218,16 +222,16 @@ if __name__ == '__main__':
             pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(ssts))
             gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
             for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
-                results = {}
-                for mname, mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
-                    score = mfunc(gt_point_labs, preds)
-                    results[mname] = score
+                results = segmentation_metrics(preds, gt_point_labs)
                 all_results[pred_name][vn] = results
         print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
+        combined = []
         for m in method_names:
-            print(m)
-            results_df = pd.DataFrame(all_results[m])
-            print(results_df.mean(axis=1))
+            combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
+        results_df = pd.DataFrame(combined, index=method_names)
+        print(results_df)
+        check_dir('segmentation-results/osvd')
+        results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
 
     elif ARGS.dset=='bbc':
         all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
@@ -242,9 +246,7 @@ if __name__ == '__main__':
                 x += len(gt)
                 for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
                     results = {}
-                    for mname, mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
-                        score = mfunc(gt_point_labs, preds)
-                        results[mname] = score
+                    results = segmentation_metrics(preds, gt_point_labs)
                     all_results_by_annot[annot_num][pred_name][vn] = results
 
         print(x//55, 'avg scenes')
@@ -252,6 +254,9 @@ if __name__ == '__main__':
         df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
         max_avgs = df.max(axis=0).unstack().groupby(axis=0, level=0).mean()
         mean_avgs = df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()
+        check_dir('segmentation-results/bbc')
+        max_avgs.to_csv('segmentation-results/bbc/ours-unifs-max.csv')
+        mean_avgs.to_csv('segmentation-results/bbc/ours-unifs-mean.csv')
         print('MAX')
         print(max_avgs)
         print('MEAN')

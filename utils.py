@@ -2,6 +2,9 @@ import re
 import json
 import os
 from dl_utils.tensor_funcs import numpyify, cudify
+from sklearn.metrics import normalized_mutual_info_score as nmi
+from sklearn.metrics import adjusted_rand_score as ari
+from dl_utils.label_funcs import accuracy as acc
 import rouge
 import torch
 import numpy as np
@@ -203,3 +206,9 @@ def postfilter(sent):
         return False
     return True
 
+def segmentation_metrics(preds, gt_point_labs):
+    results = {}
+    for mname, mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
+        score = mfunc(gt_point_labs, preds)
+        results[mname] = score
+    return results
