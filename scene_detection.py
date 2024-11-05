@@ -15,7 +15,7 @@ import re
 import pandas as pd
 from dl_utils.misc import time_format
 from os.path import join
-from utils import segmentation_metrics
+from utils import segmentation_metrics, metric_names
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -194,9 +194,8 @@ if __name__ == '__main__':
         ARGS.recompute_best_split = True
     ss = SceneSegmenter(ARGS.dset)
 
-    def get_preds(pred_split_points, gt_n_scenes):
+    def get_preds(pred_split_points, gt_n_scenes, avg_gt_scenes):
         pred_point_labs = (np.expand_dims(ts,1)>pred_split_points).sum(axis=1)
-        avg_gt_scenes = 22 if ARGS.dset=='osvd' else 48
         n_to_repeat = int(math.ceil(len(pred_point_labs)/avg_gt_scenes))
         n_to_repeat_oracle = int(math.ceil(len(pred_point_labs)/gt_n_scenes))
         unif_point_labs = np.repeat(np.arange(avg_gt_scenes), n_to_repeat)[:len(pred_point_labs)]
@@ -208,52 +207,56 @@ if __name__ == '__main__':
     method_names = ['ours', 'uniform', 'uniform-oracle']
     x = 0
     if ARGS.dset=='osvd':
+        avg_gt_scenes_dset = 22
         all_results = {m:{} for m in method_names}
         for vn, fps in osvd_vn2fps.items():
             if isinstance(fps, str):
-                print(f'Cant process video {vn} because {fps}')
+                #print(f'Cant process video {vn} because {fps}')
                 continue
             pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
             x += len(pred_split_points)
             #ts = np.arange(0, all_timepoints[-1],0.1)
             ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
+            k = int(len(ts)/(2*avg_gt_scenes_dset))
             ssts = osvd_scene_split_times(vn)
             gt = [x[1] for x in ssts[:-1]]
-            pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(ssts))
+            pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(ssts), avg_gt_scenes_dset)
             gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
             for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
-                results = segmentation_metrics(preds, gt_point_labs)
+                results = segmentation_metrics(gt_point_labs, preds, k=k)
                 all_results[pred_name][vn] = results
         print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
         combined = []
         for m in method_names:
             combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
-        results_df = pd.DataFrame(combined, index=method_names)
+        results_df = pd.DataFrame(combined, index=method_names)[metric_names]
         print(results_df)
         check_dir('segmentation-results/osvd')
         results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
 
     elif ARGS.dset=='bbc':
+        avg_gt_scenes_dset = 48
         all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
         for vn in range(11):
             annotwise_ssts = bbc_scene_split_times(vn)
             pred_split_points, all_timepoints = ss.scene_segment(f'bbc_{vn+1:02}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
             #ts = np.arange(0, all_timepoints[-1],0.1)
             ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
+            k = int(len(ts)/(2*avg_gt_scenes_dset))
             for annot_num, gt in enumerate(annotwise_ssts):
-                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(gt)+1)
+                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(gt)+1, avg_gt_scenes_dset)
                 gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
                 x += len(gt)
                 for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
                     results = {}
-                    results = segmentation_metrics(preds, gt_point_labs)
+                    results = segmentation_metrics(gt_point_labs, preds, k=k)
                     all_results_by_annot[annot_num][pred_name][vn] = results
 
         print(x//55, 'avg scenes')
         df=pd.json_normalize(all_results_by_annot)
         df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
-        max_avgs = df.max(axis=0).unstack().groupby(axis=0, level=0).mean()
-        mean_avgs = df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()
+        max_avgs = df.max(axis=0).unstack().groupby(axis=0, level=0).mean()[metric_names]
+        mean_avgs = df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()[metric_names]
         check_dir('segmentation-results/bbc')
         max_avgs.to_csv('segmentation-results/bbc/ours-unifs-max.csv')
         mean_avgs.to_csv('segmentation-results/bbc/ours-unifs-mean.csv')

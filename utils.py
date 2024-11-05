@@ -1,17 +1,19 @@
 import re
 import json
 import os
-from dl_utils.tensor_funcs import numpyify, cudify
+from dl_utils.tensor_funcs import numpyify
 from sklearn.metrics import normalized_mutual_info_score as nmi
 from sklearn.metrics import adjusted_rand_score as ari
-from dl_utils.label_funcs import accuracy as acc
+from dl_utils.label_funcs import accuracy
 import rouge
 import torch
 import numpy as np
 from natsort import natsorted
-from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForSeq2Seq, get_scheduler
+from functools import partial
+#from nltk.metrics import windowdiff
 
 
+metric_names = ['acc','nmi','ari', 'pk', 'winddiff', 'ded']
 rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
                                                  max_n=2,
                                                  limit_length=False,
@@ -206,9 +208,39 @@ def postfilter(sent):
         return False
     return True
 
-def segmentation_metrics(preds, gt_point_labs):
+def segmentation_metrics(preds, gt_point_labs, k):
     results = {}
-    for mname, mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
+    set_pk = partial(p_k, k=k)
+    set_windowdiff = partial(windowdiff, k=k)
+    for mname, mfunc in zip(metric_names, [acc, nmi, ari, set_pk, set_windowdiff, ded]):
         score = mfunc(gt_point_labs, preds)
         results[mname] = score
     return results
+
+def acc(preds, gts):
+    acc1 = accuracy(preds, gts)
+    acc2 = accuracy(gts, preds)
+    return (acc1+acc2)/2
+
+def p_k(preds, gts, k):
+    scores_by_i = []
+    for i in range(1,k+1):
+        pred_same_diffs = preds[i:] == preds[:-i]
+        gt_same_diffs = gts[i:] == gts[:-i]
+        scores_by_i.append((pred_same_diffs==gt_same_diffs).mean())
+    return np.array(scores_by_i).mean()
+
+def windowdiff(preds, gts, k):
+    assert len(preds)==len(gts)
+    wd = 0
+    for i in range(len(preds) - k):
+        n_pred_boundaries = preds[i+k] - preds[i]
+        n_gt_boundaries = gts[i+k] - gts[i]
+        wd += abs(n_pred_boundaries - n_gt_boundaries)
+    return -wd / (len(preds)-k)
+
+def ded(preds, gts):
+    if len(np.unique(preds)) < len(np.unique(gts)):
+        return accuracy(preds, gts) - 1
+    else:
+        return accuracy(gts, preds) - 1
