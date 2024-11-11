@@ -10,7 +10,7 @@ from get_bbc_times import annot_fns_list as bbc_annot_fns_list
 from osvd_names import get_scene_split_times as osvd_scene_split_times
 from get_bbc_times import get_scene_split_times as bbc_scene_split_times
 from sklearn.mixture import GaussianMixture
-from utils import segmentation_metrics, metric_names
+from utils import segmentation_metrics, metric_names, bbc_mean_maxs
 import pandas as pd
 from dl_utils.misc import check_dir
 
@@ -98,9 +98,11 @@ if ARGS.dset=='osvd':
     for m in method_names:
         combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
     results_df = pd.DataFrame(combined, index=method_names)[metric_names]
+    if ARGS.methods==['all']:
+        print(888)
+        check_dir('segmentation-results/osvd')
+        results_df.to_csv('segmentation-results/osvd/baselines.csv')
     print(results_df)
-    check_dir('segmentation-results/osvd')
-    results_df.to_csv('segmentation-results/osvd/baselines.csv')
 
 elif ARGS.dset=='bbc':
     avg_gt_scenes_dset = 48
@@ -119,11 +121,12 @@ elif ARGS.dset=='bbc':
 
     df=pd.json_normalize(all_results_by_annot)
     df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
-    max_avgs = df.max(axis=0).unstack().groupby(axis=0, level=0).mean()
-    mean_avgs = df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()
-    check_dir('segmentation-results/bbc')
-    max_avgs.to_csv('segmentation-results/bbc/baselines-max.csv')
-    mean_avgs.to_csv('segmentation-results/bbc/baselines-mean.csv')
+    max_avgs, mean_avgs = bbc_mean_maxs(df)
+    if ARGS.methods==['all']:
+        print(888)
+        check_dir('segmentation-results/bbc')
+        max_avgs.to_csv('segmentation-results/bbc-max/baselines.csv')
+        mean_avgs.to_csv('segmentation-results/bbc-mean/baselines.csv')
     print('MAX')
     print(max_avgs)
     print('MEAN')

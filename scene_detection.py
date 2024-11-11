@@ -15,7 +15,7 @@ import re
 import pandas as pd
 from dl_utils.misc import time_format
 from os.path import join
-from utils import segmentation_metrics, metric_names
+from utils import segmentation_metrics, metric_names, bbc_mean_maxs
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
@@ -255,11 +255,10 @@ if __name__ == '__main__':
         print(x//55, 'avg scenes')
         df=pd.json_normalize(all_results_by_annot)
         df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
-        max_avgs = df.max(axis=0).unstack().groupby(axis=0, level=0).mean()[metric_names]
-        mean_avgs = df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()[metric_names]
+        max_avgs, mean_avgs = bbc_mean_maxs(df)
         check_dir('segmentation-results/bbc')
-        max_avgs.to_csv('segmentation-results/bbc/ours-unifs-max.csv')
-        mean_avgs.to_csv('segmentation-results/bbc/ours-unifs-mean.csv')
+        max_avgs.to_csv('segmentation-results/bbc-max/ours-unifs.csv')
+        mean_avgs.to_csv('segmentation-results/bbc-mean/ours-unifs.csv')
         print('MAX')
         print(max_avgs)
         print('MEAN')

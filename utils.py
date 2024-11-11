@@ -8,6 +8,7 @@ from dl_utils.label_funcs import accuracy
 import rouge
 import torch
 import numpy as np
+import pandas as pd
 from natsort import natsorted
 from functools import partial
 #from nltk.metrics import windowdiff
@@ -237,10 +238,20 @@ def windowdiff(preds, gts, k):
         n_pred_boundaries = preds[i+k] - preds[i]
         n_gt_boundaries = gts[i+k] - gts[i]
         wd += abs(n_pred_boundaries - n_gt_boundaries)
-    return -wd / (len(preds)-k)
+    return wd / (len(preds)-k)
 
 def ded(preds, gts):
     if len(np.unique(preds)) < len(np.unique(gts)):
-        return accuracy(preds, gts) - 1
+        return 1 - accuracy(preds, gts)
     else:
-        return accuracy(gts, preds) - 1
+        return 1 - accuracy(gts, preds)
+
+def bbc_mean_maxs(results_df):
+    mean_avgs = results_df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()
+    results_df.loc[:, pd.IndexSlice[:, :, 'winddiff']] = -results_df.loc[:, pd.IndexSlice[:, :, 'winddiff']]
+    results_df.loc[:, pd.IndexSlice[:, :, 'ded']] = -results_df.loc[:, pd.IndexSlice[:, :, 'ded']]
+    max_avgs = results_df.max(axis=0).unstack().groupby(axis=0, level=0).mean()
+    max_avgs['winddiff'] = -max_avgs['winddiff']
+    max_avgs['ded'] = -max_avgs['ded']
+    return max_avgs, mean_avgs
+
