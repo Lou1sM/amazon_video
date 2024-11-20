@@ -143,6 +143,7 @@ class SceneSegmenter():
                 self.model, self.preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
                 self.model = self.model.cuda()
 
+        self.model.eval()
         feat_paths = [f'{framefeatsdir}/{x.split(".")[0]}.npy' for x in sorted_fns]
         if recompute_feats or any(not os.path.exists(x) for x in feat_paths):
             print('extracting visual features')

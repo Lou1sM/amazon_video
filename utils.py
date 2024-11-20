@@ -5,12 +5,16 @@ from dl_utils.tensor_funcs import numpyify
 from sklearn.metrics import normalized_mutual_info_score as nmi
 from sklearn.metrics import adjusted_rand_score as ari
 from dl_utils.label_funcs import accuracy
+from dl_utils.misc import check_dir
 import rouge
 import torch
 import numpy as np
 import pandas as pd
 from natsort import natsorted
 from functools import partial
+from lingua import Language, LanguageDetectorBuilder
+from align_vid_and_transcripts import align
+from datasets import load_dataset
 #from nltk.metrics import windowdiff
 
 
@@ -246,6 +250,16 @@ def ded(preds, gts):
     else:
         return 1 - accuracy(gts, preds)
 
+def get_moviesumm_testnames():
+    with open('moviesumm_testset_names.txt') as f:
+        official_names = f.read().split('\n')
+    with open('clean-vid-names-to-command-line-names.json') as f:
+        clean2cl = json.load(f)
+    #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
+    assert all(x in official_names for x in clean2cl.keys())
+    test_vidnames = list(clean2cl.values())
+    return test_vidnames, clean2cl
+
 def bbc_mean_maxs(results_df):
     mean_avgs = results_df.mean(axis=0).unstack().groupby(axis=0, level=0).mean()
     results_df.loc[:, pd.IndexSlice[:, :, 'winddiff']] = -results_df.loc[:, pd.IndexSlice[:, :, 'winddiff']]
@@ -255,3 +269,77 @@ def bbc_mean_maxs(results_df):
     max_avgs['ded'] = -max_avgs['ded']
     return max_avgs, mean_avgs
 
+def get_moviesumm_splitpoints(vn):
+    check_dir('data/moviesumm-gt-splitpoints')
+    if os.path.exists(json_fp:=f'data/moviesumm-gt-splitpoints/{vn}.json'):
+        with open(json_fp) as f:
+            d = json.load(f)
+        gt_split_points = np.array(d['split-points'])
+        betweens = np.array(d['betweens']).astype(bool)
+
+    else:
+        ds = load_dataset("rohitsaxena/MovieSum")
+        with open(f'data/whisper_outputs/{vn}.json') as f:
+           wlines = json.load(f)
+        languages = [Language.ENGLISH, Language.FRENCH, Language.GERMAN, Language.SPANISH]
+        detector = LanguageDetectorBuilder.from_languages(*languages).build()
+
+        test_vidnames, clean2cl = get_moviesumm_testnames()
+        cl2clean = {v:k for k,v in clean2cl.items()}
+
+        wlines = [ut for ut in wlines if not set(ut['text'].split())==set(['you'])]
+        wlines = [ut for ut in wlines if detector.detect_language_of(ut['text']) == Language.ENGLISH]
+        wspoken = [ut['text'] for ut in wlines]
+
+        gt_match_name = cl2clean[vn]
+        gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
+        gt_script = gt_match['script']
+        gt_spoken = []
+        all_scene_idxs = []
+        scene_idx = 0
+        for l in gt_script.split('\n'):
+            l = l.strip()
+            if l.startswith('<scene>'):
+                scene_idx += 1
+            elif l.startswith('<dialogue>'):
+                spoken = l.removeprefix('<dialogue>').removesuffix('</dialogue>')
+                gt_spoken.append(spoken)
+                all_scene_idxs.append(scene_idx)
+
+        alignment = align(wspoken, gt_spoken)
+        assert len(wlines)==len(wspoken)
+        assert len(all_scene_idxs)==len(gt_spoken)
+        #gt = np.array(all_scene_idxs)[alignment.index2]
+        #prev_endtime = 0
+        curr_starttime = None
+        curr_endtime = 0
+        prev_sidx = all_scene_idxs[0]
+        all_startends = []
+        for i,j in zip(alignment.index1, alignment.index2):
+            wut = wlines[i]
+            assert wut['end']>=curr_endtime
+            if curr_starttime is None:
+                curr_starttime = wut['start']
+            else:
+                assert wut['start']>=curr_starttime
+
+            curr_endtime=wut['end']
+            sidx = all_scene_idxs[j]
+            if sidx!=prev_sidx:
+                all_startends.append((curr_starttime,curr_endtime))
+                prev_sidx = sidx
+                curr_starttime = None
+
+        all_starts = np.array([x[0] for x in all_startends])
+        all_ends = np.array([x[1] for x in all_startends])
+        gt_split_points = (all_starts[1:] + all_ends[:-1]) / 2
+        kf_timepoints = np.load(f'data/ffmpeg-keyframes/{vn}/frametimes.npy')
+        betweens = np.array([any(x>all_startends[i][1] and x<all_startends[i+1][0] for i in range(len(all_startends)-1)) for x in kf_timepoints])
+
+        to_save = {'split-points': list(gt_split_points), 'betweens': [int(x) for x in betweens]}
+        with open(json_fp, 'w') as f:
+            json.dump(to_save, f)
+    return gt_split_points, betweens
+
+def split_points_to_labels(split_points, timepoints_to_label):
+    return (np.expand_dims(timepoints_to_label,1)>split_points).sum(axis=1)

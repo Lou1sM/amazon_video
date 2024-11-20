@@ -10,32 +10,21 @@ import numpy as np
 #from utils import get_all_testnames
 from datasets import load_dataset
 from difflib import SequenceMatcher
-from align_vid_and_transcripts import align
 import re
 from tqdm import tqdm
 import argparse
-from dl_utils.label_funcs import accuracy
 from lingua import Language, LanguageDetectorBuilder
+from utils import get_moviesumm_testnames, get_moviesumm_splitpoints
 
 
 acc = lambda x,y: (cluster_acc(x,y) + cluster_acc(y,x))/2
-
-def get_all_testnames():
-    with open('moviesumm_testset_names.txt') as f:
-        official_names = f.read().split('\n')
-    with open('clean-vid-names-to-command-line-names.json') as f:
-        clean2cl = json.load(f)
-    #assert all([x in [y.split('_')[0] for y in official_names] for x in clean2cl.keys()])
-    assert all(x in official_names for x in clean2cl.keys())
-    test_vidnames = list(clean2cl.values())
-    return test_vidnames, clean2cl
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--only-fix-transcripts', action='store_true')
 parser.add_argument('--ndps', type=int, default=99999)
 ARGS = parser.parse_args()
 
-test_vidnames, clean2cl = get_all_testnames()
+test_vidnames, clean2cl = get_moviesumm_testnames()
 cl2clean = {v:k for k,v in clean2cl.items()}
 
 ds = load_dataset("rohitsaxena/MovieSum")
@@ -58,64 +47,64 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
         continue
     #if vn!='somethings-gotta-give_2003':
         #continue
-    with open(f'data/whisper_outputs/{vn}.json') as f:
-       wlines = json.load(f)
+    #with open(f'data/whisper_outputs/{vn}.json') as f:
+    #   wlines = json.load(f)
 
-    wlines = [ut for ut in wlines if not set(ut['text'].split())==set(['you'])]
-    wlines = [ut for ut in wlines if detector.detect_language_of(ut['text']) == Language.ENGLISH]
-    wspoken = [ut['text'] for ut in wlines]
+    #wlines = [ut for ut in wlines if not set(ut['text'].split())==set(['you'])]
+    #wlines = [ut for ut in wlines if detector.detect_language_of(ut['text']) == Language.ENGLISH]
+    #wspoken = [ut['text'] for ut in wlines]
 
-    gt_match_name = cl2clean[vn]
-    gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
-    gt_script = gt_match['script']
-    gt_spoken = []
-    all_scene_idxs = []
-    scene_idx = 0
-    for l in gt_script.split('\n'):
-        l = l.strip()
-        if l.startswith('<scene>'):
-            scene_idx += 1
-        elif l.startswith('<dialogue>'):
-            spoken = l.removeprefix('<dialogue>').removesuffix('</dialogue>')
-            gt_spoken.append(spoken)
-            all_scene_idxs.append(scene_idx)
+    #gt_match_name = cl2clean[vn]
+    #gt_match = [x for x in ds['test'] if x['movie_name']==gt_match_name][0]
+    #gt_script = gt_match['script']
+    #gt_spoken = []
+    #all_scene_idxs = []
+    #scene_idx = 0
+    #for l in gt_script.split('\n'):
+    #    l = l.strip()
+    #    if l.startswith('<scene>'):
+    #        scene_idx += 1
+    #    elif l.startswith('<dialogue>'):
+    #        spoken = l.removeprefix('<dialogue>').removesuffix('</dialogue>')
+    #        gt_spoken.append(spoken)
+    #        all_scene_idxs.append(scene_idx)
 
-    alignment = align(wspoken, gt_spoken)
-    assert len(wlines)==len(wspoken)
-    assert len(all_scene_idxs)==len(gt_spoken)
-    #gt = np.array(all_scene_idxs)[alignment.index2]
-    #prev_endtime = 0
-    curr_starttime = None
-    curr_endtime = 0
-    prev_sidx = all_scene_idxs[0]
-    all_startends = []
-    for i,j in zip(alignment.index1, alignment.index2):
-        wut = wlines[i]
-        assert wut['end']>=curr_endtime
-        if curr_starttime is None:
-            curr_starttime = wut['start']
-        else:
-            assert wut['start']>=curr_starttime
+    #alignment = align(wspoken, gt_spoken)
+    #assert len(wlines)==len(wspoken)
+    #assert len(all_scene_idxs)==len(gt_spoken)
+    ##gt = np.array(all_scene_idxs)[alignment.index2]
+    ##prev_endtime = 0
+    #curr_starttime = None
+    #curr_endtime = 0
+    #prev_sidx = all_scene_idxs[0]
+    #all_startends = []
+    #for i,j in zip(alignment.index1, alignment.index2):
+    #    wut = wlines[i]
+    #    assert wut['end']>=curr_endtime
+    #    if curr_starttime is None:
+    #        curr_starttime = wut['start']
+    #    else:
+    #        assert wut['start']>=curr_starttime
 
-        curr_endtime=wut['end']
-        sidx = all_scene_idxs[j]
-        if sidx!=prev_sidx:
-            all_startends.append((curr_starttime,curr_endtime))
-            prev_sidx = sidx
-            curr_starttime = None
+    #    curr_endtime=wut['end']
+    #    sidx = all_scene_idxs[j]
+    #    if sidx!=prev_sidx:
+    #        all_startends.append((curr_starttime,curr_endtime))
+    #        prev_sidx = sidx
+    #        curr_starttime = None
 
-    all_starts = np.array([x[0] for x in all_startends])
-    all_ends = np.array([x[1] for x in all_startends])
-    gt_split_points = (all_starts[1:] + all_ends[:-1]) / 2
+    #all_starts = np.array([x[0] for x in all_startends])
+    #all_ends = np.array([x[1] for x in all_startends])
+    #gt_split_points = (all_starts[1:] + all_ends[:-1]) / 2
+    gt_split_points, betweens = get_moviesumm_splitpoints(vn)
     pred_split_points = np.load(f'data/ffmpeg-keyframes-by-scene/{vn}/scene-split-timepoints.npy')
     kf_timepoints = np.load(f'data/ffmpeg-keyframes/{vn}/frametimes.npy')
-    betweens = np.array([any(x>all_startends[i][1] and x<all_startends[i+1][0] for i in range(len(all_startends)-1)) for x in kf_timepoints])
     kf_timepoints = kf_timepoints[~betweens]
     #ts = np.arange(0,kf_timepoints[-1],0.1)
     ts = kf_timepoints
     gt_point_labs = (np.expand_dims(ts,1)>gt_split_points).sum(axis=1)
     pred_point_labs = (np.expand_dims(ts,1)>pred_split_points).sum(axis=1)
-    gt_n_scenes = len(all_startends)
+    gt_n_scenes = len(gt_split_points) + 1
     if gt_n_scenes <= 1:
         continue
     unif_point_labs90 = np.linspace(0,90,len(ts)).astype(int)
