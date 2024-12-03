@@ -30,7 +30,7 @@ cl2clean = {v:k for k,v in clean2cl.items()}
 ds = load_dataset("rohitsaxena/MovieSum")
 
 metric_names = ['acc', 'ari', 'nmi']
-method_names = ['ours', 'un60', 'un75', 'un90', 'unorc']
+method_names = ['ours', 'un50', 'un60', 'un75', 'un90', 'unorc']
 results = {mt: {mc:[] for mc in metric_names} for mt in method_names}
 
 all_accs = []
@@ -110,13 +110,14 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
     unif_point_labs90 = np.linspace(0,90,len(ts)).astype(int)
     unif_point_labs75 = np.linspace(0,75,len(ts)).astype(int)
     unif_point_labs60 = np.linspace(0,60,len(ts)).astype(int)
+    unif_point_labs50 = np.linspace(0,50,len(ts)).astype(int)
     n_to_repeat = int(math.ceil(len(gt_point_labs)/gt_n_scenes))
     uniforc_point_labs = np.repeat(np.arange(gt_n_scenes), n_to_repeat)[:len(gt_point_labs)]
     n_pred_sceness.append(len(set(pred_point_labs)))
     #pred_point_labs = np.concatenate([pred_point_labs, np.array([pred_point_labs.max()+1]*n_betweens)])
     #gt_point_labs_ = np.concatenate([gt_point_labs, np.array([gt_point_labs.max()+1]*n_betweens)])
     #gt_point_labs_ = np.concatenate([gt_point_labs, np.array([gt_point_labs.max()+1]*n_betweens)])
-    for pred_name, preds, in zip(method_names, [pred_point_labs, unif_point_labs60, unif_point_labs75, unif_point_labs90, uniforc_point_labs]):
+    for pred_name, preds, in zip(method_names, [pred_point_labs, unif_point_labs50, unif_point_labs60, unif_point_labs75, unif_point_labs90, uniforc_point_labs]):
         #gt_target = gt_point_labs_ if pred_name=='ours' else gt_point_labs
         gt_target = gt_point_labs
         for mname ,mfunc in zip(['acc','nmi','ari'], [acc, nmi, ari]):
