@@ -22,6 +22,9 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
         continue
     kf_timepoints = np.load(f'data/ffmpeg-keyframes/{vn}/frametimes.npy')
     gt_split_points, betweens = get_moviesumm_splitpoints(vn)
+    if len(gt_split_points)==0:
+        print('No GT split points for', vn)
+        continue
     kf_timepoints = kf_timepoints[~betweens]
     if ARGS.method == 'psd':
         pred_split_points = get_maybe_cached_psd_breaks(vn, ARGS.thresh)
@@ -43,6 +46,7 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
 
 results_df = pd.DataFrame(all_scores)
 results_df.loc['mean'] = results_df.mean(axis=0)
-results_df.to_csv(f'psd-results{ARGS.thresh}.csv')
+method_name_to_save = 'yeo96' if ARGS.method=='yeo96' else f'psd{ARGS.thresh}'
+results_df.to_csv(f'{method_name_to_save}-results.csv')
 print(results_df)
 breakpoint()

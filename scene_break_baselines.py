@@ -17,20 +17,6 @@ from dl_utils.misc import check_dir
 
 
 all_method_names = ['kmeans', 'GMM', 'berhe21', 'yeo96']
-parser = argparse.ArgumentParser()
-parser.add_argument('--methods', type=str, nargs='+', choices=all_method_names+['all'], required=True)
-parser.add_argument('--cut-first-n-secs', type=int, default=0)
-parser.add_argument('--yeo-delta', type=float, default=5.0)
-parser.add_argument('--yeo-T', type=int, default=300)
-parser.add_argument('-d', '--dset', type=str, default='osvd')
-ARGS = parser.parse_args()
-if ARGS.methods == ['all']:
-    method_names = all_method_names
-else:
-    method_names = ARGS.methods
-
-ss = SceneSegmenter(ARGS.dset)
-
 def get_maybe_cached_psd_breaks(vn, thresh):
     check_dir(cachedir:=f'cached_outputs/pyscenedetect-cache/thresh{thresh}')
     if os.path.exists(cache_fp:=f'{cachedir}/{vn}.npy'):
@@ -153,59 +139,74 @@ def get_feats_and_times(vidname):
     feats_ar = np.array([np.load(featp) for featp in feat_paths])
     return feats_ar, ts
 
-if __name__=='__main__' and ARGS.dset=='osvd':
-    avg_gt_scenes_dset = 22
-    all_results = {m:{} for m in method_names}
-    for vn, fps in osvd_vn2fps.items():
-        if isinstance(fps, str):
-            continue
-        feats_ar, ts = get_feats_and_times(vn)
-        ssts = osvd_scene_split_times(vn)
-        gt = [x[1] for x in ssts[:-1]]
-        gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
-        k = int(len(gt_point_labs)/(2*avg_gt_scenes_dset))
-        method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
-        for pred_name, preds in zip(method_names, method_preds):
-            results = segmentation_metrics(preds, gt_point_labs, k=k)
-            all_results[pred_name][vn] = results
-    combined = []
-    for m in method_names:
-        combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
-    results_df = pd.DataFrame(combined, index=method_names)[metric_names]
-    if ARGS.methods==['all']:
-        check_dir('segmentation-results/osvd')
-        results_df.to_csv('segmentation-results/osvd/baselines.csv')
-    elif any(m.startswith('yeo96') for m in ARGS.methods):
-        print(888)
-        check_dir('segmentation-results/osvd')
-        results_df.to_csv(f'segmentation-results/osvd/yeo96-{ARGS.yeo_delta}-{ARGS.yeo_T}.csv')
-    print(results_df)
+if __name__=='__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--methods', type=str, nargs='+', choices=all_method_names+['all'], required=True)
+    parser.add_argument('--cut-first-n-secs', type=int, default=0)
+    parser.add_argument('--yeo-delta', type=float, default=5.0)
+    parser.add_argument('--yeo-T', type=int, default=300)
+    parser.add_argument('-d', '--dset', type=str, default='osvd')
+    ARGS = parser.parse_args()
+    if ARGS.methods == ['all']:
+        method_names = all_method_names
+    else:
+        method_names = ARGS.methods
 
-elif __name__=='__main__' and ARGS.dset=='bbc':
-    avg_gt_scenes_dset = 48
-    all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
-    for vn in range(11):
-        annotwise_ssts = bbc_scene_split_times(vn)
-        feats_ar, ts = get_feats_and_times(f'bbc_{vn+1:02}')
-        k = int(len(ts)/(2*avg_gt_scenes_dset))
-        method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
-        for annot_num, gt in enumerate(annotwise_ssts):
+    ss = SceneSegmenter(ARGS.dset)
+
+    if ARGS.dset=='osvd':
+        avg_gt_scenes_dset = 22
+        all_results = {m:{} for m in method_names}
+        for vn, fps in osvd_vn2fps.items():
+            if isinstance(fps, str):
+                continue
+            feats_ar, ts = get_feats_and_times(vn)
+            ssts = osvd_scene_split_times(vn)
+            gt = [x[1] for x in ssts[:-1]]
             gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+            k = int(len(gt_point_labs)/(2*avg_gt_scenes_dset))
+            method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
             for pred_name, preds in zip(method_names, method_preds):
-                results = {}
-                results = segmentation_metrics(gt_point_labs, preds, k=k)
-                all_results_by_annot[annot_num][pred_name][vn] = results
+                results = segmentation_metrics(preds, gt_point_labs, k=k)
+                all_results[pred_name][vn] = results
+        combined = []
+        for m in method_names:
+            combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
+        results_df = pd.DataFrame(combined, index=method_names)[metric_names]
+        if ARGS.methods==['all']:
+            check_dir('segmentation-results/osvd')
+            results_df.to_csv('segmentation-results/osvd/baselines.csv')
+        elif any(m.startswith('yeo96') for m in ARGS.methods):
+            print(888)
+            check_dir('segmentation-results/osvd')
+            results_df.to_csv(f'segmentation-results/osvd/yeo96-{ARGS.yeo_delta}-{ARGS.yeo_T}.csv')
+        print(results_df)
 
-    df=pd.json_normalize(all_results_by_annot)
-    df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
-    max_avgs, mean_avgs = bbc_mean_maxs(df)
-    if ARGS.methods==['all']:
-        print(888)
-        check_dir('segmentation-results/bbc')
-        max_avgs.to_csv('segmentation-results/bbc-max/baselines.csv')
-        mean_avgs.to_csv('segmentation-results/bbc-mean/baselines.csv')
-    print('MAX')
-    print(max_avgs)
-    print('MEAN')
-    print(mean_avgs)
+    if ARGS.dset=='bbc':
+        avg_gt_scenes_dset = 48
+        all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
+        for vn in range(11):
+            annotwise_ssts = bbc_scene_split_times(vn)
+            feats_ar, ts = get_feats_and_times(f'bbc_{vn+1:02}')
+            k = int(len(ts)/(2*avg_gt_scenes_dset))
+            method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
+            for annot_num, gt in enumerate(annotwise_ssts):
+                gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+                for pred_name, preds in zip(method_names, method_preds):
+                    results = {}
+                    results = segmentation_metrics(gt_point_labs, preds, k=k)
+                    all_results_by_annot[annot_num][pred_name][vn] = results
+
+        df=pd.json_normalize(all_results_by_annot)
+        df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
+        max_avgs, mean_avgs = bbc_mean_maxs(df)
+        if ARGS.methods==['all']:
+            print(888)
+            check_dir('segmentation-results/bbc')
+            max_avgs.to_csv('segmentation-results/bbc-max/baselines.csv')
+            mean_avgs.to_csv('segmentation-results/bbc-mean/baselines.csv')
+        print('MAX')
+        print(max_avgs)
+        print('MEAN')
+        print(mean_avgs)
 
