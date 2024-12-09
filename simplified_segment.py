@@ -95,6 +95,13 @@ class SceneSegmenter():
         mahala_dists = ((mean_dists/sigs) * mean_dists).sum(axis=2)
         neg_log_probs = 0.5 * (nz*LOG2PI + log_cov_det + mahala_dists)
         costs = neg_log_probs.sum(axis=1) - neg_log_probs.max(axis=1).values  + self.prec_cost*nz*(n-1)
+        #costs = (abs(mean_dists).log() + 1)
+        #costs[mean_dists==0] = 0
+        #prec_cost = max(-costs.min(), self.prec_cost)
+        #costs += prec_cost
+        #if not ( costs.min() >= 0):
+            #breakpoint()
+        #costs = costs.sum(axis=2).sum(axis=1)
         if torch.isinf(costs).any() or torch.isnan(costs).any():
             breakpoint()
         return costs
@@ -129,8 +136,8 @@ class SceneSegmenter():
         N = len(feats)
         max_seg_size = min(self.max_seg_size, N)
         x = np.unique(feats.flatten()).astype(float)
-        precision_to_use = min(np.sort(x)[1:] - np.sort(x)[:-1])
-        self.prec_cost = min(32, -np.log(precision_to_use))
+        self.precision_to_use = min(np.sort(x)[1:] - np.sort(x)[:-1])
+        self.prec_cost = min(32, -np.log(self.precision_to_use))
         #max_segment_size = min(2000, N)
         feat_vecs = torch.tensor(feats, device='cuda', dtype=torch.float32)
         range_size = feat_vecs.max() - feat_vecs.min()
