@@ -17,13 +17,14 @@ FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 LOG2PI = 1.837877
 
 class SceneSegmenter():
-    def __init__(self, dset_name, show_name, season, max_seg_size, pow_incr, use_avg_sig, kf_every):
+    def __init__(self, dset_name, show_name, season, max_seg_size, pow_incr, use_avg_sig, kf_every, use_log_dist_cost):
         self.dset_name = dset_name
         self.max_seg_size = max_seg_size
         self.pow_incr = pow_incr
         self.use_avg_sig = use_avg_sig
         self.kf_every = kf_every
         self.fps = 1/kf_every
+        self.use_log_dist_cost = use_log_dist_cost
         assert (show_name is None) == (season is None)
         if show_name is None:
             self.name_path = dset_name
@@ -92,16 +93,18 @@ class SceneSegmenter():
             log_cov_det = self.log_cov_det
         else:
             log_cov_det = sigs.log().sum(axis=2)
-        mahala_dists = ((mean_dists/sigs) * mean_dists).sum(axis=2)
-        neg_log_probs = 0.5 * (nz*LOG2PI + log_cov_det + mahala_dists)
-        costs = neg_log_probs.sum(axis=1) - neg_log_probs.max(axis=1).values  + self.prec_cost*nz*(n-1)
-        #costs = (abs(mean_dists).log() + 1)
-        #costs[mean_dists==0] = 0
-        #prec_cost = max(-costs.min(), self.prec_cost)
-        #costs += prec_cost
-        #if not ( costs.min() >= 0):
-            #breakpoint()
-        #costs = costs.sum(axis=2).sum(axis=1)
+        if self.use_log_dist_cost:
+            costs = (abs(mean_dists).log() + 1)
+            costs[mean_dists==0] = 0
+            prec_cost = max(-costs.min(), self.prec_cost)
+            costs += prec_cost
+            if not ( costs.min() >= 0):
+               breakpoint()
+            costs = costs.sum(axis=2).sum(axis=1)
+        else:
+            mahala_dists = ((mean_dists/sigs) * mean_dists).sum(axis=2)
+            neg_log_probs = 0.5 * (nz*LOG2PI + log_cov_det + mahala_dists)
+            costs = neg_log_probs.sum(axis=1) - neg_log_probs.max(axis=1).values  + self.prec_cost*nz*(n-1)
         if torch.isinf(costs).any() or torch.isnan(costs).any():
             breakpoint()
         return costs
@@ -178,7 +181,6 @@ class SceneSegmenter():
 
         base_costs = batch_costs.detach().cpu().numpy()
         opt_splits, opt_cost = self.find_opt_cost(base_costs)
-        breakpoint()
         if self.use_avg_sig:
             opt_cost += c_params_cost.item()
         return opt_splits
@@ -284,6 +286,7 @@ if __name__ == '__main__':
     parser.add_argument('--pow-incr', type=float, default=1.005, help='determines which points are skipped in search, higher is faster but less accurate')
     parser.add_argument('--use-avg-sig', action='store_true')
     parser.add_argument('--uniform-kfs', action='store_true')
+    parser.add_argument('--use-log-dist-cost', action='store_true')
     parser.add_argument('--kf-every', type=int, default=2)
     ARGS = parser.parse_args()
     if ARGS.recompute_all:
@@ -296,7 +299,7 @@ if __name__ == '__main__':
         assert ARGS.season_name is None
     max_seg_size = int(ARGS.max_scene_len/ARGS.kf_every)
     print(max_seg_size)
-    ss = SceneSegmenter(ARGS.dset, ARGS.show_name, ARGS.season, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every)
+    ss = SceneSegmenter(ARGS.dset, ARGS.show_name, ARGS.season, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every, use_log_dist_cost=ARGS.use_log_dist_cost)
     for fname in os.listdir(ss.vid_dir):
         vidname = fname.removesuffix('.mp4')
         #if vidname in ['episode_5', 'episode_18']:
