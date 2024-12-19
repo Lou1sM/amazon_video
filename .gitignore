@@ -19,6 +19,9 @@ SwinBERT/models
 **/__pycache__/**
 **/*.pyc
 **/*swp
+
+PRISMA/api.key
+PRISMA/ungitted-api.key
 # @linjli
 # compilation and distribution
 __pycache__
