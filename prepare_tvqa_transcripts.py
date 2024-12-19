@@ -7,17 +7,17 @@ with open('tvqa_preprocessed_subtitles.json') as f:
     all_clips = json.load(f)
 
 def proc_sub_line(t):
-    line = f'{t["text"]}    {t["start"]} - {t["end"]}'
+    line = f'{t["text"]}   T: {t["start"]} - {t["end"]}'
     line = line.strip()
     if not bool(re.match(r'[A-Za-z]+ :', line)):
        line = 'UNK: ' + line
     return line
 
 
-for show_name in os.listdir('data/tvqa-videos'):
-    for season in os.listdir(os.path.join('data/tvqa-videos', show_name)):
+for show_name in os.listdir('data/full-videos/tvqa'):
+    for season in os.listdir(os.path.join('data/full-videos/tvqa', show_name)):
         season_num = int(season.removeprefix('season_'))
-        for ep in os.listdir(os.path.join('data/tvqa-videos', show_name, season)):
+        for ep in os.listdir(os.path.join('data/full-videos/tvqa', show_name, season)):
             ep_num = int(ep.removeprefix('episode_').removesuffix('.mp4'))
             ep_id = f'{show_name}_s{season_num:02}e{ep_num:02}'
             epclips = [x for x in all_clips if x['vid_name'].startswith(ep_id)]
