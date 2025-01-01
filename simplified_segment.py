@@ -255,10 +255,13 @@ class SceneSegmenter():
 
         feats = np.stack(feats_list, axis=0)
         self.segment_from_feats_list(vidname, feats, recompute=recompute_best_split)
-        pt = np.array([timepoints[i] for i in self.kf_scene_split_points])
-        kf_dir = f'data/ffmpeg-keyframes-by-scene/{self.name_path}'
+        breakpoint()
+        pt = np.array([(timepoints[i]+timepoints[i+1])/2 for i in self.kf_scene_split_points])
+        kf_dir = f'data/ffmpeg-keyframes-by-scene/{self.name_path}/{vidname}'
         #os.makedirs(cur_scene_dir:=f'{kf_dir}/scene0', exist_ok=True)
         next_scene_idx = 1
+        np.save(join(kf_dir, 'scenesplit_timepoints.npy'), pt)
+        np.save(join(kf_dir, 'scenesplit_idxs.npy'), self.kf_scene_split_points)
         for i, kf in enumerate(natsorted(os.listdir(framesdir))):
             if i in [0] + self.kf_scene_split_points:
                 os.makedirs(cur_scene_dir:=f'{kf_dir}/scene{next_scene_idx}', exist_ok=True)
@@ -300,10 +303,10 @@ if __name__ == '__main__':
     max_seg_size = int(ARGS.max_scene_len/ARGS.kf_every)
     print(max_seg_size)
     ss = SceneSegmenter(ARGS.dset, ARGS.show_name, ARGS.season, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every, use_log_dist_cost=ARGS.use_log_dist_cost)
-    for fname in os.listdir(ss.vid_dir):
+    for fname in natsorted(os.listdir(ss.vid_dir)):
         vidname = fname.removesuffix('.mp4')
         #if vidname in ['episode_5', 'episode_18']:
-        if vidname != 'episode_7':
-            continue
+        #if vidname != 'episode_7':
+            #continue
         split_points, points_of_keyframes = ss.scene_segment(vidname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
         print(vidname, '  '.join(f'{int(sp//60)}m{sp%60:.1f}s' for sp in split_points))
