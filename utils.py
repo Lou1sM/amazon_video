@@ -1,4 +1,5 @@
 import re
+from nltk.tokenize import sent_tokenize
 import json
 import os
 from dl_utils.tensor_funcs import numpyify
@@ -12,8 +13,6 @@ import numpy as np
 import pandas as pd
 from natsort import natsorted
 from functools import partial
-from lingua import Language, LanguageDetectorBuilder
-from align_vid_and_transcripts import align
 from datasets import load_dataset
 #from nltk.metrics import windowdiff
 
@@ -270,6 +269,8 @@ def bbc_mean_maxs(results_df):
     return max_avgs, mean_avgs
 
 def get_moviesumm_splitpoints(vn):
+    from lingua import Language, LanguageDetectorBuilder
+    from align_vid_and_transcripts import align
     check_dir('data/moviesumm-gt-splitpoints')
     if os.path.exists(json_fp:=f'data/moviesumm-gt-splitpoints/{vn}.json'):
         with open(json_fp) as f:
@@ -343,3 +344,15 @@ def get_moviesumm_splitpoints(vn):
 
 def split_points_to_labels(split_points, timepoints_to_label):
     return (np.expand_dims(timepoints_to_label,1)>split_points).sum(axis=1)
+
+def drop_trailing_halfsent(s):
+    s = s.replace('Dr.','DRXXX')
+    s = s.replace('Lt.','LtXXX')
+    s = s.replace('Mr.','MrXXX')
+    s = s.replace('Mrs.','MrsXXX')
+    s = s.replace('Ms.','MsXXX')
+    #s = '. '.join(x for x in s.split('. ')[:-1])
+    s = ' '.join(x for x in sent_tokenize(s) if x.endswith('.'))
+    s = s.replace('XXX', '.')
+    return s
+

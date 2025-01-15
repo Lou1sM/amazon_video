@@ -1,4 +1,3 @@
-from nltk.tokenize import sent_tokenize
 import nltk
 nltk.download('punkt_tab')
 from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq,  BitsAndBytesConfig
@@ -13,7 +12,7 @@ import os
 from os.path import join
 import json
 from episode import episode_from_name
-from utils import chunkify, rouge_from_multiple_refs, get_fn, get_all_testnames
+from utils import chunkify, rouge_from_multiple_refs, get_fn, get_all_testnames, drop_trailing_halfsent
 import numpy as np
 from tqdm import tqdm
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, PeftModel, PeftConfig
@@ -423,17 +422,6 @@ class HierarchicalSummarizer():
             self.model = AutoModelForCausalLM.from_pretrained(best_chkpt).to(self.device)
         test_rouges = self.inference_epoch(self.n_epochs, testset, 'test')
         return test_rouges, alltime_best_rouges, all_rouges
-
-def drop_trailing_halfsent(s):
-    s = s.replace('Dr.','DRXXX')
-    s = s.replace('Lt.','LtXXX')
-    s = s.replace('Mr.','MrXXX')
-    s = s.replace('Mrs.','MrsXXX')
-    s = s.replace('Ms.','MsXXX')
-    #s = '. '.join(x for x in s.split('. ')[:-1])
-    s = ' '.join(x for x in sent_tokenize(s) if x.endswith('.'))
-    s = s.replace('XXX', '.')
-    return s
 
 def load_peft_model(base_model_name_or_path, chkpt_path, precision):
     print('loading model from', base_model_name_or_path)
