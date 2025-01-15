@@ -17,7 +17,7 @@ FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 LOG2PI = 1.837877
 
 class SceneSegmenter():
-    def __init__(self, dset_name, show_name, season, max_seg_size, pow_incr, use_avg_sig, kf_every, use_log_dist_cost):
+    def __init__(self, dset_name, show_name, season, max_seg_size, pow_incr, use_avg_sig, kf_every, use_log_dist_cost, device):
         self.dset_name = dset_name
         self.max_seg_size = max_seg_size
         self.pow_incr = pow_incr
@@ -25,6 +25,7 @@ class SceneSegmenter():
         self.kf_every = kf_every
         self.fps = 1/kf_every
         self.use_log_dist_cost = use_log_dist_cost
+        self.device = device
         assert (show_name is None) == (season is None)
         if show_name is None:
             self.name_path = dset_name
@@ -142,14 +143,15 @@ class SceneSegmenter():
         self.precision_to_use = min(np.sort(x)[1:] - np.sort(x)[:-1])
         self.prec_cost = min(32, -np.log(self.precision_to_use))
         #max_segment_size = min(2000, N)
-        feat_vecs = torch.tensor(feats, device='cuda', dtype=torch.float32)
+        feat_vecs = torch.tensor(feats, device=self.device, dtype=torch.float32)
         range_size = feat_vecs.max() - feat_vecs.min()
 
         direct_cost = torch.log(range_size) + self.prec_cost
-        batch_costs = torch.inf*torch.ones([N,N], device='cuda')
+        batch_costs = torch.inf*torch.ones([N,N], device=self.device)
         batch_costs.diagonal()[:] = feat_vecs.shape[1]*direct_cost
+        bs = min(N, 20)
         if self.use_avg_sig:
-            self.avg_sig = feat_vecs.unfold(0,20,1).transpose(1,2).var(axis=1, keepdims=True).mean(axis=0)
+            self.avg_sig = feat_vecs.unfold(0,bs,1).transpose(1,2).var(axis=1, keepdims=True).mean(axis=0)
             self.log_cov_det = self.avg_sig.log().sum()
         if self.pow_incr==1:
             sizes_to_compute = np.arange(2,max_seg_size)
@@ -228,7 +230,7 @@ class SceneSegmenter():
                 sys.stderr = io.StringIO()
                 self.model, self.preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
                 sys.stderr = sys.__stderr__
-                self.model = self.model.cuda()
+                self.model = self.model.to(self.device)
                 self.model.eval()
 
         feat_paths = [f'{framefeatsdir}/{x.split(".")[0]}.npy' for x in sorted_fns]
@@ -240,7 +242,7 @@ class SceneSegmenter():
                 im_list = []
                 for inb in im_name_batch:
                     image = Image.open(join(framesdir, inb))
-                    image = self.preprocess(image).unsqueeze(0).cuda()
+                    image = self.preprocess(image).unsqueeze(0).to(self.device)
                     im_list.append(image)
                 image_batch = torch.cat(im_list)
                 with torch.no_grad():
@@ -255,10 +257,8 @@ class SceneSegmenter():
 
         feats = np.stack(feats_list, axis=0)
         self.segment_from_feats_list(vidname, feats, recompute=recompute_best_split)
-        breakpoint()
         pt = np.array([(timepoints[i]+timepoints[i+1])/2 for i in self.kf_scene_split_points])
-        kf_dir = f'data/ffmpeg-keyframes-by-scene/{self.name_path}/{vidname}'
-        #os.makedirs(cur_scene_dir:=f'{kf_dir}/scene0', exist_ok=True)
+        os.makedirs(kf_dir:=f'data/ffmpeg-keyframes-by-scene/{self.name_path}/{vidname}', exist_ok=True)
         next_scene_idx = 1
         np.save(join(kf_dir, 'scenesplit_timepoints.npy'), pt)
         np.save(join(kf_dir, 'scenesplit_idxs.npy'), self.kf_scene_split_points)
@@ -284,6 +284,8 @@ if __name__ == '__main__':
     parser.add_argument('--dset', '-d', type=str, required=True)
     parser.add_argument('--show-name', type=str, required=True)
     parser.add_argument('--season', type=str, required=True)
+    parser.add_argument('--episode', type=str, required=True)
+    parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--feats-bs', type=int, default=4, help='batch size for extracting features')
     parser.add_argument('--max-scene-len', type=int, default=240, help='maximum number of seconds that can be in a scene, lower is faster')
     parser.add_argument('--pow-incr', type=float, default=1.005, help='determines which points are skipped in search, higher is faster but less accurate')
@@ -297,16 +299,31 @@ if __name__ == '__main__':
         ARGS.recompute_frame_features = True
         ARGS.recompute_best_split = True
 
+    device = 'cpu' if ARGS.cpu else 'cuda'
     if ARGS.dset in ['osvd', 'bbc', 'moviesumm']:
         assert ARGS.show_name is None
         assert ARGS.season_name is None
     max_seg_size = int(ARGS.max_scene_len/ARGS.kf_every)
     print(max_seg_size)
-    ss = SceneSegmenter(ARGS.dset, ARGS.show_name, ARGS.season, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every, use_log_dist_cost=ARGS.use_log_dist_cost)
-    for fname in natsorted(os.listdir(ss.vid_dir)):
-        vidname = fname.removesuffix('.mp4')
-        #if vidname in ['episode_5', 'episode_18']:
-        #if vidname != 'episode_7':
-            #continue
-        split_points, points_of_keyframes = ss.scene_segment(vidname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
-        print(vidname, '  '.join(f'{int(sp//60)}m{sp%60:.1f}s' for sp in split_points))
+    if ARGS.episode == 'all':
+        def segment_season(seas):
+            print(f'splitting season {seas}')
+            ss = SceneSegmenter(ARGS.dset, ARGS.show_name, seas, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every, use_log_dist_cost=ARGS.use_log_dist_cost, device=device)
+            for fname in natsorted(os.listdir(ss.vid_dir)):
+                vidname = fname.removesuffix('.mp4')
+                #if vidname in ['episode_5', 'episode_18']:
+                #if vidname != 'episode_7':
+                    #continue
+                split_points, points_of_keyframes = ss.scene_segment(vidname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+                print(vidname, '  '.join(f'{int(sp//60)}m{sp%60:.1f}s' for sp in split_points))
+        if ARGS.season == 'all':
+            seasons = sorted([x.removeprefix('season_') for x in os.listdir(f'data/full-videos/tvqa/{ARGS.show_name}')])
+            for s in seasons:
+                segment_season(s)
+        else:
+            segment_season(ARGS.season)
+    else:
+        assert ARGS.season != 'all'
+        ss = SceneSegmenter(ARGS.dset, ARGS.show_name, ARGS.season, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every, use_log_dist_cost=ARGS.use_log_dist_cost, device=device)
+        split_points, points_of_keyframes = ss.scene_segment(f'episode_{ARGS.episode}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+
