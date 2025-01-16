@@ -53,15 +53,14 @@ def extract_feats(show_name, season, ep):
     scenes = []
     cur_scene_idx = 0
     names_in_scenes = []
-    scene_text_feats = []
     if (not os.path.exists(text_cache_dir:=f'rag-caches/{vid_subpath}/{ARGS.splits}')) or ARGS.recompute_text_feats:
         for dir_name in ('text_feats', 'names', 'scene_texts'):
             fp=f'{text_cache_dir}/{dir_name}'
-            if os.path.exists(f'{text_cache_dir}/{dir_name}'):
-                print(f'{fp} already exists, removing')
-                shutil.rmtree(fp)
-            print(f'creating dir {fp}')
-            os.makedirs(fp)
+            #if os.path.exists(f'{text_cache_dir}/{dir_name}'):
+                #print(f'{fp} already exists, removing')
+                #shutil.rmtree(fp)
+            #print(f'creating dir {fp}')
+            os.makedirs(fp, exist_ok=True)
         for i, tl in enumerate(tlines_with_breaks):
             if tl == '[SCENE_BREAK]':
                 clip_start_time += end
@@ -80,12 +79,14 @@ def extract_feats(show_name, season, ep):
                 names =  list(set([x.split(' : ')[0].replace('Anabelle', 'Annabelle') for x in cur_scene if not x.startswith('UNK')]))
                 with open(f'{text_cache_dir}/names/scene{len(scenes)}.txt', 'w') as f:
                     f.write('\n'.join(names))
-                stf = intern_model.get_txt_feat(cur_scene)
+                if cur_scene==[]:
+                    stf = torch.zeros(1, 512)
+                else:
+                    stf = intern_model.get_txt_feat(cur_scene)
                 print(f'writting text feats to {text_cache_dir}/text_feats/scene{cur_scene_idx}.pt')
                 torch.save(stf, f'{text_cache_dir}/text_feats/scene{cur_scene_idx}.pt')
                 #stf = text_model.get_txt_feat('\n'.join(cur_scene)).squeeze(0)
                 scenes.append(cur_scene)
-                scene_text_feats.append(stf)
                 names_in_scenes.append(names)
                 cur_scene = []
                 cur_scene_idx += 1
@@ -105,9 +106,8 @@ def extract_feats(show_name, season, ep):
         vid = VideoFileClip(video_fp)
         vid_frames = list(vid.iter_frames())
         frame_splitpoints = (scene_split_points * vid.fps).astype(int)
-        for i, frame in enumerate(vid_frames + [None]):
+        for i, frame in enumerate(vid_frames):
             if i in frame_splitpoints:
-                assert (i==len(vid_frames)) == (frame is None)
                 if len(scene_frames)==0:
                     feats = torch.zeros(1,512)
                 else:
@@ -149,24 +149,29 @@ config.device = ARGS.device
 config.model.text_encoder.config = 'InternVideo/InternVideo2/multi_modality/' + config.model.text_encoder.config
 intern_model, tokenizer = setup_internvideo2(config)
 #intern_model = intern_model.to(ARGS.device)
-seaseps = []
-if ARGS.season == -1:
-    seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(f'data/full-videos/tvqa/{ARGS.show_name}')])
+seasepshows = []
+if ARGS.show_name=='all':
+    show_names_to_compute = natsorted(os.listdir(f'data/full-videos/tvqa/'))
 else:
-    seass_to_compute = [ARGS.season]
-
-for seas in seass_to_compute:
-    if ARGS.ep == -1:
-        for fn in natsorted(os.listdir(f'data/full-videos/tvqa/{ARGS.show_name}/season_{seas}')):
-            ep_num = int(fn[8:].removesuffix('.mp4'))
-            seaseps.append((seas, ep_num))
+    show_names_to_compute = [ARGS.show_name]
+for show_name in show_names_to_compute:
+    if ARGS.season == -1:
+        seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(f'data/full-videos/tvqa/{show_name}')])
     else:
-        seaseps.append((seas, ARGS.ep))
+        seass_to_compute = [ARGS.season]
 
-print(seaseps)
-for seas, ep in seaseps:
+    for seas in seass_to_compute:
+        if ARGS.ep == -1:
+            for fn in natsorted(os.listdir(f'data/full-videos/tvqa/{show_name}/season_{seas}')):
+                ep_num = int(fn[8:].removesuffix('.mp4'))
+                seasepshows.append((show_name, seas, ep_num))
+        else:
+            seasepshows.append((show_name, seas, ARGS.ep))
+
+print(seasepshows)
+for show_name, seas, ep in seasepshows:
     #try:
-    extract_feats(ARGS.show_name, seas, ep)
+    extract_feats(show_name, seas, ep)
     #except Exception as e:
         #print(f'failed for season{seas} episode{ep}')
         #print(e)
