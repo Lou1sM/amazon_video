@@ -70,7 +70,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     n_correct = 0
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
-        qvec = torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/qfeats/{i}.pt')
+        qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt')
         sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
         names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
         names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
