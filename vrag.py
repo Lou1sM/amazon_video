@@ -33,7 +33,6 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     dset_name = 'tvqa'
     vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
 
-    ep_qs = full_dset_qs[show_name[0].upper()+show_name[1:]][f'season_{season}'][f'episode_{episode}']
     for d in ('names', 'scene_texts', 'text_feats'):
         os.makedirs(f'rag-caches/{vid_subpath}/{d}', exist_ok=True)
     scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]
