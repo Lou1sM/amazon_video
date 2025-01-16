@@ -87,8 +87,9 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             ans_tokens = ans_tokens[0,tok_ids.shape[1]:]
             ans = tokenizer.decode(ans_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
             ans = max(range(5), key=lambda i: output.logits[0,-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
-        print(prompt, qdict['answer_idx'])
-        print(f'pred: {ans} gt: {qdict["answer_idx"]}')
+        if ARGS.verbose:
+            print(prompt, qdict['answer_idx'])
+            print(f'pred: {ans} gt: {qdict["answer_idx"]}')
         if ans==qdict['answer_idx']:
             n_correct += 1
     n = len(ep_qs["questions"])
@@ -101,6 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('--season', type=int, default=2)
     parser.add_argument('--recompute-scene-texts', action='store_true')
     parser.add_argument('--test-loading', action='store_true')
+    parser.add_argument('--verbose', action='store_true')
     parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif'])
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--prec', type=int, default=4, choices=[32,8,4,2])
