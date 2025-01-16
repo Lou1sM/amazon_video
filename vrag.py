@@ -45,10 +45,10 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     names_in_scenes = []
     viz_texts = []
     for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/names')):
-        with open(f'rag-caches/{vid_subpath}/names/{fn}') as f:
+        with open(f'rag-caches/{vid_subpath}/{ARGS.splits}/names/{fn}') as f:
             names_in_scenes.append(f.read().split('\n'))
     for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/scene_texts')):
-        with open(f'rag-caches/{vid_subpath}/scene_texts/{fn}') as f:
+        with open(f'rag-caches/{vid_subpath}/{ARGS.splits}/scene_texts/{fn}') as f:
             scenes.append(f.read().split('\n'))
 
     if os.path.exists(lava_out_fp:=f'data/lava-outputs/{vid_subpath}/{ARGS.splits}/all.json'):
@@ -70,7 +70,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     n_correct = 0
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
-        qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt')
+        qvec = torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/qfeats/{i}.pt')
         sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
         names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
         names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
