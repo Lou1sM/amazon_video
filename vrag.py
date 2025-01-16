@@ -1,4 +1,7 @@
 import os
+import numpy as np
+import logging
+logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
 from utils import drop_trailing_halfsent
 import torch
 import argparse
@@ -82,7 +85,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             ans = 0
         else:
             with torch.no_grad():
-               ans_tokens = model.generate(tok_ids, min_new_tokens=1, max_new_tokens=1, num_beams=1)
+               ans_tokens = model.generate(tok_ids, attention_mask=torch.ones_like(tok_ids), min_new_tokens=1, max_new_tokens=1, num_beams=1)
                output = model(tok_ids)
             ans_tokens = ans_tokens[0,tok_ids.shape[1]:]
             ans = tokenizer.decode(ans_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -93,7 +96,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         if ans==qdict['answer_idx']:
             n_correct += 1
     n = len(ep_qs["questions"])
-    print(f'vqa acc: {n_correct/n}')
+    print(f'vqa acc: {n_correct}/{n} = {n_correct/n:.5f}')
     return n_correct, n
 
 if __name__ == '__main__':
@@ -119,6 +122,7 @@ if __name__ == '__main__':
                 }
     model_name = llm_dict[ARGS.model]
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
+    tokenizer.pad_token_id = tokenizer.eos_token_id
     if ARGS.cpu:
         model = AutoModelForCausalLM.from_pretrained('meta-llama/Meta-Llama-3.1-8B-Instruct')
         device = 'cpu'
@@ -128,9 +132,11 @@ if __name__ == '__main__':
     model.eval()
 
     tot_n_correct, tot = 0, 0
+    all_scores = []
     def qa_season(seas_num):
         season_qs = full_dset_qs[show_name_dict[ARGS.show_name]][f'season_{seas_num}']
         global tot_n_correct
+        global tot
         scores_by_ep = {}
         for ep in os.listdir(f'rag-caches/tvqa/{ARGS.show_name}/season_{seas_num}'):
             if ep not in season_qs.keys():
@@ -141,8 +147,12 @@ if __name__ == '__main__':
             ep_num = ep.removeprefix('episode_')
             new_correct, new_tot = answer_qs(ARGS.show_name, seas_num, ep_num, model, ep_qs)
             tot_n_correct += new_correct
-            new_tot += tot
+            tot += new_tot
             scores_by_ep[ep_num] = {'n_correct': new_correct, 'tot': new_tot}
+            if new_tot==0:
+                print(888)
+            else:
+                all_scores.append(new_correct/new_tot)
         return scores_by_ep
 
     if ARGS.season == -1:
@@ -156,6 +166,8 @@ if __name__ == '__main__':
         scores = {f'season_{ARGS.season}': seas_scores}
     scores['tot_n_correct'] = tot_n_correct
     scores['tot'] = tot
-    with open(f'{ARGS.show_name}_{ARGS.season}-tvqa-results.json', 'w') as f:
+    print(f'macro: {np.array(all_scores).mean():.4f}, micro: {scores["tot_n_correct"]/scores["tot"]:.4f}')
+    os.makedirs(f'tvqa-results/{ARGS.splits}', exist_ok=True)
+    with open(f'tvqa-results/{ARGS.splits}/{ARGS.show_name}_{ARGS.season}-tvqa-results.json', 'w') as f:
         json.dump(scores, f)
 
