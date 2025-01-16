@@ -28,7 +28,16 @@ with open('tvqa_preprocessed_subtitles.json') as f:
 with open('tvqa-splits.json') as f:
     tvqa_splits = json.load(f)
 
-def answer_qs(show_name, season, episode, model):
+show_name_dict = {
+                  'friends':'Friends',
+                  'house': 'House M.D.',
+                  'met': 'How I Met Your Mother',
+                  'bbt': 'The Big Bang Theory',
+                  'castle': 'Castle',
+                  'grey': "Grey's Anatomy",
+                  }
+
+def answer_qs(show_name, season, episode, model, ep_qs):
     #print(show_name, season, episode)
     #return 0, 0
     #ep_id = f'{show_name}_s{season:02}e{episode:02}'
@@ -36,7 +45,7 @@ def answer_qs(show_name, season, episode, model):
     vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
     #kf_times = np.load(f'data/ffmpeg-keyframes/{vid_subpath}/frametimes.npy')
 
-    dset_qs = full_dset_qs[show_name[0].upper()+show_name[1:]][f'season_{season}'][f'episode_{episode}']
+    ep_qs = full_dset_qs[show_name[0].upper()+show_name[1:]][f'season_{season}'][f'episode_{episode}']
     #dset_subs = [x for x in full_dset_subs if x['vid_name'].startswith(f'{show_name}_s{int(season):02}e{int(episode):02}')]
 
     #scene_split_points = np.load(f'data/ffmpeg-keyframes-by-scene/{vid_subpath}/scenesplit_timepoints.npy')
@@ -51,18 +60,21 @@ def answer_qs(show_name, season, episode, model):
     for d in ('names', 'scene_texts', 'text_feats'):
         os.makedirs(f'rag-caches/{vid_subpath}/{d}', exist_ok=True)
     scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/text_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/text_feats/')]
-    scene_text_feats = torch.stack([x.mean(axis=0) for x in scene_text_feats])
+    if len(scene_text_feats)==0:
+        print(f'{show_name} {season} {episode}: empty scene texts')
+        return 0, 0
+    scene_text_feats = torch.stack([torch.zeros(512) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
     scenes = []
     names_in_scenes = []
     viz_texts = []
-    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/names')):
+    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/names')):
         with open(f'rag-caches/{vid_subpath}/names/{fn}') as f:
             names_in_scenes.append(f.read().split('\n'))
-    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/scene_texts')):
+    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/scene_texts')):
         with open(f'rag-caches/{vid_subpath}/scene_texts/{fn}') as f:
             scenes.append(f.read().split('\n'))
 
-    if os.path.exists(lava_out_fp:=f'data/lava-outputs/{vid_subpath}/all.json'):
+    if os.path.exists(lava_out_fp:=f'data/lava-outputs/{vid_subpath}/{ARGS.splits}/all.json'):
         with open(lava_out_fp) as f:
             viz_texts = json.load(f)
     else:
@@ -71,20 +83,26 @@ def answer_qs(show_name, season, episode, model):
 
     #clip_timepoints = np.cumsum([0] + [max(x['end'] for x in clip['sub']) for clip in sorted(dset_subs, key=lambda x:x['vid_name'])])
 
-    scene_vision_feats = torch.cat([torch.load(f'data/internvid-feats/{vid_subpath}/{fn}') for fn in os.listdir(f'data/internvid-feats/{vid_subpath}')])
+    scene_vision_feats = torch.cat([torch.load(f'data/internvid-feats/{vid_subpath}/{ARGS.splits}/{fn}') for fn in os.listdir(f'data/internvid-feats/{vid_subpath}/{ARGS.splits}')[:-1]])
     #scene_text_feats = torch.stack(scene_text_feats)
-    scene_feats = (scene_vision_feats + scene_text_feats) / 2
+    if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
+        scene_feats = (scene_vision_feats + scene_text_feats) / 2
+    else:
+        print(f'{show_name} {season} {episode}: vision feats have {len(scene_vision_feats)} scenes while text feats have {len(scene_text_feats)}, names is {len(names_in_scenes)}, scenes is {len(scenes)}')
+        scene_feats = scene_text_feats
     #scene_feats = scene_vision_feats
 
-
+    if ARGS.test_loading:
+        return 0,0
     n_correct = 0
-    for i, qdict in enumerate(dset_qs['questions']):
+    for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
         #qvec = text_model.get_txt_feat(qsent:=qdict['q'])
         qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt')
-        vsims = (scene_vision_feats @ qvec.T).squeeze()
-        tsims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
-        sims = tsims + vsims
+        #vsims = (scene_vision_feats @ qvec.T).squeeze()
+        #tsims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
+        #sims = tsims + vsims
+        sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
         names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
         names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
         #sims = sims*names_match
@@ -93,7 +111,6 @@ def answer_qs(show_name, season, episode, model):
         #pred_scene_idxs = sims.topk(1).indices
         #scene_text = '[SCENE_BREAK]'.join('\n'.join(scenes[i]) for i in pred_scene_idxs)
         scene_text = '\n'.join(scenes[sims.argmax()])
-        breakpoint()
         viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
         prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\nQuestion: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 1-4, no punctuation or whitespace.'
@@ -109,11 +126,9 @@ def answer_qs(show_name, season, episode, model):
             ans = max(range(5), key=lambda i: output.logits[0,-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
         print(prompt, qdict['answer_idx'])
         print(f'pred: {ans} gt: {qdict["answer_idx"]}')
-        if i==len(dset_qs['questions'])-1:
-            breakpoint()
         if ans==qdict['answer_idx']:
             n_correct += 1
-    n = len(dset_qs["questions"])
+    n = len(ep_qs["questions"])
     print(f'vqa acc: {n_correct/n}')
     return n_correct, n
 
@@ -124,6 +139,8 @@ if __name__ == '__main__':
     parser.add_argument('--season', type=int, default=2)
     #parser.add_argument('--episode', type=int, required=True)
     parser.add_argument('--recompute-scene-texts', action='store_true')
+    parser.add_argument('--test-loading', action='store_true')
+    parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif'])
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--prec', type=int, default=4, choices=[32,8,4,2])
     parser.add_argument('--cpu', action='store_true')
@@ -150,11 +167,17 @@ if __name__ == '__main__':
 
     tot_n_correct, tot = 0, 0
     def qa_season(seas_num):
+        season_qs = full_dset_qs[show_name_dict[ARGS.show_name]][f'season_{seas_num}']
         global tot_n_correct
         scores_by_ep = {}
         for ep in os.listdir(f'data/ffmpeg-keyframes-by-scene/tvqa/{ARGS.show_name}/season_{seas_num}'):
+            if ep not in season_qs.keys():
+                print(f'Episode_{ep} not in season_{seas_num} keys')
+                continue
+            else:
+                ep_qs = season_qs[ep]
             ep_num = ep.removeprefix('episode_')
-            new_correct, new_tot = answer_qs(ARGS.show_name, seas_num, ep_num, model)
+            new_correct, new_tot = answer_qs(ARGS.show_name, seas_num, ep_num, model, ep_qs)
             tot_n_correct += new_correct
             new_tot += tot
             scores_by_ep[ep_num] = {'n_correct': new_correct, 'tot': new_tot}
@@ -168,7 +191,7 @@ if __name__ == '__main__':
             scores[f'season_{s}'] = seas_scores
     else:
         seas_scores = qa_season(ARGS.season)
-        scores[f'season_{ARGS.season}'] = seas_scores
+        scores = {f'season_{ARGS.season}': seas_scores}
     scores['tot_n_correct'] = tot_n_correct
     scores['tot'] = tot
     with open(f'{ARGS.show_name}_{ARGS.season}-tvqa-results.json', 'w') as f:
