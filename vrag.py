@@ -130,7 +130,7 @@ if __name__ == '__main__':
         season_qs = full_dset_qs[show_name_dict[ARGS.show_name]][f'season_{seas_num}']
         global tot_n_correct
         scores_by_ep = {}
-        for ep in os.listdir(f'data/ffmpeg-keyframes-by-scene/tvqa/{ARGS.show_name}/season_{seas_num}'):
+        for ep in os.listdir(f'rag-caches/tvqa/{ARGS.show_name}/season_{seas_num}'):
             if ep not in season_qs.keys():
                 print(f'Episode_{ep} not in season_{seas_num} keys')
                 continue
@@ -144,7 +144,7 @@ if __name__ == '__main__':
         return scores_by_ep
 
     if ARGS.season == -1:
-        seasons = sorted([x.removeprefix('season_') for x in os.listdir(f'data/full-videos/tvqa/{ARGS.show_name}')])
+        seasons = sorted([x.removeprefix('season_') for x in os.listdir(f'rag-caches/tvqa/{ARGS.show_name}')])
         scores = {}
         for s in seasons:
             seas_scores = qa_season(s)
