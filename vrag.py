@@ -23,60 +23,68 @@ with open('tvqa-long-annotations_tvqa_val_edited.json') as f:
 show_name_dict = {
                   'friends':'Friends',
                   'house': 'House M.D.',
-                  'met': 'How I Met Your Mother',
+                  'met': 'How I Met You Mother',
                   'bbt': 'The Big Bang Theory',
                   'castle': 'Castle',
                   'grey': "Grey's Anatomy",
                   }
 
-def answer_qs(show_name, season, episode, model, ep_qs):
-    dset_name = 'tvqa'
-    vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
-
-    for d in ('names', 'scene_texts', 'text_feats'):
-        os.makedirs(f'rag-caches/{vid_subpath}/{d}', exist_ok=True)
-    scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]
-    if len(scene_text_feats)==0:
-        print(f'{show_name} {season} {episode}: empty scene texts')
-        return 0, 0
-    scene_text_feats = torch.stack([torch.zeros(512) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
+def get_texts(split_name, vid_subpath):
     scenes = []
     names_in_scenes = []
     viz_texts = []
-    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/names')):
-        with open(f'rag-caches/{vid_subpath}/{ARGS.splits}/names/{fn}') as f:
+    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{split_name}/names')):
+        with open(f'rag-caches/{vid_subpath}/{split_name}/names/{fn}') as f:
             names_in_scenes.append(f.read().split('\n'))
-    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/scene_texts')):
-        with open(f'rag-caches/{vid_subpath}/{ARGS.splits}/scene_texts/{fn}') as f:
+    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{split_name}/scene_texts')):
+        with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
             scenes.append(f.read().split('\n'))
 
-    if os.path.exists(lava_out_fp:=f'data/lava-outputs/{vid_subpath}/{ARGS.splits}/all.json'):
+    if os.path.exists(lava_out_fp:=f'lava-outputs/{vid_subpath}/{split_name}/all.json'):
         with open(lava_out_fp) as f:
             viz_texts = json.load(f)
     else:
         print(f'no lava out file at {lava_out_fp}')
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
+    return names_in_scenes, scenes, viz_texts
 
-    scene_vision_feats = torch.cat([torch.load(f'data/internvid-feats/{vid_subpath}/{ARGS.splits}/{fn}') for fn in os.listdir(f'data/internvid-feats/{vid_subpath}/{ARGS.splits}')[:-1]])
-    if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
-        scene_feats = (scene_vision_feats + scene_text_feats) / 2
+def answer_qs(show_name, season, episode, model, ep_qs):
+    dset_name = 'tvqa'
+    vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
+
+    if ARGS.splits == 'none':
+        _, scenes, viz_texts = get_texts('ours', vid_subpath)
+        scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
+        viz_scene_text = '\n'.join(drop_trailing_halfsent(s) for s in viz_texts.values())
     else:
-        print(f'{show_name} {season} {episode}: vision feats have {len(scene_vision_feats)} scenes while text feats have {len(scene_text_feats)}, names is {len(names_in_scenes)}, scenes is {len(scenes)}')
-        scene_feats = scene_text_feats
+        names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
+
+        scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]
+        if len(scene_text_feats)==0:
+            print(f'{show_name} {season} {episode}: empty scene texts')
+            return 0, 0
+        scene_text_feats = torch.stack([torch.zeros(512) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
+        scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid-feats')])
+        if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
+            scene_feats = (scene_vision_feats + scene_text_feats) / 2
+        else:
+            print(f'{show_name} {season} {episode}: vision feats have {len(scene_vision_feats)} scenes while text feats have {len(scene_text_feats)}, names is {len(names_in_scenes)}, scenes is {len(scenes)}')
+            scene_feats = scene_text_feats
 
     if ARGS.test_loading:
         return 0,0
     n_correct = 0
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
-        qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt')
-        sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
-        names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
-        names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
-        sims[~names_match.bool()] -= torch.inf
+        if ARGS.splits != 'none':
+            qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt')
+            sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
+            names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
+            names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
+            sims[~names_match.bool()] -= torch.inf
 
-        scene_text = '\n'.join(scenes[sims.argmax()])
-        viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
+            scene_text = '\n'.join(scenes[sims.argmax()])
+            viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
         prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\nQuestion: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 1-4, no punctuation or whitespace.'
         tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
@@ -105,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--recompute-scene-texts', action='store_true')
     parser.add_argument('--test-loading', action='store_true')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif'])
+    parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif', 'none'])
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--prec', type=int, default=4, choices=[32,8,4,2])
     parser.add_argument('--cpu', action='store_true')
