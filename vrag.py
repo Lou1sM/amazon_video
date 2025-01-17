@@ -78,7 +78,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     if ARGS.splits == 'none':
         recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:100]
         prompt_cache = DynamicCache()
-        inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt")
+        inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
         prompt_cache = model(**inputs, past_key_values = prompt_cache).past_key_values # this is the common prompt cached
 
     for i, qdict in enumerate(ep_qs['questions']):
