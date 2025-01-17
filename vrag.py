@@ -76,10 +76,18 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         return 0,0
     n_correct = 0
     if ARGS.splits == 'none':
-        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'
+        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:1000]
         prompt_cache = DynamicCache()
-        inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
-        prompt_cache = model(**inputs, past_key_values = prompt_cache).past_key_values # this is the common prompt cached
+        incr = 3000
+        for n_tries in range(len(recurring_prompt_prefix)//incr):
+            try:
+                inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
+                prompt_cache = model(**inputs, past_key_values = prompt_cache).past_key_values # this is the common prompt cached
+                break
+            except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
+                print(e)
+                recurring_prompt_prefix = recurring_prompt_prefix[incr:]
+                print(f'OOM, reducing min,max to {len(recurring_prompt_prefix)}chars')
 
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
