@@ -99,7 +99,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         return 0,0
     n_correct = 0
     if ARGS.splits == 'none':
-        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:5000]
+        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:ARGS.prompt_prefix]
         incr = 1000
         for n_tries in range(len(recurring_prompt_prefix)//incr):
             try:
@@ -166,6 +166,7 @@ if __name__ == '__main__':
     parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif', 'none'])
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--prec', type=int, default=4, choices=[32,8,4,2])
+    parser.add_argument('--prompt-prefix', type=int, default=5000)
     parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--dud', action='store_true')
     ARGS = parser.parse_args()
@@ -190,6 +191,7 @@ if __name__ == '__main__':
     tot_n_correct, tot = 0, 0
     all_scores = []
 
+    os.makedirs(out_dir:=f'tvqa-results/{ARGS.splits}/{ARGS.model}', exist_ok=True)
     showseaseps = get_showseaseps(ARGS.show_name, ARGS.season, ARGS.ep)
     print(showseaseps)
     all_scores = []
@@ -199,9 +201,16 @@ if __name__ == '__main__':
             print(f'Episode_{ep} not in season_{seas} keys')
             continue
         ep_qs = season_qs[f'episode_{ep}']
-        new_correct, new_tot = answer_qs(show_name, seas, ep, model, ep_qs)
+        cache_fp = os.path.join(out_dir, f'{show_name}_s{seas:01}e{ep:01}.json')
+        if os.path.exists(cache_fp) and not recompute:
+            with open(cache_fp) as f:
+                x = f.read().split()
+            new_correct, new_tot = int(x[0]), int(x[1])
+        else:
+            new_correct, new_tot = answer_qs(show_name, seas, ep, model, ep_qs)
+            with open(cache_fp, 'w') as f:
+                f.write(f'{new_correct} {new_tot}')
         all_scores.append([show_name, seas, ep, model, ep_qs, new_correct, new_tot, new_correct/new_tot])
     df = pd.DataFrame(all_scores, columns = ['show', 'season', 'episode', 'n_correct', 'n', 'acc'])
     print(df.mean(axis=0))
-    os.makedirs(f'tvqa-results/{ARGS.splits}', exist_ok=True)
-    df.to_csv(f'tvqa-results/{ARGS.splits}/{ARGS.show_name}_{ARGS.season}-tvqa-results.csv')
+    df.to_csv(f'{out_dir}/{ARGS.show_name}_{ARGS.season}-tvqa-results.csv')
