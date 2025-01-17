@@ -63,11 +63,11 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     else:
         names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
 
-        scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]
+        scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')][:5000]
         if len(scene_text_feats)==0:
             print(f'{show_name} {season} {episode}: empty scene texts')
             return 0, 0
-        scene_text_feats = torch.stack([torch.zeros(512) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
+        scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
         scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
         if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
             scene_feats = (scene_vision_feats + scene_text_feats) / 2
@@ -79,8 +79,8 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         return 0,0
     n_correct = 0
     if ARGS.splits == 'none':
-        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'
-        incr = 3000
+        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:5000]
+        incr = 1000
         for n_tries in range(len(recurring_prompt_prefix)//incr):
             try:
                 prompt_cache = DynamicCache()
