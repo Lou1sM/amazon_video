@@ -356,3 +356,24 @@ def drop_trailing_halfsent(s):
     s = s.replace('XXX', '.')
     return s
 
+def get_showseaseps(show_name_, seas_num_, ep_num_):
+    showseaseps = []
+    if show_name_=='all':
+        show_names_to_compute = natsorted(os.listdir(f'data/full-videos/tvqa/'))
+    else:
+        show_names_to_compute = [show_name_]
+    for show_name in show_names_to_compute:
+        if seas_num_ == -1:
+            seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(f'data/full-videos/tvqa/{show_name}')])
+        else:
+            seass_to_compute = [seas_num_]
+
+        for seas_num in seass_to_compute:
+            if ep_num_ == -1:
+                for fn in natsorted(os.listdir(f'data/full-videos/tvqa/{show_name}/season_{seas_num}')):
+                    ep_num = int(fn[8:].removesuffix('.mp4'))
+                    showseaseps.append((show_name, seas_num, ep_num))
+            else:
+                showseaseps.append((show_name, seas_num, ep_num_))
+    return showseaseps
+

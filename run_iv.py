@@ -8,6 +8,7 @@ from natsort import natsorted
 import json
 import shutil
 import re
+from utils import get_showseaseps
 
 from InternVideo.InternVideo2.multi_modality.demo_config import Config, eval_dict_leaf
 from InternVideo.InternVideo2.multi_modality.demo.iv_utils import frames2tensor, setup_internvideo2
@@ -147,28 +148,6 @@ def extract_feats(show_name, season, ep):
             question = ' '.join(qdict[k] for k in ('q', 'a0', 'a1', 'a2', 'a3'))
             qvec = intern_model.get_txt_feat(question)
             torch.save(qvec, f'{q_cache_dir}/{i}.pt')
-
-
-def get_showseaseps(show_name_, seas_num_, ep_num_):
-    showseaseps = []
-    if show_name_=='all':
-        show_names_to_compute = natsorted(os.listdir(f'data/full-videos/tvqa/'))
-    else:
-        show_names_to_compute = [show_name_]
-    for show_name in show_names_to_compute:
-        if seas_num_ == -1:
-            seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(f'data/full-videos/tvqa/{show_name}')])
-        else:
-            seass_to_compute = [seas_num_]
-
-        for seas_num in seass_to_compute:
-            if ep_num_ == -1:
-                for fn in natsorted(os.listdir(f'data/full-videos/tvqa/{show_name}/season_{seas_num}')):
-                    ep_num = int(fn[8:].removesuffix('.mp4'))
-                    showseaseps.append((show_name, seas_num, ep_num))
-            else:
-                showseaseps.append((show_name, seas_num, ep_num_))
-    return showseaseps
 
 
 if __name__ == '__main__':

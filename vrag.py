@@ -1,12 +1,11 @@
 import os
 from tqdm import tqdm
-from run_iv import get_showseaseps
 import pandas as pd
 import copy
 import numpy as np
 import logging
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
-from utils import drop_trailing_halfsent
+from utils import drop_trailing_halfsent, get_showseaseps
 import torch
 import argparse
 import json
