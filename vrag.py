@@ -1,4 +1,5 @@
 import os
+import copy
 import numpy as np
 import logging
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
@@ -7,7 +8,7 @@ import torch
 import argparse
 import json
 from natsort import natsorted
-from transformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
 from nltk.corpus import names
 from nltk.tokenize import word_tokenize
 import nltk
@@ -74,6 +75,12 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     if ARGS.test_loading:
         return 0,0
     n_correct = 0
+    if ARGS.splits == 'none':
+        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:100]
+        prompt_cache = DynamicCache()
+        inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt")
+        prompt_cache = model(**inputs, past_key_values = prompt_cache).past_key_values # this is the common prompt cached
+
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
         if ARGS.splits != 'none':
@@ -86,17 +93,28 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             scene_text = '\n'.join(scenes[sims.argmax()])
             viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
-        prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\nQuestion: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 1-4, no punctuation or whitespace.'
-        tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
-        if ARGS.dud:
-            ans = 0
+        question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 1-4, no punctuation or whitespace.'
+        if ARGS.splits == 'none':
+            prompt = recurring_prompt_prefix + question_part
+            new_inputs = tokenizer(prompt, return_tensors="pt").to(device)
+            #past_key_values = copy.deepcopy(prompt_cache)
+            past_key_values = pc = DynamicCache()
+            pc.key_cache = [t.clone() for t in prompt_cache.key_cache]
+            pc.value_cache = [t.clone() for t in prompt_cache.value_cache]
+            with torch.inference_mode():
+                output = model.generate(**new_inputs, past_key_values=past_key_values, min_new_tokens=1, max_new_tokens=1, num_beams=1, output_scores=True, return_dict_in_generate=True)
         else:
-            with torch.no_grad():
-               ans_tokens = model.generate(tok_ids, attention_mask=torch.ones_like(tok_ids), min_new_tokens=1, max_new_tokens=1, num_beams=1)
-               output = model(tok_ids)
-            ans_tokens = ans_tokens[0,tok_ids.shape[1]:]
-            ans = tokenizer.decode(ans_tokens,skip_special_tokens=True, clean_up_tokenization_spaces=True)
-            ans = max(range(5), key=lambda i: output.logits[0,-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
+            prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n{question_part}'
+            tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
+            with torch.inference_mode():
+               output = model.generate(tok_ids, attention_mask=torch.ones_like(tok_ids), min_new_tokens=1, max_new_tokens=1, num_beams=1, output_scores=True, return_dict_in_generate=True)
+               #output = model(tok_ids)
+
+        #ans_tokens = ans_tokens[0,tok_ids.shape[1]:]
+        ans_token = output.sequences[0,-1:]
+        ans = tokenizer.decode(ans_token, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        #ans = max(range(5), key=lambda i: output.scores[0,-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
+        ans = max(range(5), key=lambda i: output.scores[0][-1,tokenizer.encode(str('a'), add_special_tokens=False)[0]].item())
         if ARGS.verbose:
             print(prompt, qdict['answer_idx'])
             print(f'pred: {ans} gt: {qdict["answer_idx"]}')
@@ -122,7 +140,6 @@ if __name__ == '__main__':
 
 
     from hierarchical_summarizer import load_peft_model
-    from transformers import AutoTokenizer
     llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
