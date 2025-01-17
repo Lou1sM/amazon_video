@@ -5,7 +5,7 @@ import copy
 import numpy as np
 import logging
 logging.getLogger("transformers.generation.utils").setLevel(logging.ERROR)
-from utils import drop_trailing_halfsent, get_showseaseps
+from utils import drop_trailing_halfsent
 import torch
 import argparse
 import json
@@ -51,6 +51,27 @@ def get_texts(split_name, vid_subpath):
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
     return names_in_scenes, scenes, viz_texts
 
+def get_showseaseps(show_name_, seas_num_, ep_num_):
+    showseaseps = []
+    if show_name_=='all':
+        show_names_to_compute = natsorted(os.listdir(f'rag-caches/tvqa/'))
+    else:
+        show_names_to_compute = [show_name_]
+    for show_name in show_names_to_compute:
+        if seas_num_ == -1:
+            seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(f'rag-caches/tvqa/{show_name}')])
+        else:
+            seass_to_compute = [seas_num_]
+
+        for seas_num in seass_to_compute:
+            if ep_num_ == -1:
+                for fn in natsorted(os.listdir(f'rag-caches/tvqa/{show_name}/season_{seas_num}')):
+                    ep_num = int(fn[8:].removesuffix('.mp4'))
+                    showseaseps.append((show_name, seas_num, ep_num))
+            else:
+                showseaseps.append((show_name, seas_num, ep_num_))
+    return showseaseps
+
 def answer_qs(show_name, season, episode, model, ep_qs):
     dset_name = 'tvqa'
     vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
@@ -67,7 +88,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             print(f'{show_name} {season} {episode}: empty scene texts')
             return 0, 0
         scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
-        scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}') for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
+        scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
         if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
             scene_feats = (scene_vision_feats + scene_text_feats) / 2
         else:
@@ -94,7 +115,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
         if ARGS.splits != 'none':
-            qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt')
+            qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt').to(device)
             sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
             names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
             names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
@@ -170,6 +191,7 @@ if __name__ == '__main__':
     all_scores = []
 
     showseaseps = get_showseaseps(ARGS.show_name, ARGS.season, ARGS.ep)
+    print(showseaseps)
     all_scores = []
     for show_name, seas, ep in tqdm(showseaseps):
         season_qs = full_dset_qs[show_name_dict[show_name]][f'season_{seas}']
