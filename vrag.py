@@ -1,4 +1,7 @@
 import os
+from tqdm import tqdm
+from run_iv import get_showseaseps
+import pandas as pd
 import copy
 import numpy as np
 import logging
@@ -136,6 +139,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--show-name', type=str, default='friends')
     parser.add_argument('--season', type=int, default=2)
+    parser.add_argument('--ep', type=int, default=-1)
     parser.add_argument('--recompute-scene-texts', action='store_true')
     parser.add_argument('--test-loading', action='store_true')
     parser.add_argument('--verbose', action='store_true')
@@ -165,41 +169,18 @@ if __name__ == '__main__':
 
     tot_n_correct, tot = 0, 0
     all_scores = []
-    def qa_season(seas_num):
-        season_qs = full_dset_qs[show_name_dict[ARGS.show_name]][f'season_{seas_num}']
-        global tot_n_correct
-        global tot
-        scores_by_ep = {}
-        for ep in os.listdir(f'rag-caches/tvqa/{ARGS.show_name}/season_{seas_num}'):
-            if ep not in season_qs.keys():
-                print(f'Episode_{ep} not in season_{seas_num} keys')
-                continue
-            else:
-                ep_qs = season_qs[ep]
-            ep_num = ep.removeprefix('episode_')
-            new_correct, new_tot = answer_qs(ARGS.show_name, seas_num, ep_num, model, ep_qs)
-            tot_n_correct += new_correct
-            tot += new_tot
-            scores_by_ep[ep_num] = {'n_correct': new_correct, 'tot': new_tot}
-            if new_tot==0:
-                print(888)
-            else:
-                all_scores.append(new_correct/new_tot)
-        return scores_by_ep
 
-    if ARGS.season == -1:
-        seasons = sorted([x.removeprefix('season_') for x in os.listdir(f'rag-caches/tvqa/{ARGS.show_name}')])
-        scores = {}
-        for s in seasons:
-            seas_scores = qa_season(s)
-            scores[f'season_{s}'] = seas_scores
-    else:
-        seas_scores = qa_season(ARGS.season)
-        scores = {f'season_{ARGS.season}': seas_scores}
-    scores['tot_n_correct'] = tot_n_correct
-    scores['tot'] = tot
-    print(f'macro: {np.array(all_scores).mean():.4f}, micro: {scores["tot_n_correct"]/scores["tot"]:.4f}')
+    showseaseps = get_showseaseps(ARGS.show_name, ARGS.season, ARGS.ep)
+    all_scores = []
+    for show_name, seas, ep in tqdm(showseaseps):
+        season_qs = full_dset_qs[show_name_dict[show_name]][f'season_{seas}']
+        if f'episode_{ep}' not in season_qs.keys():
+            print(f'Episode_{ep} not in season_{seas} keys')
+            continue
+        ep_qs = season_qs[f'episode_{ep}']
+        new_correct, new_tot = answer_qs(show_name, seas, ep, model, ep_qs)
+        all_scores.append([show_name, seas, ep, model, ep_qs, new_correct, new_tot, new_correct/new_tot])
+    df = pd.DataFrame(all_scores, columns = ['show', 'season', 'episode', 'n_correct', 'n', 'acc'])
+    print(df.mean(axis=0))
     os.makedirs(f'tvqa-results/{ARGS.splits}', exist_ok=True)
-    with open(f'tvqa-results/{ARGS.splits}/{ARGS.show_name}_{ARGS.season}-tvqa-results.json', 'w') as f:
-        json.dump(scores, f)
-
+    df.to_csv(f'tvqa-results/{ARGS.splits}/{ARGS.show_name}_{ARGS.season}-tvqa-results.csv')
