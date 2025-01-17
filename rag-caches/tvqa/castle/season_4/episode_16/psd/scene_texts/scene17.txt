@@ -1,0 +1,100 @@
+Beckett : That killing a little girl could lead to the collapse of the United States?
+Beckett : I mean, it just seems crazy.
+UNK: Yeah, well, so did Blakely's first linchpin.
+UNK: They asked him to develop a non-nuclear military strategy
+UNK: that would bring down the Soviet Union.
+UNK: Turns out all we had to do was outspend them.
+UNK: SOPHIA SIGHS
+Sophia : Need to take another run at Gage. Looks like he's all we've got.
+Sophia : Put us on lockdown. No one leaves or enters the facility.
+Beckett : Contact burns. He was shot point blank.
+Castle : How is it that nobody heard the shot?
+Sophia : The room is soundproof.
+Sophia : The real question is,
+Sophia : how come nobody saw?
+UNK: Tech 1 : Someone hacked the video stream.
+Castle : How is that possible? You're the CIA.
+Castle : You have the most secure computers in the world.
+UNK: Possible, because Gage was right.
+Sophia : There's a mole in the CIA, and he's in this unit.
+Danberg : Facility's locked down. All personnel have been accounted for.
+Beckett : How many people had access to that room?
+SOPHIA : Eighteen.
+UNK: Tech 2 : Ma'am, I've isolated the subroutine used to doctor the video.
+UNK: Tech 2 : It was embedded in a software worm to escape detection.
+Danberg : Then there's no way to tell where it came from.
+UNK: Tech 2 : I may be able to use a reductive logarithm
+UNK: Tech 2 : to isolate the pathway it took through the system.
+UNK: Tech 2 : It might tell us where it was loaded.
+Danberg : You can do that?
+UNK: Tech 2 : I can try.
+Sophia : Do it.
+Castle : I got no idea what they're talking about, but this is very exciting.
+UNK: FEMALE TECHNICIAN : There it is. Starting the trace.
+UNK: Tech 2 : Got it! That's the terminal address where the virus was uploaded.
+Sophia : Whose is it?
+UNK: FEMALE TECHNICIAN : Agent Trahn's. What?
+UNK: No. There's been a mistake!
+UNK: Keep your hands where I can see them.
+UNK: Get down on the ground, now! I didn't do it!
+UNK: Wait! It's a decoy. The hacker piggybacked the IP.
+UNK: It's not Trahn. Then who is it?
+UNK: Whoever uploaded it used Trahn's terminal IP to hide their ID.
+UNK: They're good, but I'm better.
+UNK: I've isolated the user's pass code. I'm de-encrypting now.
+Sophia : Run a personnel match.
+UNK: BEEPING
+UNK: Martin.
+UNK: No, Soph. I'm loyal.
+Danberg : You know I'm loyal. Then put the gun down.
+Sophia : Put it down! Okay.
+UNK: All right. Okay.
+Danberg : You shoot, she dies. Everyone, back up, now.
+UNK: Martin, don't, don't do it. MARTIN : Back up now!
+UNK: Hand.
+SOPHIA : Martin, don't.
+Sophia : Martin, don't! Martin, put the gun down, Martin.
+UNK: Thanks, but I'd rather live.
+Sophia : Shut the elevator down.
+Ryan : I'm in!
+UNK: Tech 3 : Stand by, I'm bringing it back down.
+CASTLE : There's no way you could've known.
+SOPHIA : No? When we first got wind of Pandora,
+UNK: Danberg was the one who found all the connections.
+Sophia : He was the one who traced it to Gage.
+Sophia : All so we wouldn't get too close to him.
+Sophia : Even tried to convince me to get rid of you two.
+Sophia : And worst of all,
+Sophia : he may not be working alone.
+BECKETT : The implications of Pandora are huge.
+Beckett : I don't understand how one of our own would actually want
+Beckett : to plunge the country or the world into war.
+Sophia : Money, ideology. None of it makes any sense.
+Castle : Well, the motives don't matter.
+Castle : All that matters is stopping Pandora.
+Castle : Gage said he picked up chatter.
+UNK: He said it's going down tomorrow.
+Sophia : We've heard the same thing, which means we don't have any time.
+Sophia : We have to find her.
+UNK: Well, there's gotta be something that we missed.
+Beckett : Some detail that will help us figure out who she is.
+SOPHIA : We've run it through every database we have.
+UNK: We have looked through everything.
+UNK: Not everything.
+Castle : You guys maintain a topographical survey of the Earth, right?
+Sophia : Yeah, why?
+Castle : So don't search for the girl, run the mountains.
+Castle : If we know where she's from, we can narrow down our search.
+Sophia : You are a genius.
+BECKETT : How long will this take?
+Sophia : It's a big world.
+Sophia : We've pulled anything arid and everything
+Sophia : above and below 60 degrees latitude.
+Sophia : But they're estimating it could take 32 hours.
+UNK: It looks like a long night. I'll get some coffees.
+Sophia : He was always thoughtful.
+Beckett : You like him.
+Sophia : I did. Once.
+Beckett : So what happened? If you don't mind my asking.
+Sophia : Well, you ever meet someone
+Sophia : and have that intense attraction right away?

@@ -1,0 +1,30 @@
+UNK: Bank Manager : Here you go, Mr. Castle.
+UNK: Bank Manager : Box 115. Thank you.
+Castle : And may I ask you something?
+Castle : Do I look familiar to you?
+UNK: Bank Manager : No, I don't believe so. Have we met?
+Castle : I guess not. My mistake.
+Castle : Is it possible to access this box today?
+UNK: Of course. George,
+UNK: Bank Manager : would you please take Mr. Castle
+UNK: back to the safe deposit vault?
+Guard : Follow me, sir.
+Guard : Which box, sir?
+UNK: 38.
+Alexis : If it's not the right key, we'll get caught.
+UNK: Sir? Ah.
+Castle : Here we are.
+UNK: Well... Ooh.
+Guard : Is there a problem? No!
+Castle : No problem. Just a little sticky.
+Guard : Are you sure you have the right box?
+UNK: Positive.
+Guard : I'll just check with the manager.
+UNK: Wait, wait. Let's try one more time.
+Castle : Just a little...
+Castle : There we go. It was just a little sticky.
+UNK: What do you think is inside? I don't know.
+UNK: But someone went to a lot of trouble to make sure I had a key.
+Beckett : You ready?
+Alexis : Dad, that's your handwriting.
+UNK: Yeah, I don't remember writing those.

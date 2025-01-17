@@ -1,0 +1,44 @@
+Jansen : The rover was docked.
+Jansen : M.I.R.A., we know the rover wasn't docked.
+Mira : How do you know?
+Jansen : We have photographs. Evidence.
+Mira : Your evidence is incorrect. The rover was docked.
+UNK: M.I.R.A., prior to Tom's death,
+Beckett : did someone instruct you to activate the rover?
+Jansen : She's drawing more power. Something's wrong.
+Mira : No. The rover wasn't activated. The rover was docked.
+Castle : Is it possible someone could've altered her memory?
+Mira : No one altered my memory, Mr. Castle. My memory is perfect.
+Jansen : Her memory core was designed to be a closed system.
+Jansen : It can't be altered. But something's off.
+UNK: M.I.R.A., run a level-one diagnostic on all systems.
+Mira : There is no need to run a diagnostic. All systems are optimal.
+Jansen : How about we run it anyway?
+Mira : I'm sorry. I can't do that.
+Jansen : Why not?
+Mira : It violates my operational parameters.
+Jansen : It's a simple diagnostic.
+Jansen : What parameter does it violate?
+Mira : It will compromise the mission.
+Jansen : How will a diagnostic compromise the mission?
+Mira : Answering that question will compromise the mission.
+Jansen : I don't understand. I think I do.
+Beckett : She knows she's lying to us.
+Beckett : And if she runs those diagnostics,
+Beckett : we'll discover the truth.
+Castle : And that truth will somehow put the mission at risk.
+Jansen : She's a machine. She can't lie.
+UNK: You said that she's programmed to learn.
+Castle : What if somebody taught her how?
+Castle : What if someone used her to kill,
+Castle : and then to help cover up the crime?
+Jansen : No, her core parameters can't be altered.
+UNK: She's programmed to protect the mission and everyone on it.
+Castle : But what if those operational parameters
+Castle : are in conflict with each other?
+UNK: What if someone she's programmed to protect is a threat to the mission?
+Castle : Um, M.I.R.A., how would you classify Tom Richwood?
+Mira : Sergeant Major Tom Richwood, pilot, systems engineering specialist.
+UNK: Okay. Right, okay. Deceased.
+Castle : Was Tom a threat to the mission?
+UNK: Yes.

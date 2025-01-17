@@ -1,0 +1,31 @@
+Castle : There's your killer, holding the murder weapon.
+Castle : The rover did it!
+Jansen : The rover was out? This can't be right.
+Jansen : All the data from M.I.R.A. indicates
+UNK: that the rover was docked when Tom was killed.
+Castle : I'd say the data's wrong.
+UNK: And according to your literature,
+Castle : that rover has the speed and dexterity
+Castle : to kill with mathematical precision.
+Beckett : Mr. Jansen, who has access to the rover controls?
+Beckett : One of your astronauts? Someone at mission control?
+Jansen : No one has access.
+Jansen : The rover is an extremely complex piece of equipment.
+Jansen : Under human control, there's too high a margin for error,
+Jansen : so we designed it to interface solely with the computer.
+Jansen : Our astronauts describe the sort of task they want carried out
+Jansen : and M.I.R.A. executes it.
+UNK: Is it possible someone could've asked her to kill Tom?
+Jansen : M.I.R.A. wouldn't comply with that sort of command.
+Jansen : But something's wrong. I need to talk to her.
+Becket : Well, is there somewhere we can do that privately, without anyone hearing?
+Jansen : Yeah. The computer module pod, inside the sim.
+Kim : What's going on?
+Jansen : Let you know soon.
+Jansen : In here.
+Jansen : There. I've cut off communications with the rest of the habitat.
+Jansen : No one can hear us.
+Esposito : Is that you, Dr. Jansen?
+Jansen : Yes, M.I.R.A.
+Beckett : What are you doing on Mars, Doctor?
+UNK: I came to talk to you.

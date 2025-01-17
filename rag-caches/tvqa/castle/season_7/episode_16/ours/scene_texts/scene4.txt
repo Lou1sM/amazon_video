@@ -1,0 +1,30 @@
+UNK: Mission Control Tech : I ran a check on all our security systems.
+UNK: Mission Control Tech : Everything looked normal until I got into the deep code.
+UNK: Mission Control Tech : See that?
+Jansen : Oh, God. What is it?
+UNK: Mission Control Tech : Our security system's been hacked.
+Jansen : Key cards, alarm codes...
+Beckett : Meaning someone could have broken into the simulation.
+UNK: Based on our backup files,
+UNK: these changes were made two days ago.
+UNK: Sometime between 11 : 10 and 11 : 14 at night.
+Jansen : Digital tracing indicates we were breached from the outside.
+Jansen : Someone broke through our firewall.
+Beckett : Can you tell who?
+Jansen : We log every IP address that connects to the mainframe.
+Jansen : I'm running a trace now for that time window.
+Jansen : There. Third one down. I don't recognize that one.
+Ryan : All right. We should be able to trace it.
+Jansen : Don't bother. I just did.
+Jansen : It's coming from a residential Wi-Fi.
+Jansen : Registered to a...
+UNK: You gotta be kidding me.
+Beckett : Who is it?
+Jansen : Clint Granger. Hothead pilot.
+Jansen : He was one of our applicants until he was kicked out of the program.
+Castle : Why'd he get kicked out?
+Jansen : He accused Tom of sabotaging him
+Jansen : during candidate testing.
+UNK: Claimed it cost him the pilot's spot.
+Ed : So he tried to run Tom over in the parking lot.
+Beckett : And when was this?

@@ -1,0 +1,26 @@
+Lady : If you don't know how to use a computer, we will teach you here.
+Lady : Most jobs require at least basic word processing skills.
+Lady : We try to get you up to 50 words per minute.
+Lady : We also have a course in how to talk to someone in an interview.
+Lady : Stuff like what employers are looking for,
+Lady : how to turn negatives into positives.
+Lady : We can also provide clothes for the interview if you need them.
+Lady : People donate shoes and suits all the time.
+Benjamin : What if I had a history with drugs?
+Lady : That is nothing to be ashamed of.
+Lady : Many of our clients have struggled with addiction,
+Lady : and if you want to get clean, we'll help you do that.
+Benjamin : And what if I have a kid?
+Lady : No one to help you?
+Benjamin : If I need someone to watch her while I'm in a class or on an interview
+Benjamin : could you help with that?
+Lady : We do not provide child care.
+Lady : Actually, it's something that comes up often.
+Lady : I would love to be able to do it.
+Lady : I just don't have the resources.
+Lady : But it's definitely on the wish list.
+Benjamin : Okay. Okay, uh, thank you. I'll be back.
+Lady : I have to take this.
+Lady : Yes, please come back. We'll get you started.
+Lady : It was nice to meet you, Benjamin.
+Lady : Hey, Oscar.

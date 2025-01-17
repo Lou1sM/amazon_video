@@ -59,8 +59,6 @@ cache/*
 */cache*/
 tmp*.py
 *pickle
-*output*/
-*/*output*/
 linjli
 ./datasets
 # ./models

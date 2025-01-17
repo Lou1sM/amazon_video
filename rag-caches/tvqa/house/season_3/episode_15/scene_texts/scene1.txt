@@ -1,0 +1,25 @@
+Foreman : Patient had a foot problem.
+House : Different patient.
+UNK: There was no one else in there.
+House : You're using the wrong equipment.
+OBYEDKOV : Dr. Foreman, I thought we were being discharged.
+House : I'm Dr. House,
+UNK: and on the off chance that Dr. Foreman didn't mention it,
+House : I have something of a gift, too.
+UNK: Come on.
+House : Your turn. My turn.
+Patient : Does this have anything to do with his hand?
+House : It might.
+House : Okay, Patrick. Close your eyes.
+House : What's this?
+Patrick : D, G-flat, A-flat, B.
+House : Yeah. All right, all right.
+Foreman : He's good. Can we let him go?
+House : He's great. He's staying.
+UNK: PATRICK PLAYING OFF-KEY
+House : Call radiology.
+House : We need a functional MRI on his brain.
+Foreman : FMRI's not gonna show trauma.
+UNK: We're not looking for trauma.
+UNK: I want to see the music.
+House : See the music.

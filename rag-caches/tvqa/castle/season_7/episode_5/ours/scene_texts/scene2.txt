@@ -1,0 +1,95 @@
+Esposito : CSU found this postcard in Abby's dresser drawer.
+UNK: "The brightest stars burn quickest."
+UNK: She got this on the same day she was murdered?
+UNK: Wait, is this a fingerprint?
+Esposito : No. That's a smudge. But it might mean something.
+Esposito : The lab says that it's wood varnish.
+Ryan : Hey, guys, check this out.
+Ryan : I was looking through Abby's followers,
+UNK: and one of 'em posted pictures of her on their account.
+Esposito : Crime scene photos?
+Beckett : But not ours.
+Beckett : The killer took these photos before we got to the crime scene.
+UNK: "This star's 15 seconds are over."
+Beckett : Whose account is this?
+UNK: Username is "Netslayer."
+Esposito : He kills her, then posts her picture.
+Esposito : Why would he do that?
+Castle : Tear down the victim, add insult to injury.
+UNK: "This star's 15 seconds are over."
+Castle : Maybe that's why he killed Abby.
+Castle : Because she's a Web celebrity.
+Ryan : Or he wants to become one himself.
+Castle : Abby did have half a million followers.
+Castle : Killing her would give him instant high profile.
+Beckett : Or he could just be using social media
+Beckett : to hide his true motives for killing her.
+Beckett : Either way, maybe these photos could help us find him.
+Esposito : Yeah, I'll get with Tory. We'll analyze the photos,
+Esposito : see if we can pull some images off the reflections.
+Ryan : All right. And I'll go through his account,
+Ryan : see if he posted anything else that could help us ID him.
+UNK: Where you guys going?
+Beckett : Straight to the source.
+Beckett : Maybe Snappamatic can give us an idea of who he is
+Beckett : or where to find him.
+UNK: Actually, ID'ing and locating users
+UNK: Kent Wilder : are two things we just can't do.
+Beckett : Can't or won't?
+UNK: Oren Wilder : Can't. Snappamatic was designed for privacy.
+UNK: Oren Wilder : It runs on a software platform
+UNK: Oren Wilder : that anonymizes all of our users.
+Castle : I bet that was a real selling point for the killer.
+Oren : Look, no one is more upset about this than we are.
+Beckett : I bet Abby Smith was.
+Beckett : One of your users killed her,
+Beckett : and you're trying to tell me that you can't help us?
+Kent : We're trying. Evan's combing the guy's account,
+Kent : but all you need to register is a valid e-mail address.
+Evan : Which isn't valid anymore, by the way.
+Evan : So no help there.
+Oren : What we can do is suspend his account so he can't post.
+Castle : Well, the reason he's posting in the first place
+Castle : is because he wants attention.
+Castle : He needs to communicate.
+Beckett : Exactly. He likes to share, so let him.
+UNK: Maybe he's gonna share something
+Beckett : that he didn't intend to.
+Beckett : Now, take the pictures down, but leave the account up.
+Oren : We'd rather not have the Snappamatic brand
+Oren : associated with a murderer.
+Beckett : It already is.
+Beckett : It's our pipeline directly to the killer.
+Beckett : The account stays open.
+UNK: Consider the bright side, gentlemen.
+Castle : The traffic for your site will be through the roof.
+Evan : I think I got something.
+Evan : I was digging through the metadata
+Evan : and found a geotag anomaly on one of the pictures.
+Beckett : What kind of an anomaly?
+Evan : Okay, so the geotag holds GPS coordinates,
+Evan : usually of where a photo was taken.
+Castle : Usually, but not always?
+Evan : Not if the camera loses its GPS signal.
+Evan : In that case, a geotag is assigned
+Evan : when the photo is uploaded.
+Castle : So, the killer lost his GPS signal,
+Castle : didn't notice...
+Beckett : And then when he posted his photos onto Snappamatic,
+UNK: he accidentally revealed his location.
+Beckett : What are the coordinates?
+Esposito : Tory plotted the longitude and latitude of the geotag,
+Esposito : and we got an address in downtown Manhattan.
+Beckett : And what's there?
+Esposito : It's a vintage furniture store.
+UNK: Wood, wood varnish!
+Castle : That explains the smudge on the note.
+Beckett : Okay, let's get the names of everyone that works there.
+Esposito : We already did.
+UNK: It's a one-man shop owned by one Bill Garrett.
+Esposito : Turns out he used to be a cop,
+Esposito : until he had a nervous breakdown.
+UNK: And get this, he worked in the Cyber Division.
+Castle : Which means he would know his way
+Castle : around the Web and social media.
+Beckett : Bring him in.

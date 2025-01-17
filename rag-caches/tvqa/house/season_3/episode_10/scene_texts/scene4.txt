@@ -1,0 +1,79 @@
+House : There's no bruise or nothing, but it really hurts.
+Doctor : Unfortunately, that pain and lack of bruising is typical of a zygomatic break.
+House : Sounds bad.
+Doctor : Bones are aligned properly.
+Doctor : Which ER did you go to after the car accident?
+UNK: Princeton Plainsboro. Here's my discharge slip.
+UNK: Okay.
+UNK: I'm going to get you some acetaminophen with codeine.
+House : I tried that, it makes me nauseous.
+Doctor : There's a drug called gabapentin
+Doctor : which is good for certain kinds of pain. Great!
+UNK: 'Cause I haven't slept in days.
+Doctor : Gabapentin's not really going to help with the sleep.
+UNK: Oh.
+House : Is there something else you can give me?
+Doctor : Vicodin's your best bet with sleep issues. Well, thanks so much.
+Doctor : Unfortunately, our policy forbids prescribing opiates to new patients.
+UNK: Well, how could a clinic have a rule against relieving pain?
+UNK: Just with opiates. We find that it helps weed out drug-seekers.
+House : You think I'm a drug-seeker? I'm not saying that.
+House : Well, then give me the Vicodin. I can't.
+House : Because you think I'm a drug-seeker.
+Doctor : I just said I didn't.
+House : No, you said that the policy was to stop drug-seeking.
+House : Then you said I'm not a drug-seeker. Policy doesn't apply.
+Doctor : I'm sorry, that's the policy.
+House : Gabapentin works on nerve damage.
+House : You're prescribing it for a broken face.
+House : Might as well hand out Band-Aids for a severed carotid.
+Doctor : You're a doctor.
+House : Not by this clinic's definition, since I'm neither a moron,
+House : nor a mindless drone!
+UNK: Security. Forget it.
+House : I'll throw myself out.
+Abigail : That tube is going all the way down to my liver?
+Cuddy : Don't worry, you'll be sedated.
+Wilson : Sometimes doctors have to do things
+Wilson : that make people uncomfortable to help them.
+Foreman : But we always want to respect the patient's wishes
+Foreman : and not shove things down their throats.
+UNK: Foreman.
+Wilson : You haven't given her the sedative.
+UNK: No.
+UNK: Abigail.
+UNK: Abigail.
+Foreman : She's unconscious.
+Wilson : Check her airway.
+Foreman : Airway's clear.
+Foreman : Her breath smells fruity.
+Wilson : Diabetic ketoacidosis.
+Foreman : Hang an insulin drip at.1 mgs per kg per hour!
+UNK: Her pancreas is failing. You ready to call House yet?
+UNK: SIGHS
+Foreman : You were right. The patient's pancreas is failing.
+House : Told you you'd come begging me for help.
+Cuddy : Her insulin production is almost non-existent.
+House : Give me my pills or lose an arm.
+Cuddy : The girl is dying! So give me my pills.
+Cuddy : Take the deal and I will.
+House : You'd rather kill this girl than give me my pills?
+Cuddy : I would rather lose one patient now
+Cuddy : than the dozens we will lose while you're in prison.
+House : Well, have fun explaining that to her itsy-bitsy grieving mother.
+Cameron : What if we sacrifice this girl and House still goes to jail?
+Cuddy : I'd feel bad. Can we get on with this?
+Cuddy : House correctly predicted the spread,
+Cuddy : means we've got a global systemic illness affecting lungs, liver and pancreas.
+Cuddy : So far. Ideas?
+Chase : Langerhans cell histiocytosis attacks multiple organ systems.
+Foreman : Histiocytosis usually starts in the brain, then moves to the internal organs.
+Foreman : Abigail's brain is fine. Cystic fibrosis.
+Wilson : Exocrine function's normal.
+Wilson : Hodgkin's lymphoma. It's a systemic cancer, which her dwarfism predisposes her to.
+UNK: You have any ideas that aren't cancer? Cancer fits.
+Cameron : Autoimmune fits better.
+Cameron : We should treat her with prednisone for lupus.
+Wilson : That'll spike her blood sugar and put her back in a coma.
+UNK: It's much safer just to run a double-stranded DNA test.
+Cameron : Not if she dies before we get the results.

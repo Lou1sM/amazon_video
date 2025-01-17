@@ -1,0 +1,87 @@
+UNK: Dr. Elena Sarkov : Hello, I'm Dr. Elena Sarkov.
+UNK: Dr. Elena Sarkov : What did you mean by "invisibility serum"?
+Castle : I was just saying that...
+UNK: Wait, Castle.
+UNK: If you want answers, you're gonna have to give us some first.
+Beckett : Unless you want the entire NYPD knocking on your front door.
+Sarkov : What do you want to know?
+Beckett : What is this place, and how is Will Fairwick connected to it?
+Sarkov : Mr. Castle is correct. This is a government facility.
+Castle : CIA? Homeland Security?
+UNK: DARPA.
+Sarkov : Something like that. Will worked here.
+Sarkov : And his death was quite a loss to us.
+Beckett : So you know about his murder. Now, what did he do here?
+Sarkov : He was one of my scientists.
+Sarkov : Quantum engineering. I recruited him out of MIT.
+Beckett : Recruited? Wait, so then he never had a breakdown.
+Sarkov : Cover story to avoid questions.
+Castle : Quantum engineering? DARPA? You are researching invisibility.
+Sarkov : No, Mr. Castle. Invisibility is science fiction.
+Sarkov : Cloaking, however, is science.
+Sarkov : I have answered your questions, now answer mine.
+Sarkov : How did you find out about our technology?
+Beckett : During our investigation, we encountered an unseen person...
+Castle : Invisible person.
+Ryan : At Will's apartment.
+UNK: We believe this, whoever, was behind his murder.
+UNK: And given the research that you're doing here,
+Beckett : we believe the killer is connected to this facility.
+Sarkov : It's impossible.
+Beckett : We know what we saw.
+Castle : Or didn't see.
+Sarkov : No, it's impossible because we haven't gotten our technology to work.
+Sarkov : But I think I know who did.
+Beckett : The Chinese?
+Sarkov : They've been pursuing the same technology.
+Sarkov : We heard they were close to a breakthrough.
+Beckett : Why would you suspect them?
+Sarkov : Because a few days ago we suffered a crippling cyber-attack.
+Sarkov : All of our data was wiped out.
+Sarkov : Our team managed to trace the virus
+Sarkov : to a relay station in Shanghai.
+Castle : It's a suit.
+Castle : How does it turn invisible?
+Sarkov : By bending light waves over metamaterials.
+Castle : You guys have the coolest toys.
+UNK: That's what I promised Will to lure him here.
+Sarkov : The opportunity to play with advanced government tech.
+Sarkov : Of course, as an anarchist, he joked it was his deal with the Devil.
+Beckett : If you're right, and the Chinese do have a working suit,
+Beckett : why would they target Will?
+Sarkov : Technology is the arms race of the 21st century.
+Sarkov : And Will was the key to our research.
+UNK: His death sets us back years.
+Sarkov : Excuse me for just one moment.
+UNK: Yeah.
+Beckett : Castle, if the Chinese are behind this,
+Beckett : why would they try to stop us from taking Will's key card?
+Beckett : And what do they have to do with Talmadge?
+Castle : I don't think it's the Chinese.
+Beckett : Why not?
+UNK: Do you see that symbol there that... There.
+Castle : It keeps repeating in the virus.
+Castle : The one that isn't Chinese? Mmm-hmm.
+UNK: It's a symbol.
+Castle : Of the East Mountain Goblins from Terra Quest.
+Beckett : Will's neighbor, Henry Wright.
+Esposito : Unis went to Henry Wright's apartment. Found it cleaned out.
+Esposito : Closet, dresser empty. Dude's gone.
+Beckett : What have we found on him?
+Esposito : Well, he's a serious hacker.
+UNK: At 15, he cracked the city's power grid,
+Esposito : didn't get scared straight until he was in his 20s.
+Esposito : Now he's a sneaker,
+Esposito : testing cyber defenses for Fortune 500 companies.
+Beckett : Which means he had the skills necessary
+Beckett : to launch a cyber-attack against Dr. Sarkov's lab.
+Ryan : And he had another connection to this case.
+UNK: Henry attended Caltech with, wait for it, assault victim Tom Talmadge.
+Ryan : They were roommates.
+Ryan : And this is the lawsuit that Henry filed against Talmadge,
+Ryan : accusing him of stealing the code that he used to build Hytch.
+Ryan : The court dismissed the case.
+Castle : Costing Henry billions.
+Castle : Sarkov said her lab hadn't cracked the cloaking technology,
+Castle : but what if Will did with a little help from his neighbor, Henry?
+Castle : And with a functioning suit,

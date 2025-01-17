@@ -1,0 +1,36 @@
+Receptionist : Oh, hello there.
+Castle : I'm betting this isn't Greenblatt Insurance.
+Beckett : Hi, I'm Detective Beckett, NYPD.
+Beckett : We were wondering if a William Fairwick is an employee here.
+Receptionist : Let me get someone to assist you.
+UNK: And what kind of business is this exactly?
+Receptionist : It'll be just a moment.
+Receptionist : I love that jacket.
+UNK: Hands! Show me your hands!
+UNK: Head Of Security : Your credentials check out.
+UNK: Head Of Security : If you and Mr. Castle vacate the premises immediately,
+UNK: Head Of Security : we will refrain from filing federal trespassing charges.
+Beckett : I'm sorry, we're investigating a homicide.
+Beckett : We're not leaving without answers.
+Castle : Uh, Federal charges?
+UNK: It's a top-secret government facility.
+Castle : I was right. Invisibility serum.
+UNK: Head Of Security : What did you say?
+UNK: I said I was right.
+UNK: Head Of Security : Copy that, ma'am.
+UNK: Dr. Elena Sarkov : Hello, I'm Dr. Elena Sarkov.
+UNK: Dr. Elena Sarkov : What did you mean by "invisibility serum"?
+Castle : I was just saying that...
+UNK: Wait, Castle.
+UNK: If you want answers, you're gonna have to give us some first.
+Beckett : Unless you want the entire NYPD knocking on your front door.
+Sarkov : What do you want to know?
+Beckett : What is this place, and how is Will Fairwick connected to it?
+Sarkov : Mr. Castle is correct. This is a government facility.
+Castle : CIA? Homeland Security?
+UNK: DARPA.
+Sarkov : Something like that. Will worked here.
+Sarkov : And his death was quite a loss to us.
+Beckett : So you know about his murder. Now, what did he do here?
+Sarkov : He was one of my scientists.
+Sarkov : Quantum engineering. I recruited him out of MIT.

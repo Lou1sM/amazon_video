@@ -1,0 +1,12 @@
+UNK: STATIC
+UNK: FOOTSTEPS
+UNK: DOOR OPENS
+UNK: CHAIR SLIDES
+UNK: SENATOR BRACKEN : Raglan, shut the door.
+UNK: DOOR CLOSES
+UNK: You three got a lot of balls coming here.
+GATES : Is that...
+CASTLE : Senator Bracken. Back when he was still Assistant DA.
+MONTGOMERY : Look, we just want to make sure
+UNK: we're all on the same page.
+Beckett : And that's Montgomery.

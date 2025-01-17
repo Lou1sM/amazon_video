@@ -1,0 +1,23 @@
+Vikram : Everything all right?
+UNK: Yeah. I mean, he was just a little weird.
+Vikram : Normally he's a lot weird, so...
+UNK: In a charming kind ofway.
+James : - Oh. - Check this out.
+UNK: Three dump trucks off-Ioaded trash from our cruise ship this morning.
+UNK: AII three left at 8 : 05 a.m., but only two showed up at the dump at 9 : 17.
+Beckett : So the third one must have been carrying the heroin
+Beckett : and then it stopped after it made the delivery.
+Beckett : But where?
+Vikram : I've been scrubbing traffic cam footage,
+Vikram : but I lost the truck in washington Heights.
+Beckett : Pull everything we can on the truck driver.
+Computer : Alert! System breach.
+UNK: Firewall 1.
+UNK: - Oh, we got a problem. - What?
+Vikram : Someone synched a RAT to one of my servers.
+UNK: A remote access tool. We're being hacked.
+Beckett : - By LokSat? - I don't know.
+UNK: But we've been so careful. How could they find us?
+Vikram : They haven't found us yet.
+Vikram : Just cracked the outer layer of our system.
+Vikram : I'll start an intrusion inspection and find out who our rat is.

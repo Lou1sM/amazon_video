@@ -1,0 +1,47 @@
+Castle : What is this place?
+Vasiliy : Communication office. Top secret. Alpha clearance only.
+Esposito : - Cool. - Yes.
+UNK: But not so cool ifthey catch you here. You'll be shot.
+Vasiliy : It's no joke. we must hurry.
+UNK: It is possible that Grigory, even though he did not work here,
+Vasiliy : kept a dedicated e-mail account in our private server.
+Castle : This'll tell us a little bit more
+Castle : about his investigation into his mother's death.
+UNK: Yes. And there it is.
+Vasiliy : I see urgent e-mails from emily2929
+Vasiliy : pleading for him to call her.
+Vasiliy : She's scared, states that they're both in trouble.
+Castle : The last one was sent the day he died. But who's emily2929?
+Beckett : Emily Hopper, do you know why you're here?
+Emily : This is about Grigory Mishkin?
+UNK: Yeah, what was your relationship with him?
+Vasiliy : You're about to lie. Don't do it.
+UNK: It will not be good for you.
+UNK: I saw him a couple of days ago.
+Emily : I'd always had a thing for him, so we hooked up.
+Emily : But that's it. whatever this is about, whatever he did,
+Emily : I had nothing to do with it.
+Beckett : And what do you think this is about, exactly?
+UNK: Oh, I don't know. Nothing.
+Beckett : Emily, Grigory is dead.
+Emily : Oh, God.
+Beckett : What happened the last time you saw him?
+Beckett : Why did you send him e-mails demanding he call you?
+UNK: I fell asleep after we, you know...
+Emily : when I woke up, I thought I saw him on my laptop.
+Emily : He denied it, but after he left,
+UNK: I realized that he'd used my work login to access a client's data.
+UNK: And what kind ofwork do you do?
+Emily : I work with a data storage company.
+UNK: We archive files for businesses and some government agencies.
+Beckett : Okay, you need to tell me what files Grigory was looking at.
+Beckett : Whatever he saw might have gotten him killed.
+UNK: Espo.
+Beckett : Come here.
+Beckett : Close the door.
+UNK: Emily Hopper's cloud storage company archives old FBI files.
+Beckett : That's what Grigory was after.
+Esposito : What kind of FBI files?
+Beckett : A 1980s Cold war operation
+Beckett : to identify and flip Soviet sleeper agents in the US.
+UNK: Sleepers?

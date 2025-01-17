@@ -1,0 +1,112 @@
+Beckett : This is it.
+UNK: Luca Tessaro : One more step, and I'll blow your heads off.
+Beckett : Luca Tessaro?
+Castle : You're alive?
+UNK: Luca, put your weapon down. Why?
+Luca : So you can take me out? Finish the job?
+Luca : Who sent you?
+Beckett : Nobody sent us, Mr. Tessaro.
+Beckett : We're not here to kill you.
+Castle : As a matter of fact, we thought you were already dead.
+UNK: Look, if you don't believe us,
+Castle : you can always ask Jane.
+Castle : Isn't that right, Jane?
+Jane : Wait. It's okay, Luca. They can help.
+Luca : We knew our families would never approve of what we had,
+UNK: so we were gonna use the opportunity to leave the life for good.
+UNK: Disappear.
+UNK: Those credits cards that Eric got,
+Castle : they were to help you get away?
+Luca : But when Eric got popped,
+Luca : I figured it was the same guy who shot me.
+UNK: You know, maybe he found out I was alive,
+Luca : and went after Eric to get to me.
+Beckett : Who was trying to kill you, Luca?
+Luca : I didn't see him.
+Luca : No one ever has.
+Luca : But he calls himself "Il Penumbra."
+UNK: Well, what do you know about him?
+Luca : He's a new player who showed up a few months ago.
+Luca : He started hitting up store owners on our turf for protection payments.
+Beckett : Well, then the store owners must know who he is.
+Luca : He was reaching out to them anonymously, through email.
+Luca : Wire the payment or face consequences.
+UNK: One of our dry cleaners refused to pay,
+UNK: his store burned down to the ground.
+Castle : Mafia 2.0.
+Luca : Whoever this guy is,
+Luca : he was moving into our territory,
+Luca : and the family ordered me to track him down.
+Luca : I uncovered the account where
+Luca : the shopkeepers were wiring him the money.
+Luca : Next thing I know, I get a call from some guy saying he could help.
+Castle : He tells you to meet him under the bridge, but it's a setup.
+Beckett : The shopkeepers we talked to confirmed Luca's story.
+UNK: This Il Penumbra's been terrorizing them for months.
+Castle : How do you track someone who nobody's seen?
+Esposito : Not through that bank info that Luca uncovered.
+Esposito : It dead-ended at a private account in the Cayman Islands.
+Ryan : And given international banking laws,
+Ryan : there's no way to determine who owns that account.
+UNK: But maybe there is.
+UNK: I, uh, made a new friend who might help us
+Castle : skirt those pesky international banking laws.
+Castle : Now, Rita, I know this is a big ask,
+Castle : but if we can figure out who owns that account,
+Castle : we'll find Eric's real killer.
+Rita : Now, is this Penumbra character
+Luca : the same guy that framed Christopher?
+Castle : We believe so, yes.
+Rita : All right, fine, I'll help.
+UNK: But only 'cause I don't wanna sleep alone on Christmas.
+Castle : You and Christopher?
+UNK: Okay, and...
+UNK: You gotta be kidding me.
+UNK: That's not even a clever alias.
+UNK: You know, this guy might be using that alias to withdraw his cash,
+Rita : but I bet he created the account remotely.
+Castle : You think you can trace the account
+Castle : back to the computer it originated from?
+Rita : I think you should tell Christopher
+Rita : he's sleeping over New Year's Eve, too.
+Becket : Rita determined Il Penumbra's Cayman account
+Becket : was opened using a server at the Midtown Library branch.
+Ryan : Public terminal. Makes sense.
+Esposito : Especially since most libraries don't have security cameras.
+Castle : But the convenience store across the street from this one does.
+Castle : So we pulled the video feed from the same day
+UNK: that Il Penumbra created the account.
+UNK: It's time-stamped, so...
+UNK: There.
+Beckett : That's the only person who leaves
+Beckett : in the minutes after the account was opened.
+Beckett : Well, hello, Bad Santa.
+Beckett : Thanks for coming to see us, Detective.
+Melinda : Of course.
+Beckett : Our investigation uncovered something
+Beckett : that we hope the Organized Crime Unit might have information about.
+UNK: Uh, what'd you find?
+Beckett : Luca Tessaro. Alive.
+Mcbride : From the clothes that you told me about,
+Mcbride : I assumed that he was dead.
+Ryan : He almost was.
+Beckett : We believe the person that shot Luca
+Beckett : also killed Eric Mercer to cover their tracks,
+Beckett : which means the shooter knew that the two of them were in contact.
+UNK: This shooter goes by the name of Il Penumbra. Does that ring a bell?
+Mcbride : Can't say it does.
+Castle : Okay. Well, this Il Penumbra,
+Ryan : he planted evidence to frame Christopher Carlucci of Eric's murder,
+Ryan : after using a Mustang like Christopher's to commit the crime.
+Mcbride : I'm not sure where you're going with this.
+Beckett : Your neighbor owns a black Mustang.
+Beckett : He said that you slipped him a little cash to borrow it for that night.
+Ryan : We had CSU sweep the car.
+Beckett : They found traces of Eric's blood on the floor mat,
+Beckett : left there by your boot.
+Mcbride : Are you accusing me of murder?
+Beckett : Along with the attempted murder of Luca Tessaro, and felony extortion.
+Beckett : We found the account in the Caymans.
+Beckett : You've been working OCU for 16 years,
+Beckett : watching bad guys get rich.
+Ryan : So you decided to play both sides

@@ -1,0 +1,43 @@
+Tom : Watch out!
+Kim : You know the rest.
+Beckett : And where were each one of you when this happened?
+Kim : Angela, Rusham and I were here, in the command module.
+Kim : Mikhail was over in engineering.
+Beckett : And is there access to the outside from engineering?
+Mikhail : There is emergency hatch,
+Mikhail : but if I had gone through it, the alarm would have sounded.
+Kim : Plus, as part of the program, we're all closely monitored.
+Kim : In case we lose consciousness
+Kim : or there's a suit malfunction on an EVA.
+Kim : We all have trackers under our skin.
+Haroum : And M.I.R.A. keeps a record of all our movements.
+Castle : Who's Mira?
+Angela : That's what we call the mission computer.
+Beckett : Well, I'd like to take a look at those records.
+UNK: I will be happy to provide you
+Mira : with any records you require, Detective Beckett.
+Beckett : It talks?
+Kim : Yeah. We think of her as the sixth member of the crew.
+Castle : Isn't that a little 2001?
+Haroum : She is programmed to learn and adapt,
+Haroum : but she's more Siri than HAL.
+Haroum : Ask her where you are.
+Castle : M.I.R.A., where are we?
+Mira : You are aboard the vessel Tenzing Norgay
+Mira : in the northern lowlands of Mars.
+Mikhail : She actually thinks she's on Mars.
+UNK: Regardless, I'm gonna need to ask
+Beckett : all of you to join me at the precinct
+Beckett : so I can interview you properly.
+UNK: That could be a problem.
+Ed : I'm sorry, Detective, I can't let you remove the astronauts.
+Ed : I don't have that kind of authority.
+Beckett : Well, then who does?
+UNK: Viggo Jansen : That would be me.
+UNK: Viggo Jansen : And my astronauts aren't going anywhere.
+Castle : That's Viggo Jansen! The Viggo Jansen.
+Jansen : Detective, if we shut down now,
+Jansen : we will lose months of priceless data.
+UNK: Millions of dollars' worth of experiments will be compromised.
+Jansen : We'll lose half a year, and we don't have that time.
+Beckett : Mr. Jansen, it's not a request.

@@ -1,0 +1,92 @@
+UNK: All right. So...
+UNK: Seriously?
+UNK: Kevin Ryan : Only four months away. I wanna be ready.
+UNK: It's gonna be a long four months.
+UNK: TELEPHONE RINGING
+UNK: Esposito.
+Castle : Sito! It's me.
+Esposito : Castle? I'll put you on speaker.
+UNK: So where you been, bro? You've missed, like, three Halo nights.
+Castle : I told you, I was on a book tour.
+UNK: Yeah? Did you tell your book groupies you're engaged now?
+Castle : You're swaddling that doll right now, aren't you?
+Esposito : So listen, we just finished a case. Come have a drink with us after work.
+Castle : I'd love to, but I'm working on a case of my own right now.
+Castle : For my next book.
+UNK: Oh, so you just called us 'cause you need some expert technical consulting?
+Castle : Well, since you offered,
+Castle : I'm writing a scene about someone trying to investigate a crime
+Castle : using only one evidence photo,
+Castle : a crime involving national security.
+Ryan : So your hero's a spy?
+Castle : More like a ruggedly handsome everyman.
+UNK: Anyway, the photo is of a blown transformer.
+Castle : So I pulled a random photo of a transformer off the Internet,
+Castle : and there's a serial number on the side.
+Castle : I'm trying to determine
+Castle : how much my character could figure out just from that number.
+UNK: I'm wondering if my character's police buddies might have any resources.
+Esposito : Well, if your hero's fictional cop buddies are anything like your real cop buddies,
+Esposito : then they'd have real work to get back to. So, bye-bye now.
+Castle : What if our hero was offering Knicks floor seats?
+Esposito : - What's that serial number? - Yeah.
+UNK: A-P-5-7-3-9-2-1-5.
+UNK: Tory Ellis : Here we go. The "AP" stands for Allegra Power.
+UNK: Tory Ellis : They service Northern Virginia.
+CASTLE : And would it be possible to trace
+Castle : the location of that transformer using that number?
+WOMAN : Yeah, sure.
+Tory : The transformer with that serial number controls a 10-square-block region
+UNK: of the Ashton Heights neighborhood in Arlington.
+Castle : Thanks, you guys. You saved the story.
+Tory : Whoa, guys.
+Tory : That exact transformer was sabotaged two nights ago.
+Tory : And the Feds are investigating.
+UNK: Arlington? Isn't that Beckett's backyard?
+Esposito : Castle, is this a real case?
+UNK: Well, actually, I...
+UNK: STAMMERING Tunnel... call... later...
+UNK: DISCONNECTS CALL
+UNK: Smooth. All right,
+Castle : why would someone blow up a transformer?
+UNK: Terrorism? No, that would've been in the news.
+Castle : To cause a blackout?
+Castle : How does a blackout affect national security?
+Beckett : The blackout momentarily shut down
+UNK: the Cybertech building's security system.
+UNK: Now, this particular facility houses a number of government contractors,
+Beckett : one of them is Cybertech Transnational.
+Mccord : Someone gained access to Cybertech's clean room
+Mccord : and stole a highly classified hardware security module.
+Mccord : This is that module that contains an encryption system
+UNK: that serves as the gateway to the military satellite network.
+Beckett : Whoever took it is capable of shutting that satellite network down completely.
+Mccord : Leaving a large portion of our military's defenses blind.
+Villante : What do we know about our thieves?
+Mccord : Not much. There's no prints, no trace DNA.
+Mccord : But it was a highly complex operation.
+BECKETT : So we believe whoever pulled this off
+Beckett : had to have had military training, or stealth ops.
+Beckett : They had to blow up the transformer,
+Beckett : disable the backup generators, then climb up this air shaft.
+Mccord : And they had to do it all extremely quickly.
+Mccord : Because, even though the blackout defeated the security cameras,
+Mccord : they reset on battery power five minutes later.
+Villante : There's no way this operation took less than five minutes.
+Villante : We must have video footage of them leaving.
+Hendricks : No, sir. We scrubbed the entire video. There's nothing.
+Beckett : Could they still be in the building?
+UNK: No, not if they're alive.
+UNK: A thermal imaging sweep of the entire premises came up negative.
+UNK: They must've found a way out that didn't take them past the cameras.
+Hendricks : There isn't one, sir.
+Hendricks : The outside of the building has 100% coverage.
+Beckett : What about under the building?
+Mccord : Under it?
+Beckett : A research facility dealing with sensitive materials
+Beckett : would need to have some sort of flood controls.
+Beckett : Can you pull up a map of the drainage system in the area?
+Mccord : Drainage tunnels go right under the building.
+HENDRICKS : We thought of that.
+Hendricks : We checked all the access points, including the drainage grates.
+Hendricks : They're all welded shut.
