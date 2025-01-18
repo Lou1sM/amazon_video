@@ -160,7 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('--show-name', type=str, default='friends')
     parser.add_argument('--season', type=int, default=2)
     parser.add_argument('--ep', type=int, default=-1)
-    parser.add_argument('--recompute-scene-texts', action='store_true')
+    parser.add_argument('--recompute', action='store_true')
     parser.add_argument('--test-loading', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif', 'none'])
@@ -195,14 +195,14 @@ if __name__ == '__main__':
     showseaseps = get_showseaseps(ARGS.show_name, ARGS.season, ARGS.ep)
     print(showseaseps)
     all_scores = []
-    for show_name, seas, ep in tqdm(showseaseps):
+    for show_name, seas, ep in (pbar:=tqdm(showseaseps)):
         season_qs = full_dset_qs[show_name_dict[show_name]][f'season_{seas}']
         if f'episode_{ep}' not in season_qs.keys():
             print(f'Episode_{ep} not in season_{seas} keys')
             continue
         ep_qs = season_qs[f'episode_{ep}']
         cache_fp = os.path.join(out_dir, f'{show_name}_s{seas:01}e{ep:01}.json')
-        if os.path.exists(cache_fp) and not recompute:
+        if os.path.exists(cache_fp) and not ARGS.recompute:
             with open(cache_fp) as f:
                 x = f.read().split()
             new_correct, new_tot = int(x[0]), int(x[1])
@@ -210,7 +210,10 @@ if __name__ == '__main__':
             new_correct, new_tot = answer_qs(show_name, seas, ep, model, ep_qs)
             with open(cache_fp, 'w') as f:
                 f.write(f'{new_correct} {new_tot}')
+        tot_n_correct += new_correct
+        tot += new_tot
         all_scores.append([show_name, seas, ep, model, ep_qs, new_correct, new_tot, new_correct/new_tot])
+        pbar.set_description(f'{show_name}-s{seas}e{ep}, running avg: {tot_n_correct/tot}')
     df = pd.DataFrame(all_scores, columns = ['show', 'season', 'episode', 'n_correct', 'n', 'acc'])
     print(df.mean(axis=0))
     df.to_csv(f'{out_dir}/{ARGS.show_name}_{ARGS.season}-tvqa-results.csv')
