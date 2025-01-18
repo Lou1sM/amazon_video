@@ -124,7 +124,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             scene_text = '\n'.join(scenes[sims.argmax()])
             viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
-        question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 1-4, no punctuation or whitespace.'
+        question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
         if ARGS.splits == 'none':
             prompt = recurring_prompt_prefix + question_part
             new_inputs = tokenizer(prompt, return_tensors="pt").to(device)
@@ -145,7 +145,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         ans_token = output.sequences[0,-1:]
         ans = tokenizer.decode(ans_token, skip_special_tokens=True, clean_up_tokenization_spaces=True)
         #ans = max(range(5), key=lambda i: output.scores[0,-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
-        ans = max(range(5), key=lambda i: output.scores[0][-1,tokenizer.encode(str('a'), add_special_tokens=False)[0]].item())
+        ans = max(range(5), key=lambda i: output.scores[0][-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
         if ARGS.verbose:
             print(prompt, qdict['answer_idx'])
             print(f'pred: {ans} gt: {qdict["answer_idx"]}')
