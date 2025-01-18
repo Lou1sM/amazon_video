@@ -100,17 +100,11 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     n_correct = 0
     if ARGS.splits == 'none':
         recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:ARGS.prompt_prefix]
-        incr = 1000
-        #for n_tries in range(len(recurring_prompt_prefix)//incr):
-            #try:
-        prompt_cache = DynamicCache()
-        inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
-        prompt_cache = model(**inputs, past_key_values = prompt_cache).past_key_values # this is the common prompt cached
-                #break
-            #except (torch.cuda.OutOfMemoryError, RuntimeError) as e:
-                #print(e)
-                #recurring_prompt_prefix = recurring_prompt_prefix[incr:]
-                #print(f'OOM, reducing min,max to {len(recurring_prompt_prefix)}chars')
+        initial_inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
+        with torch.no_grad():
+            outputs = model(**initial_inputs, use_cache=True)
+        orig_past_key_values = outputs.past_key_values
+
 
     for i, qdict in enumerate(ep_qs['questions']):
         qsent = qdict['q']
@@ -126,26 +120,24 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
         question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
         if ARGS.splits == 'none':
-            prompt = recurring_prompt_prefix + question_part
-            new_inputs = tokenizer(prompt, return_tensors="pt").to(device)
-            #past_key_values = copy.deepcopy(prompt_cache)
-            past_key_values = pc = DynamicCache()
-            pc.key_cache = [t.clone() for t in prompt_cache.key_cache]
-            pc.value_cache = [t.clone() for t in prompt_cache.value_cache]
-            with torch.inference_mode():
-                output = model.generate(**new_inputs, past_key_values=past_key_values, min_new_tokens=1, max_new_tokens=1, num_beams=1, output_scores=True, return_dict_in_generate=True)
+            new_tokens = tokenizer(question_part, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
+            dynamic_pkv = tuple((k.clone().detach(), v.clone().detach()) for k, v in orig_past_key_values)
+            for token_id in new_tokens[0]:
+                token_input = token_id.unsqueeze(0).unsqueeze(0)
+                with torch.inference_mode():
+                    output = model(input_ids=token_input, past_key_values=dynamic_pkv, use_cache=True)
+                    dynamic_pkv = output.past_key_values
+                    cur_logits = outputs.logits
+            ans_logits = cur_logits
         else:
             prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n{question_part}'
             tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
             with torch.inference_mode():
-               output = model.generate(tok_ids, attention_mask=torch.ones_like(tok_ids), min_new_tokens=1, max_new_tokens=1, num_beams=1, output_scores=True, return_dict_in_generate=True)
-               #output = model(tok_ids)
+               output = model(tok_ids)
+               ans_logits = output.logits
 
-        #ans_tokens = ans_tokens[0,tok_ids.shape[1]:]
-        ans_token = output.sequences[0,-1:]
-        ans = tokenizer.decode(ans_token, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-        #ans = max(range(5), key=lambda i: output.scores[0,-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
-        ans = max(range(5), key=lambda i: output.scores[0][-1,tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
+        ans = max(range(5), key=lambda i: ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
+        breakpoint()
         if ARGS.verbose:
             print(prompt, qdict['answer_idx'])
             print(f'pred: {ans} gt: {qdict["answer_idx"]}')
