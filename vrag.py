@@ -129,6 +129,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
                     dynamic_pkv = output.past_key_values
                     cur_logits = outputs.logits
             ans_logits = cur_logits
+            prompt = recurring_prompt_prefix + question_part
         else:
             prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n{question_part}'
             tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
@@ -137,7 +138,6 @@ def answer_qs(show_name, season, episode, model, ep_qs):
                ans_logits = output.logits
 
         ans = max(range(5), key=lambda i: ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
-        breakpoint()
         if ARGS.verbose:
             print(prompt, qdict['answer_idx'])
             print(f'pred: {ans} gt: {qdict["answer_idx"]}')
@@ -205,7 +205,7 @@ if __name__ == '__main__':
         tot_n_correct += new_correct
         tot += new_tot
         all_scores.append([show_name, seas, ep, model, ep_qs, new_correct, new_tot, new_correct/new_tot])
-        pbar.set_description(f'{show_name}-s{seas}e{ep}, running avg: {tot_n_correct/tot}')
+        pbar.set_description(f'{show_name}-s{seas}e{ep}, running avg: {tot_n_correct}/{tot}={tot_n_correct/tot}')
     df = pd.DataFrame(all_scores, columns = ['show', 'season', 'episode', 'n_correct', 'n', 'acc'])
     print(df.mean(axis=0))
     df.to_csv(f'{out_dir}/{ARGS.show_name}_{ARGS.season}-tvqa-results.csv')
