@@ -1,8 +1,8 @@
-Beckett
-Castle
-Announcer
 Esposito
-Howard
 Bracken
+Howard
 Ryan
+Beckett
 Julie
+Announcer
+Castle

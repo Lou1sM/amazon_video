@@ -1,9 +1,9 @@
-Beckett
-Castle
-Tony
-RYAN
-Esposito
 TONY
-Lanie
-CASTLE
+Esposito
+Tony
 Ryan
+Beckett
+CASTLE
+RYAN
+Lanie
+Castle

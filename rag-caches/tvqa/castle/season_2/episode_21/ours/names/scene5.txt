@@ -1,7 +1,7 @@
-Beckett
-Castle
-Carol
-Alexis
 Esposito
-Tom
+Alexis
 Ryan
+Beckett
+Carol
+Tom
+Castle

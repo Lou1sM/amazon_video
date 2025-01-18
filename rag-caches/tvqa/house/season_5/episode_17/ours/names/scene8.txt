@@ -1,8 +1,8 @@
-Taub
-Wilson
-Foreman
-Audrey
-House
-Elaine
 Nick
+Foreman
 Chase
+Taub
+Elaine
+House
+Audrey
+Wilson

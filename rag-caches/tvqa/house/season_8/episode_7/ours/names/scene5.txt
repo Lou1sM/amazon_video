@@ -1,9 +1,9 @@
-Adams
-Taub
-Wilson
 Foreman
-Mickey
+Taub
+Chase
 House
 Emory
 Park
-Chase
+Mickey
+Adams
+Wilson

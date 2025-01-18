@@ -1,8 +1,8 @@
-Beckett
-Castle
-Gwen
-Gates
 Esposito
-Frank
-Tory
+Gwen
 Ryan
+Beckett
+Gates
+Frank
+Castle
+Tory

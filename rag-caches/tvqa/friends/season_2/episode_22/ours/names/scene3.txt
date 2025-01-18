@@ -1,8 +1,8 @@
-Gunter
 Phoebe
 Joey
-Monica
-Chandler
-Rachel
-Ross
 Guy
+Monica
+Rachel
+Gunter
+Ross
+Chandler

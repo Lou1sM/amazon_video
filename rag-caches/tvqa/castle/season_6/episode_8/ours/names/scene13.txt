@@ -1,8 +1,8 @@
-Beckett
-Tori
-Castle
+Leo
 Esposito
-Janet
+Beckett
 Steve
 BECKETT
-Leo
+Castle
+Tori
+Janet

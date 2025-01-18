@@ -1,6 +1,7 @@
-Robin
-Woman
+Man
 Lily
-Ted
+Barney
 Marshall
-Rubin
+Ted
+Woman
+Robin

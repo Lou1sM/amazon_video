@@ -1,8 +1,8 @@
+Cuddy
+Foreman
 Taub
+Kutner
+House
+Amber
 Patient
 Wilson
-Foreman
-Amber
-Cuddy
-House
-Kutner

@@ -1,10 +1,10 @@
-HOUSE
-Foreman
-Wilson
-House
 Cuddy
-FOREMAN
+Foreman
+Chase
 Cameron
 Lawyer
+HOUSE
+House
+FOREMAN
 Jack
-Chase
+Wilson

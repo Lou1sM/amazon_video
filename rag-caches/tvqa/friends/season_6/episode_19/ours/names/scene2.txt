@@ -1,6 +1,6 @@
 Phoebe
-Monica
 Joey
-Elizabeth
-Chandler
+Monica
 Ross
+Chandler
+Elizabeth

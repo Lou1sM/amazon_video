@@ -1,10 +1,10 @@
-Brooke
-Jill
-Burke
 Bonnie
-George
-Tom
-Meredith
-Alex
 Bailey
+Brooke
+Tom
+Burke
+Jill
+Alex
 Intern
+Meredith
+George

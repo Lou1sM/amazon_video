@@ -1,8 +1,8 @@
-Phoebe
-Monica
-Joey
-Chandler
-All
 Emily
+Phoebe
+Joey
+Monica
+All
 Rachel
 Ross
+Chandler

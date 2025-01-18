@@ -1,8 +1,8 @@
-Patient
 Foreman
-Sophie
-House
-Cameron
-CHASE
-Tritter
 Chase
+Cameron
+House
+Sophie
+Tritter
+CHASE
+Patient

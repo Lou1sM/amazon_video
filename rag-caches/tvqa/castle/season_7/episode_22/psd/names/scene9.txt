@@ -1,8 +1,8 @@
-Esposito
-Valentine
-Beckett
-Ryan
-Liz
 Castle
-Mickey
+Esposito
+Beckett
 Tina
+Valentine
+Mickey
+Liz
+Ryan

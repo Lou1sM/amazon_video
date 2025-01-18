@@ -1,9 +1,9 @@
-Wilson
-Foreman
 Cuddy
-House
-FOREMAN
+Foreman
+Chase
 Cameron
 Patrick
+House
+FOREMAN
 CUDDY
-Chase
+Wilson

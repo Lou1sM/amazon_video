@@ -1,8 +1,8 @@
 Phoebe
 Joey
 Monica
-Elizabeth
-Dana
-Chandler
 Rachel
+Dana
 Ross
+Chandler
+Elizabeth

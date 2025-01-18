@@ -1,7 +1,7 @@
-Beckett
-Castle
-Gates
-Gladys
 Esposito
-Zhang
+Gladys
 Ryan
+Beckett
+Gates
+Zhang
+Castle

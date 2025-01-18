@@ -1,9 +1,9 @@
-Beckett
-Castle
-Vikram
-Newscaster
-Rita
 Esposito
-Brooks
 Ryan
+Beckett
+Newscaster
+Brooks
+Vikram
 Hayley
+Rita
+Castle

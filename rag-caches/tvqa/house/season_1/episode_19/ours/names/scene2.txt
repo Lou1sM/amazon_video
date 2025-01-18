@@ -1,6 +1,6 @@
 Foreman
-House
-Nurse
 Mary
-Coach
 Chase
+House
+Coach
+Nurse

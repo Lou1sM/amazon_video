@@ -1,8 +1,8 @@
+Castle
 Esposito
 Fowler
-GATES
 FOWLER
-Ryan
 Gates
-Castle
 Potter
+GATES
+Ryan

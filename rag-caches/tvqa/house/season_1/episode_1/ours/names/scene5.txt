@@ -1,6 +1,6 @@
-Wilson
-Foreman
-House
 Cuddy
-Rebecca
+Foreman
 Chase
+House
+Rebecca
+Wilson

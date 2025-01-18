@@ -1,9 +1,9 @@
+Cuddy
+Thirteen
 Taub
-Lou
-Patient
-Wilson
 Foreman
 Kutner
 House
-Cuddy
-Thirteen
+Lou
+Patient
+Wilson

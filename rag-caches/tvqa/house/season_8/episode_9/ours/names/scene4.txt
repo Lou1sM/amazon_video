@@ -1,8 +1,8 @@
-Adams
-Foreman
-House
-Joseph
-Andres
-Park
-Chase
 Natalie
+Foreman
+Chase
+House
+Park
+Andres
+Joseph
+Adams

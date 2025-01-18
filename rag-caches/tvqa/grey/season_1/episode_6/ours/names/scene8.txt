@@ -1,6 +1,6 @@
-Burke
-Izzie
 Doctor
-MVO
-Nurse
 Tyler
+MVO
+Burke
+Nurse
+Izzie

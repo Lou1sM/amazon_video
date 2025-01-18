@@ -1,4 +1,4 @@
-Stryker
-Ryan
 Castle
 Beckett
+Stryker
+Ryan

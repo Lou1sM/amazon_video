@@ -1,7 +1,7 @@
 Phoebe
-Director
 Joey
 Monica
-Chandler
 Rachel
+Director
 Ross
+Chandler

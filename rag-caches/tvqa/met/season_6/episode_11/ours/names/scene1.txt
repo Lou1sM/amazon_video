@@ -1,5 +1,9 @@
-Captain
-Ted
-Marshall
+BOTH
+Lily
 Barney
 NARRATOR
+Marshall
+Ted
+LILY
+Captain
+Robin

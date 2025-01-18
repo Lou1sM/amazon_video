@@ -1,6 +1,6 @@
 Phoebe
+Clerk
 Joey
 Monica
-Clerk
-Chandler
 Rachel
+Chandler

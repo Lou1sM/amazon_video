@@ -1,6 +1,5 @@
-Mechanic
-Robin
 Lily
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Robin

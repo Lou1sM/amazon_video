@@ -1,9 +1,9 @@
-Cristina
-Izzie
-George
-Nine
-Callie
-Richard
-Nina
 Jane
 Cathy
+Callie
+Cristina
+Nine
+Nina
+Richard
+George
+Izzie

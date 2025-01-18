@@ -1,8 +1,8 @@
-Wilson
-Foreman
-House
-Cameron
 Cuddy
-Stacy
-Manager
+Foreman
 Chase
+Cameron
+Manager
+House
+Stacy
+Wilson

@@ -1,7 +1,2 @@
-Doctor
-Robin
-Lily
-Sam
 Ted
-Marshall
 Barney

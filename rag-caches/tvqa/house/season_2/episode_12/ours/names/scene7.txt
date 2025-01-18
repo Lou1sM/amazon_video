@@ -1,8 +1,8 @@
-Foreman
-Anesthesiologist
-House
-Cuddy
-Adam
 Emily
-Doug
+Foreman
+Cuddy
 Chase
+House
+Adam
+Doug
+Anesthesiologist

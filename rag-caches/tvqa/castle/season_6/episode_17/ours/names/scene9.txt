@@ -1,9 +1,9 @@
-Beckett
-ESPOSITO
-Castle
-Gates
 Esposito
-Simmons
+ESPOSITO
+Beckett
 CASTLE
-Tory
+Gates
 GATES
+Simmons
+Castle
+Tory

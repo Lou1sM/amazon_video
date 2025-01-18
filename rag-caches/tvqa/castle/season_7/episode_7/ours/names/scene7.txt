@@ -1,8 +1,8 @@
-Beckett
-Castle
-Bartender
-Gates
 Esposito
 Ryan
-Rebecca
+Beckett
 Marshall
+Gates
+Rebecca
+Castle
+Bartender

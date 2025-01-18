@@ -1,9 +1,7 @@
-Robin
-Lily
 Man
-Ranjit
-Neighbor
-Jake
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Jake
+Robin

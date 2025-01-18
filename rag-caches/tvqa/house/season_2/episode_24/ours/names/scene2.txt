@@ -1,6 +1,6 @@
-Woman
-Foreman
-House
 Cuddy
-Jack
+Foreman
 Chase
+House
+Jack
+Woman

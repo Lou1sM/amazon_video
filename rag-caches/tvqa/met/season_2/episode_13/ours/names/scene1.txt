@@ -1,6 +1,6 @@
-Robin
 Lily
-Ted
-MP
-Marshall
 Barney
+Marshall
+Ted
+Group
+Robin

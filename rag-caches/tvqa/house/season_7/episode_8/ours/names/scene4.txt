@@ -1,8 +1,8 @@
-Masters
-Taub
-Wilson
-Foreman
 Cuddy
-House
+Taub
 Ramon
 Chase
+Foreman
+House
+Masters
+Wilson

@@ -1,8 +1,8 @@
-Beckett
-Castle
-Decker
-Lopez
 Esposito
+Lopez
 Arthur
 Ortiz
 Ryan
+Beckett
+Decker
+Castle

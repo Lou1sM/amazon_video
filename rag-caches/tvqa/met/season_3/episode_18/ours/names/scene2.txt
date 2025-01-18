@@ -1,7 +1,6 @@
-Robin
-Lily
-Narrator
-Ted
-Marshall
-Barney
+Randy
 Stella
+Barney
+Lily
+Ted
+Robin

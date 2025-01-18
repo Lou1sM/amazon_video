@@ -1,6 +1,6 @@
-Robin
-Ted
-Announcer
 Man
 Barney
 Marshall
+Ted
+Announcer
+Robin

@@ -1,7 +1,7 @@
-Kara
-Foreman
-Brent
-House
 Cuddy
-Cameron
+Foreman
 Chase
+Cameron
+House
+Brent
+Kara

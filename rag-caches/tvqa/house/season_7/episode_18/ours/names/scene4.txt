@@ -1,8 +1,8 @@
-Masters
-Taub
-Brian
-Ruby
-Foreman
-Nina
-Chase
 Thirteen
+Foreman
+Taub
+Chase
+Masters
+Brian
+Nina
+Ruby

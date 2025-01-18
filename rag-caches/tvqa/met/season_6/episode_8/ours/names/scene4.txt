@@ -1,9 +1,9 @@
-LILY
-Robin
-Lily
-whispers
-George
-Ted
-Marshall
-Barney
 Zoey
+Lily
+Barney
+NARRATOR
+Marshall
+Ted
+TED
+whispers
+Robin

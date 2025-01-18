@@ -1,8 +1,8 @@
-Beckett
-Castle
-Brooke
-Alexis
-Esposito
-Mike
-Ryan
 Natalie
+Esposito
+Alexis
+Brooke
+Ryan
+Beckett
+Mike
+Castle

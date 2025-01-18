@@ -1,10 +1,10 @@
 Phoebe
-Bernice
-Mindy
-Monica
-Joey
-Danielle
 Barry
-Chandler
+Joey
+Monica
 Rachel
+Mindy
+Bernice
+Danielle
 Ross
+Chandler

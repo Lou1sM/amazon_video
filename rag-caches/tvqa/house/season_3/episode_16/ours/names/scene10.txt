@@ -1,6 +1,6 @@
-TECHNICIAN
-Wilson
+Cuddy
 Foreman
 House
-Cuddy
 Nurse
+TECHNICIAN
+Wilson

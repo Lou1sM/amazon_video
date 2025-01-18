@@ -1,7 +1,7 @@
-Beckett
-Castle
 Martha
-Gates
-Barlett
-Ryan
 Bartlett
+Ryan
+Beckett
+Barlett
+Gates
+Castle

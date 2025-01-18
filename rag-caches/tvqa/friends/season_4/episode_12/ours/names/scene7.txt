@@ -1,6 +1,6 @@
-Alice
 Phoebe
 Joey
 Monica
-Chandler
+Alice
 Rachel
+Chandler

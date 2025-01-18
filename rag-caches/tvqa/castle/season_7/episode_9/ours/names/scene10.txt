@@ -1,8 +1,8 @@
-Beckett
-Castle
-Booth
-Naomi
-Gates
-Trey
 Brock
+Trey
 Ryan
+Beckett
+Gates
+Naomi
+Booth
+Castle

@@ -1,8 +1,8 @@
 Phoebe
-Monica
-Joey
 Chandler
-Danny
+Joey
+Monica
 Tom
 Rachel
 Ross
+Danny

@@ -1,6 +1,6 @@
-Foreman
 Cuddy
-House
-Cameron
-Rodney
+Foreman
 Chase
+Cameron
+House
+Rodney

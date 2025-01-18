@@ -1,10 +1,10 @@
-Beckett
-Castle
-Uniform
-Maxy
-Burke
-Shay
 Esposito
+Beckett
+Shay
 Slaughter
-BECKETT
+Burke
 SHEA
+BECKETT
+Uniform
+Castle
+Maxy

@@ -1,7 +1,7 @@
-Phoebe
-Monica
-Joey
-Chandler
 Josh
-Kathy
+Phoebe
+Joey
+Monica
 Rachel
+Kathy
+Chandler

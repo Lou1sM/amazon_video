@@ -1,5 +1,6 @@
-Robin
 Lily
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Lilly
+Robin

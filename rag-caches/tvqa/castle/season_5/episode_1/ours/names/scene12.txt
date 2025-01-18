@@ -1,6 +1,6 @@
-Beckett
-Castle
-Gates
 Esposito
 Bracken
 Ryan
+Beckett
+Gates
+Castle

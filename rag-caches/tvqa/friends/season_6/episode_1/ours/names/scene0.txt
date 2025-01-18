@@ -1,7 +1,7 @@
-Attendant
 Phoebe
+Attendant
 Joey
 Monica
-Chandler
 Rachel
 Ross
+Chandler

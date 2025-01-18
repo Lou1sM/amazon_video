@@ -1,8 +1,8 @@
 Phoebe
 Joey
 Monica
-Chandler
-Customer
-Annabelle
 Rachel
+Customer
 Julie
+Chandler
+Annabelle

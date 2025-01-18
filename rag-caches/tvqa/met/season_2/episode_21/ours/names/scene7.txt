@@ -1,7 +1,5 @@
-Ben
-Robin
-Lily
-Ted
 Brad
-Marshall
 Barney
+Marshall
+Ted
+Robin

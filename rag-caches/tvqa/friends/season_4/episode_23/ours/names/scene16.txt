@@ -1,8 +1,8 @@
-Phoebe
-Monica
-Joey
 Emily
-Passenger
-Felicity
+Phoebe
+Joey
+Monica
 Rachel
+Passenger
 Ross
+Felicity

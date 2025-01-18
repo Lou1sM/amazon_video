@@ -1,9 +1,9 @@
-Beckett
-Castle
-Talia
-Alexis
-Freedman
-Gates
 Esposito
-Lanie
+Alexis
 Ryan
+Beckett
+Gates
+Talia
+Lanie
+Freedman
+Castle

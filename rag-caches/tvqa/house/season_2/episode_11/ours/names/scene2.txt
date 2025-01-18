@@ -1,7 +1,7 @@
-Cam
-Wilson
 Foreman
-Ted
-Margo
-House
 Chase
+House
+Cam
+Margo
+Ted
+Wilson

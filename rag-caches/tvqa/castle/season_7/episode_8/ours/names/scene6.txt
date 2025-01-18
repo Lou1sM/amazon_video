@@ -1,9 +1,9 @@
-Beckett
-Castle
-Landlord
-Gerber
 Esposito
-Lanie
-Jared
-Bella
 Ryan
+Landlord
+Beckett
+Gerber
+Lanie
+Bella
+Jared
+Castle

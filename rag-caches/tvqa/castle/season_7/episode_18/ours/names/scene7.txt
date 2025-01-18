@@ -1,10 +1,10 @@
-Beckett
-Castle
-Shelton
 Esposito
-Frank
 Lawyer
-Tory
-Julian
+Shelton
 Ryan
+Beckett
+Julian
+Frank
 Chambers
+Castle
+Tory

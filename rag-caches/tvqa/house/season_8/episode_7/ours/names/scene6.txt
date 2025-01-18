@@ -1,7 +1,7 @@
-Faye
 Taub
-Wilson
-Mickey
-House
 Iris
 Chase
+Faye
+House
+Mickey
+Wilson

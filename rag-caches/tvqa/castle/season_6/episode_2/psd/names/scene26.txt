@@ -1,5 +1,5 @@
-Beckett
-Reed
-Bodyguard
 Vilante
 Castle
+Bodyguard
+Beckett
+Reed

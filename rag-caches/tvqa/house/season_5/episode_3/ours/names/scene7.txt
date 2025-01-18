@@ -1,9 +1,9 @@
-Brandon
-Taub
-Foreman
 Thirteen
-House
+Foreman
 Cuddy
-Lucas
-Rachel
+Taub
 Kutner
+House
+Rachel
+Brandon
+Lucas

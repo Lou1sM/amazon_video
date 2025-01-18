@@ -1,9 +1,9 @@
-Alice
-Taub
-Wilson
-Foreman
-Christina
 Cuddy
-House
-Jack
+Foreman
+Taub
 Chase
+House
+Alice
+Jack
+Christina
+Wilson

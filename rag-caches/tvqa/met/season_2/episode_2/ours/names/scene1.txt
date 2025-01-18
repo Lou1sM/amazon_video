@@ -1,7 +1,7 @@
-Lily
-Robin
-Woman
-Ted
 Man
+Lily
 Barney
 Marshall
+Ted
+Woman
+Robin

@@ -1,7 +1,7 @@
-Wilson
-Gail
 Cuddy
-House
-Westbrook
-Lucas
 Chase
+House
+Gail
+Lucas
+Wilson
+Westbrook

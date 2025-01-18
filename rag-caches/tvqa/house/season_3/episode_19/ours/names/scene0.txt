@@ -1,9 +1,9 @@
-Foreman
 Cuddy
-House
-FOREMAN
+Foreman
+Chase
 Cameron
+House
 Lucy
 Deran
 Jasper
-Chase
+FOREMAN

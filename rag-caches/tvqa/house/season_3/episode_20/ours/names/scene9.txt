@@ -1,5 +1,5 @@
 Foreman
-Lupe
-House
-Nurse
 Chase
+House
+Lupe
+Nurse

@@ -1,9 +1,9 @@
-Phoebe
-Gunther
-Monica
-Joey
-Chandler
 Realtor
-Mark
+Phoebe
+Joey
+Monica
 Rachel
+Gunther
+Mark
 Ross
+Chandler

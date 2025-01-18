@@ -1,9 +1,4 @@
-Robin
-Woman
-Lily
-Marshall
-Man
-Brad
-Scooter
+Ted
 Barney
-Andrea
+Marshall
+Robin

@@ -1,7 +1,7 @@
-Foreman
-House
 Cuddy
-Cameron
-Jack
-Roy
+Foreman
 Chase
+Cameron
+House
+Roy
+Jack

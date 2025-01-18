@@ -1,6 +1,4 @@
-Robin
-Lily
-Narrator
 Ted
-Marshall
 Barney
+Narrator
+Marshall

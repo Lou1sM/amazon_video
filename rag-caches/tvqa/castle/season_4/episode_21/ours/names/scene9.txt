@@ -1,6 +1,6 @@
-Castle
-Gilberto
 SLAUGHTER
-MAN
 Slaughter
 GILBERTO
+Gilberto
+MAN
+Castle

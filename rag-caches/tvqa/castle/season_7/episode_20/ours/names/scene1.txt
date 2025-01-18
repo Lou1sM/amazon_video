@@ -1,6 +1,6 @@
-Beckett
-Castle
-Burke
 Esposito
-Tory
 Ryan
+Beckett
+Burke
+Castle
+Tory

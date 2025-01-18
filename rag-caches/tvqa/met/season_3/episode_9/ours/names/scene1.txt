@@ -1,6 +1,5 @@
-Robin
-Lily
-Marhall
-Ted
-Marshall
 Barney
+Marshall
+Bob
+Ted
+Robin

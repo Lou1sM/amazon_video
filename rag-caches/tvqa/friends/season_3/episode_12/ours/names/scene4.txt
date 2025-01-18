@@ -1,10 +1,10 @@
-Woman
 Man
 Phoebe
-Director
 Joey
 Quartet
-Chandler
-Mark
 Rachel
+Director
+Mark
+Woman
 Ross
+Chandler

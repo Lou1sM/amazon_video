@@ -1,6 +1,6 @@
-Wilson
-Foreman
 Cuddy
-House
-Cameron
+Foreman
 Chase
+Cameron
+House
+Wilson

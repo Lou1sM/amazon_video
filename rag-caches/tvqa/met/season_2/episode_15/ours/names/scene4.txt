@@ -1,7 +1,4 @@
-Robin
-Woman
+Man
 Lily
-Ted
-Marshall
-Barney
-Rubin
+Both
+Robin

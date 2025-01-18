@@ -1,8 +1,8 @@
-Bobby
-Wilson
-Foreman
-Vanessa
-House
-Theresa
-Park
 Betty
+Foreman
+Bobby
+House
+Park
+Vanessa
+Theresa
+Wilson

@@ -1,10 +1,10 @@
-Beckett
-Castle
-Evelyn
-Tech
-Mickey
 Esposito
-Chad
-Valentine
+Tech
 Propmaster
 Ryan
+Beckett
+Valentine
+Evelyn
+Mickey
+Chad
+Castle

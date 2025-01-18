@@ -1,4 +1,4 @@
 Joey
-Phoebe
-Monica
 Ross
+Monica
+Phoebe

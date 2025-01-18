@@ -1,6 +1,6 @@
 Esposito
-Jenkins
 Beckett
-Ryan
 Simms
 Lanie
+Jenkins
+Ryan

@@ -1,8 +1,8 @@
-Phoebe
-Monica
-Joey
 Tim
-Chandler
+Phoebe
+Joey
+Monica
 Rachel
-Ross
 Bob
+Ross
+Chandler

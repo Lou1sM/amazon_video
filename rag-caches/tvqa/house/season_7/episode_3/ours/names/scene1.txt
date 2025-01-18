@@ -1,8 +1,8 @@
-Alice
-Taub
-Foreman
-Christina
 Cuddy
-House
-Jack
+Foreman
+Taub
 Chase
+House
+Alice
+Jack
+Christina

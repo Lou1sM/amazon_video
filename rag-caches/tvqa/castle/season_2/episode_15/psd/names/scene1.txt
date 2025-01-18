@@ -1,8 +1,8 @@
-Esposito
-Maggie
-Beckett
-Alexis
-Reporter
-Martha
-Tommy
 Castle
+Esposito
+Tommy
+Alexis
+Maggie
+Martha
+Beckett
+Reporter

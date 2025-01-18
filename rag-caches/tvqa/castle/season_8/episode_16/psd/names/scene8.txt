@@ -1,9 +1,9 @@
-Esposito
-Sonia
-Lucy
-Beckett
-Michael
-Ryan
-Darren
 Castle
+Esposito
+Lucy
+Michael
+Darren
+Beckett
 Bartender
+Sonia
+Ryan

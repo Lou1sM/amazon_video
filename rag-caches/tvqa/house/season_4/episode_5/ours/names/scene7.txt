@@ -1,8 +1,8 @@
-Patient
-Wilson
-Foreman
 Cuddy
+Foreman
 Cameron
-House
 Brennan
 Kutner
+House
+Patient
+Wilson

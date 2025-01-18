@@ -1,7 +1,7 @@
-Beckett
-Castle
-Alexis
-Random
 Esposito
-Royce
+Alexis
 Ryan
+Beckett
+Random
+Royce
+Castle

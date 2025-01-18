@@ -1,9 +1,9 @@
-Taub
-Wilson
-Russ
-Cuddy
-House
-Valerie
-Bill
-Wibberly
 Thirteen
+Cuddy
+Taub
+House
+Wibberly
+Bill
+Valerie
+Russ
+Wilson

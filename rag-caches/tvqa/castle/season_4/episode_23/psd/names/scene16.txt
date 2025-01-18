@@ -1,9 +1,9 @@
-Esposito
-Beckett
-MARISOL
-Marisol
-Ryan
-PRIEST
-Priest
-RYAN
 Castle
+MARISOL
+Esposito
+Marisol
+Priest
+Beckett
+PRIEST
+RYAN
+Ryan

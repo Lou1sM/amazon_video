@@ -1,9 +1,9 @@
-Taub
-Wilson
-Foreman
-Kutner
 Cuddy
-House
-Cameron
-Sarah
 Thirteen
+Foreman
+Taub
+Cameron
+Kutner
+House
+Sarah
+Wilson

@@ -1,7 +1,7 @@
-Beckett
-Castle
-Officer
 Jiggy
 Esposito
-Tom
 Ryan
+Beckett
+Tom
+Officer
+Castle

@@ -1,7 +1,7 @@
-Spencer
-Wilson
-Foreman
-House
-Cuddy
-Lucas
 Thirteen
+Foreman
+Cuddy
+House
+Spencer
+Lucas
+Wilson

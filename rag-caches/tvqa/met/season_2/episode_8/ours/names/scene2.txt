@@ -1,8 +1,6 @@
+Lily
+Barney
+Marshall
+Ted
 Woman
 Robin
-Lily
-Marshall
-Man
-Ted
-Mike
-Barney

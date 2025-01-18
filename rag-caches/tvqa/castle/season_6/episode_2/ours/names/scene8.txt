@@ -1,8 +1,8 @@
-Beckett
-Castle
-Mccord
-WOMAN
-Parker
-Bodyguard
 Mary
+Bodyguard
+WOMAN
+Beckett
+Mccord
 Julie
+Parker
+Castle

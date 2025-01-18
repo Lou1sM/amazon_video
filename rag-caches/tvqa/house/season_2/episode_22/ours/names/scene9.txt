@@ -1,5 +1,5 @@
-Kara
-Wilson
 Foreman
-Brent
 House
+Brent
+Wilson
+Kara

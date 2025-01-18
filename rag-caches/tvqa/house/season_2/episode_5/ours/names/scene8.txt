@@ -1,10 +1,10 @@
-Mom
-Surgeon
-Foreman
-House
-Cameron
-Dad
 Cuddy
+Foreman
+Surgeon
+Chase
+Cameron
+House
+Mom
+Dad
 Nurse
 Ken
-Chase

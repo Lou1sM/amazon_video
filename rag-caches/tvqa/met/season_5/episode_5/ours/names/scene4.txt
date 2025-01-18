@@ -1,9 +1,6 @@
-Kenny
-Robin
-Woman
 Lily
-fighting
-Ted
-Marshall
 Barney
-Voice
+Marshall
+Ted
+Woman
+Robin

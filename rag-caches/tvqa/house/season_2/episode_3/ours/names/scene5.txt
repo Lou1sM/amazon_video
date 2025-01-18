@@ -1,8 +1,8 @@
-Patient
-Foreman
-House
 Cuddy
+Foreman
+Chase
 Cameron
+House
 Stacy
 Manny
-Chase
+Patient

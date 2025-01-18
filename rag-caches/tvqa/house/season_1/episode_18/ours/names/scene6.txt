@@ -1,8 +1,8 @@
-Lim
-Naomi
 Foreman
-Anesthesiologist
-Vogler
-House
-Sean
 Chase
+House
+Naomi
+Vogler
+Sean
+Lim
+Anesthesiologist

@@ -1,6 +1,6 @@
-Foreman
 Cuddy
-House
+Foreman
+Chase
 Cameron
 Patrick
-Chase
+House

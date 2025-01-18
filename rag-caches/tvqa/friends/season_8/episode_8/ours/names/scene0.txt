@@ -1,6 +1,6 @@
 Phoebe
 Joey
 Monica
-Chandler
-Waiter
 Rachel
+Waiter
+Chandler

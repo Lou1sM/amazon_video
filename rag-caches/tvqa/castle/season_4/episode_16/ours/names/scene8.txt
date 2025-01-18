@@ -1,9 +1,9 @@
-Beckett
-Castle
-Gage
-SOPHIA
-JONES
-BECKETT
-CASTLE
 Sophia
+SOPHIA
+Beckett
+CASTLE
+JONES
 Corrigan
+Gage
+BECKETT
+Castle

@@ -1,4 +1,3 @@
 Bob
-Lily
 Barney
-Rich
+Ted

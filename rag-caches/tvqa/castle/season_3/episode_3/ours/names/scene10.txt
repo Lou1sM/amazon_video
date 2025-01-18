@@ -1,7 +1,7 @@
-Beckett
-Castle
-Brooke
-Stuckey
 Esposito
-Royce
+Brooke
 Ryan
+Beckett
+Stuckey
+Royce
+Castle

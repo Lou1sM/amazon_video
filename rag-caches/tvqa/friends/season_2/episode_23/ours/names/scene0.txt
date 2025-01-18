@@ -1,9 +1,9 @@
 Phoebe
-Monica
 Joey
-Richard
-Chandler
 Ryan
-Scott
+Monica
 Rachel
+Richard
 Ross
+Chandler
+Scott

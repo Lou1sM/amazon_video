@@ -1,9 +1,8 @@
-Robin
-Woman
-Lily
-All
 Cleaner
-Narrator
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Woman
+Narrator
+Robin

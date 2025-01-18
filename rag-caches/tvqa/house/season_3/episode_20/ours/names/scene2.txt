@@ -1,6 +1,6 @@
-Foreman
-Lupe
-House
 Cuddy
-Cameron
+Foreman
 Chase
+Cameron
+House
+Lupe

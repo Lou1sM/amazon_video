@@ -1,7 +1,7 @@
-Gunther
-Monica
 Joey
-Chandler
-Rachel
-Ross
 Guy
+Monica
+Rachel
+Gunther
+Ross
+Chandler

@@ -1,6 +1,6 @@
-Beckett
-Castle
-Ryan
-Gates
 Esposito
 Maddox
+Ryan
+Beckett
+Gates
+Castle

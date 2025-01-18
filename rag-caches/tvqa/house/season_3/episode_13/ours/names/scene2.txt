@@ -1,7 +1,7 @@
-Woman
 Man
-Foreman
-Cameron
 Stevie
-Leah
+Foreman
 Chase
+Cameron
+Leah
+Woman

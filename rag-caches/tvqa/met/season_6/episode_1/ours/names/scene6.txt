@@ -1,6 +1,7 @@
-Robin
-Lily
 Cindy
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Marvin
+Robin

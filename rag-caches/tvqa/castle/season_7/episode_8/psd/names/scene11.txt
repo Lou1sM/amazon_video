@@ -1,8 +1,8 @@
-Aragon
-Beckett
-Ryan
-Bigalow
-Gates
-Lanie
 Castle
 Tory
+Beckett
+Bigalow
+Aragon
+Lanie
+Gates
+Ryan

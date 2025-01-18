@@ -1,8 +1,8 @@
-Enid
-Wilson
-Foreman
 Cuddy
-House
-Nate
-Doug
+Foreman
 Chase
+Enid
+House
+Doug
+Nate
+Wilson

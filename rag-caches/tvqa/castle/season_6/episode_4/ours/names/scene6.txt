@@ -1,7 +1,7 @@
-Beckett
-Castle
-Gates
 Esposito
-BECKETT
-Roman
+Beckett
+Gates
 Sully
+Roman
+BECKETT
+Castle

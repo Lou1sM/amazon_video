@@ -1,7 +1,7 @@
 Phoebe
 Joey
 Monica
-Chandler
 Rachel
-Ross
 Cheryl
+Ross
+Chandler

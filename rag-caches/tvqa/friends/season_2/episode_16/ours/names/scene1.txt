@@ -1,8 +1,8 @@
 Phoebe
-Monica
-Joey
 Friend
-Richard
-Chandler
+Joey
+Monica
 Rachel
+Richard
 Ross
+Chandler

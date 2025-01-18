@@ -1,9 +1,9 @@
-Beckett
-Castle
-Viola
 Frankie
-VERA
+ANNOUNCER
+Beckett
 JOE
 Clyde
-ANNOUNCER
+VERA
+Viola
+Castle
 Jerry

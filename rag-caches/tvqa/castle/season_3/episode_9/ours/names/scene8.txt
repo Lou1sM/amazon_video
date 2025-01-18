@@ -1,8 +1,8 @@
-Beckett
-Castle
-Espostio
-Stryker
 Westfield
-Montgomery
 Ryan
+Beckett
+Stryker
 Bob
+Espostio
+Montgomery
+Castle

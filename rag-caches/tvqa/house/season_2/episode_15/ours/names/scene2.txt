@@ -1,8 +1,8 @@
 Man
-Wilson
 Foreman
-House
-Cameron
-Maria
 Chase
+Cameron
+House
 Bob
+Maria
+Wilson

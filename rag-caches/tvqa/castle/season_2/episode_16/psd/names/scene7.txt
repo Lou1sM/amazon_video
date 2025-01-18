@@ -1,6 +1,6 @@
-Barry
-Esposito
-Beckett
-Ryan
-Tyler
 Castle
+Esposito
+Tyler
+Beckett
+Barry
+Ryan

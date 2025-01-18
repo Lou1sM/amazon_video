@@ -1,7 +1,7 @@
-Robin
-Both
 Lily
-Jerry
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Both
+Jerry
+Robin

@@ -1,8 +1,8 @@
-Beckett
-Castle
-Gates
 Esposito
-Lanie
-CASTLE
-BECKETT
 Weston
+CASTLE
+Beckett
+Gates
+Lanie
+BECKETT
+Castle

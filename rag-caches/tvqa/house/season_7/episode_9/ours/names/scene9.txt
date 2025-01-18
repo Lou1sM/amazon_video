@@ -1,7 +1,7 @@
 Taub
-Wilson
 Foreman
-Eva
 House
-Jack
 Daisy
+Jack
+Eva
+Wilson

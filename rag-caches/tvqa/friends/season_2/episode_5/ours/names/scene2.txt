@@ -1,7 +1,7 @@
-Phoebe
-Monica
-Joey
-Chandler
-Waiter
-Rachel
 Ross
+Phoebe
+Joey
+Monica
+Rachel
+Waiter
+Chandler

@@ -1,8 +1,8 @@
-Alice
 Phoebe
-Monica
 Joey
-Frank
 Pete
+Monica
 Rachel
+Alice
+Frank
 Ross

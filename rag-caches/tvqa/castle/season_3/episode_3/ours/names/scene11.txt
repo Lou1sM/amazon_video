@@ -1,7 +1,7 @@
-Beckett
-Castle
-Alexis
 Esposito
-Low
-Royce
+Alexis
 Ryan
+Beckett
+Royce
+Low
+Castle

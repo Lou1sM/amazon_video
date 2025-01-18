@@ -1,6 +1,6 @@
-Clarence
 Foreman
-House
-Cameron
-Guard
 Chase
+Cameron
+House
+Guard
+Clarence

@@ -1,7 +1,7 @@
-Wilson
-Foreman
-House
 Cuddy
-Mary
-Coach
+Foreman
 Chase
+Mary
+House
+Coach
+Wilson

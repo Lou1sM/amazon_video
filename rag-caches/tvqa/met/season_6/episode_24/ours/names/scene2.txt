@@ -1,6 +1,8 @@
-Robin
-Lily
-Ted
-Marshall
-Barney
 Zoey
+Foreman
+Lily
+Barney
+Marshall
+Ted
+Rod
+Robin

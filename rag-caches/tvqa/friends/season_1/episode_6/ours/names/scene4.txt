@@ -1,7 +1,7 @@
-Phoebe
-Monica
-Joey
 Aurora
-Chandler
+Phoebe
+Joey
+Monica
 Rachel
 Ross
+Chandler

@@ -1,8 +1,7 @@
-Robin
 Lily
-Doug
-Ted
-Brooke
-Marshall
 Barney
 Stacy
+Marshall
+Ted
+Translation :
+Robin

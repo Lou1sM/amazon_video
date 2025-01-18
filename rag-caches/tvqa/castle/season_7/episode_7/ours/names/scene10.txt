@@ -1,9 +1,9 @@
-Beckett
-Castle
-Grady
 Esposito
-Lanie
-Dagmar
-Sheriff
 Ryan
+Beckett
 Marshall
+Sheriff
+Lanie
+Grady
+Dagmar
+Castle

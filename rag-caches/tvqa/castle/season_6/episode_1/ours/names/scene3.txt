@@ -1,4 +1,4 @@
+BOTH
 Beckett
 Castle
 Mccord
-BOTH

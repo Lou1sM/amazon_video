@@ -1,9 +1,9 @@
 Esposito
-ESPOSITO
-Beckett
 Fowler
-GATES
-CASTLE
 FOWLER
-Ryan
+Beckett
+ESPOSITO
+CASTLE
 RYAN
+GATES
+Ryan

@@ -1,5 +1,5 @@
-Receptionist
-Joey
 Chandler
+Joey
 Rachel
 Ross
+Receptionist

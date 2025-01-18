@@ -1,9 +1,9 @@
-Foreman
-George
-House
-Cameron
-Dad
 Cuddy
-Nurse
-Alex
+Foreman
 Chase
+Cameron
+House
+Dad
+Alex
+Nurse
+George

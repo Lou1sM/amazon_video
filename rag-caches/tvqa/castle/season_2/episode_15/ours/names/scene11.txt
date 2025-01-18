@@ -1,6 +1,6 @@
-Beckett
-Castle
-Fox
-Sanchez
 Esposito
+Sanchez
+Beckett
+Fox
 Lara
+Castle

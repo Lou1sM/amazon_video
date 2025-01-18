@@ -1,7 +1,7 @@
-Alice
 Phoebe
 Joey
 Monica
-Kathy
+Alice
 Rachel
+Kathy
 Ross

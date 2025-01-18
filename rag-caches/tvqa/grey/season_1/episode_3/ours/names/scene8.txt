@@ -1,9 +1,9 @@
-Derek
-Burke
-Izzie
-George
-Mackie
-Meredith
-Alex
-Bailey
 Webber
+Mackie
+Bailey
+Burke
+Derek
+Alex
+Meredith
+George
+Izzie

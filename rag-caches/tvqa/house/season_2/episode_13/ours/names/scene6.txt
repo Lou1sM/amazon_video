@@ -1,9 +1,9 @@
-Forman
-Wilson
-Foreman
-House
-Cameron
-Dad
 Cuddy
-Alex
+Foreman
 Chase
+Cameron
+House
+Dad
+Forman
+Alex
+Wilson

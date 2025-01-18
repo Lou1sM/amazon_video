@@ -1,4 +1,5 @@
-Lily
-Both
 Man
+Marshall
+Ted
+Woman
 Robin

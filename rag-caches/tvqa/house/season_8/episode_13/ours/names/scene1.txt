@@ -1,8 +1,8 @@
-Adams
-Marlene
 Taub
-Joe
-Wilson
+Chase
+Marlene
 House
 Park
-Chase
+Adams
+Joe
+Wilson

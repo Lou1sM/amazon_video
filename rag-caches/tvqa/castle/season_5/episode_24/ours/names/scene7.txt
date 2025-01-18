@@ -1,9 +1,9 @@
-Beckett
-Castle
-Banks
-Bauer
-Tech
-Gates
 Esposito
-Tory
+Tech
+Banks
 Ryan
+Beckett
+Gates
+Bauer
+Castle
+Tory

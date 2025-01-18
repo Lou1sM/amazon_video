@@ -1,8 +1,8 @@
-Taub
-Wilson
-Foreman
-Artie
-House
-Cuddy
-Chase
 Thirteen
+Foreman
+Taub
+Chase
+Cuddy
+House
+Artie
+Wilson

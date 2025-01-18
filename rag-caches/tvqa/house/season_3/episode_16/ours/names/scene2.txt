@@ -1,8 +1,8 @@
-Foreman
-Cuddy
-House
-Cameron
-FOREMAN
 John
-CHASE
+Cuddy
+Foreman
 Chase
+Cameron
+House
+CHASE
+FOREMAN

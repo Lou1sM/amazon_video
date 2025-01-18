@@ -1,9 +1,9 @@
-Beckett
-Castle
-ESPOSITO
-Gates
 Esposito
 Serena
-CASTLE
-BECKETT
+ESPOSITO
 Ryan
+Beckett
+CASTLE
+Gates
+BECKETT
+Castle

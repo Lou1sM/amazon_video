@@ -1,8 +1,8 @@
-Beckett
-Castle
 Alexis
-Esposito
-Kaufman
-Ryan
-Noah
 Gibney
+Esposito
+Ryan
+Beckett
+Noah
+Kaufman
+Castle

@@ -1,6 +1,8 @@
-Robin
-Lily
-Ted
+Simple
 Brad
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Voice
+Robin

@@ -1,7 +1,7 @@
-Beckett
-Castle
-Henry
-Audrey
-Winters
 Ryan
+Beckett
+Audrey
 Davis
+Winters
+Henry
+Castle

@@ -1,6 +1,6 @@
 Beckett
-Mccord
-Castle
-MAN
-Villante
 Richmond
+Mccord
+Villante
+MAN
+Castle

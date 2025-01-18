@@ -1,6 +1,6 @@
-Lily
-Robin
-Ted
 Girl
+Lily
 Barney
 Marshall
+Ted
+Robin

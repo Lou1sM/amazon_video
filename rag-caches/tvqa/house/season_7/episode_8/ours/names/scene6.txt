@@ -1,9 +1,9 @@
-Masters
-Taub
-Foreman
-House
 Cuddy
+Foreman
+Taub
+Chase
 Nika
 Ramon
+House
+Masters
 Rachel
-Chase

@@ -1,7 +1,7 @@
-Bollinger
-Beckett
-Lawyer
 Esposito
+Lawyer
+Beckett
 Nesbit
+Bollinger
 Creason
 Castle

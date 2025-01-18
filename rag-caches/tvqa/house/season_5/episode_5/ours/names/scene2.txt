@@ -1,6 +1,6 @@
-Spencer
-Taub
-Foreman
 Thirteen
-House
+Foreman
+Taub
 Kutner
+House
+Spencer

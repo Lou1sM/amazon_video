@@ -1,8 +1,8 @@
-Beckett
-Castle
 Perlmutter
-Charlie
 Esposito
-COLEMAN
+Beckett
 Mike
 BECKETT
+Charlie
+Castle
+COLEMAN

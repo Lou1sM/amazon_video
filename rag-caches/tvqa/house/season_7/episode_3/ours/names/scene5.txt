@@ -1,7 +1,7 @@
-Alice
 Taub
-Wilson
 Foreman
-House
-Sam
 Chase
+House
+Alice
+Sam
+Wilson

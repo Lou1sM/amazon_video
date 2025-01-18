@@ -1,5 +1,8 @@
-Robin
 Lily
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Captain
+Woman
+Robin
+Judge

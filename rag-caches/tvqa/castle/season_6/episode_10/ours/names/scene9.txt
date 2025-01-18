@@ -1,9 +1,9 @@
-Beckett
-Castle
-Dean
-Ryan
-Harrison
 Esposito
+Harrison
+Ryan
+Beckett
 CASTLE
 Miranda
 RYAN
+Castle
+Dean

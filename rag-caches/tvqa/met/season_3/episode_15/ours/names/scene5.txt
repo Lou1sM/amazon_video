@@ -1,7 +1,6 @@
-Robin
-Lily
 Arthur
-Ted
-Waiter
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Narrator

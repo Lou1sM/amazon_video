@@ -1,8 +1,8 @@
-Mayor
-Adam
-Ryan
-Beckett
-Susan
 Esposito
 Eleanor
+Ryan
+Beckett
+Adam
+Susan
+Mayor
 Castle

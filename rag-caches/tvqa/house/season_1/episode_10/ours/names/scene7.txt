@@ -1,8 +1,8 @@
-Wilson
-Foreman
-Victoria
-House
 Cuddy
+Foreman
+Chase
 Cameron
 Students
-Chase
+House
+Victoria
+Wilson

@@ -1,10 +1,10 @@
-Derek
-Naomi
-Burke
-Cooper
-Addison
-Violet
-George
 Jane
 Pete
+Burke
+Naomi
+Derek
 Sam
+Violet
+George
+Addison
+Cooper

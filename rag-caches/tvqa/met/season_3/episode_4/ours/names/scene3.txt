@@ -1,3 +1,6 @@
 Lily
+Barney
+Marshall
 Doug
+Ted
 Robin

@@ -1,8 +1,8 @@
-Castle
-Frank
 John
-ALEXIS
-CASTLE
 Alexis
+CASTLE
+ALEXIS
+Frank
 JUDGE
+Castle
 Judge

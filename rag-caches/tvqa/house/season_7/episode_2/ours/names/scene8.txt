@@ -1,8 +1,8 @@
 Taub
-Hugo
-Della
-Wilson
-George
+Chase
 House
 Claire
-Chase
+Wilson
+Della
+George
+Hugo

@@ -1,6 +1,6 @@
-Beckett
-Castle
-Gates
-Nieman
 Esposito
 Ryan
+Beckett
+Nieman
+Gates
+Castle

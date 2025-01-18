@@ -1,8 +1,8 @@
-Beckett
-Castle
-Woman
 Lisa
 Alexis
-Daphne
-Lance
+Beckett
 Tom
+Lance
+Woman
+Castle
+Daphne

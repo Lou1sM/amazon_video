@@ -1,10 +1,10 @@
-Beckett
-Castle
-Ryan
-Charlie
-Epsosito
-COLEMAN
 Esposito
+Ryan
+Beckett
 CASTLE
-BECKETT
 RYAN
+BECKETT
+Epsosito
+Charlie
+Castle
+COLEMAN

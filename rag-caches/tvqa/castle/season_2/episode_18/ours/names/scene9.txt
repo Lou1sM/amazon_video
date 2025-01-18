@@ -1,8 +1,8 @@
-Beckett
-Castle
-Shaw
 Esposito
 Avery
-Montgomery
-Dunn
 Ryan
+Beckett
+Dunn
+Shaw
+Montgomery
+Castle

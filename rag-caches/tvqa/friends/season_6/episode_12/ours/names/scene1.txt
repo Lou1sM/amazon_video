@@ -1,7 +1,7 @@
 Phoebe
-Gunther
-Monica
 Joey
-Chandler
+Monica
 Rachel
+Gunther
 Ross
+Chandler

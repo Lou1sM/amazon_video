@@ -1,5 +1,5 @@
-Announcer
-Monica
-Referee
 Pete
+Referee
+Monica
+Announcer
 Ross

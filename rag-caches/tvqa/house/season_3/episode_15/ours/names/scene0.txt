@@ -1,7 +1,7 @@
-Patient
 Foreman
-House
-Cameron
-FOREMAN
-Patrick
 Chase
+Cameron
+Patrick
+House
+FOREMAN
+Patient

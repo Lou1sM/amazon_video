@@ -1,8 +1,8 @@
-Officer
-Wilson
-Foreman
-Vogler
-House
 Cuddy
-Joel
+Foreman
 Chase
+House
+Joel
+Officer
+Vogler
+Wilson

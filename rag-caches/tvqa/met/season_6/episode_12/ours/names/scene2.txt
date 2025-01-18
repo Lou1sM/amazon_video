@@ -1,5 +1,7 @@
-Robin
+Doctor
 Lily
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Sam
+Robin

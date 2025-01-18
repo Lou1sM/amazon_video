@@ -1,6 +1,6 @@
 Beckett
-Castle
-Mickey
-Chad
 Vogel
 Liz
+Mickey
+Chad
+Castle

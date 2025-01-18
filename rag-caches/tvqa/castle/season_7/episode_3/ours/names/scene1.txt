@@ -1,7 +1,7 @@
-Beckett
-Castle
-Shepherd
 Esposito
-Lanie
-Tory
+Shepherd
 Ryan
+Beckett
+Lanie
+Castle
+Tory

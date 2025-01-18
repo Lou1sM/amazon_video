@@ -1,8 +1,8 @@
-Beckett
-Castle
-Vikram
-Ryan
-Lucy
-Esposito
-Lanie
 Alexis
+Esposito
+Lucy
+Beckett
+Ryan
+Vikram
+Lanie
+Castle

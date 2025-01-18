@@ -1,6 +1,6 @@
-Doctor
 Cuddy
+Doctor
 House
+STONE
 Eve
 CUDDY
-STONE

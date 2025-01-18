@@ -1,8 +1,8 @@
-Masters
-Taub
-Kendall
-Foreman
 Donovan
-House
-Chase
 Thirteen
+Foreman
+Taub
+Chase
+House
+Masters
+Kendall

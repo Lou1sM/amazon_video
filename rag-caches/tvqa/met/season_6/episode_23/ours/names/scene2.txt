@@ -1,7 +1,7 @@
-Robin
-Lily
 Chairman
-Ted
-Marshall
+Arthur
+Lily
 Barney
-Zoey
+Marshall
+Ted
+Robin

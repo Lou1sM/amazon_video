@@ -1,4 +1,8 @@
-Marshall
-Barney
 Man
+Lily
+Barney
+Marshall
+Ted
+Judy
+Marvin
 Robin

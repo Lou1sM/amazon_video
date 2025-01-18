@@ -1,7 +1,7 @@
-Patient
+Cuddy
 Foreman
+Chase
 House
 Andie
-Cuddy
 Nurse
-Chase
+Patient

@@ -1,8 +1,2 @@
-Robin
-Lily
-Bill
-Ted
-Scooter
-Barney
 Barman
-Andrea
+Barney

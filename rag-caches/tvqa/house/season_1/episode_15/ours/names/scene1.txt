@@ -1,7 +1,7 @@
-Henry
 Foreman
-Joey
-House
-Cameron
-Bill
 Chase
+Cameron
+House
+Joey
+Bill
+Henry

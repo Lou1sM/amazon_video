@@ -1,10 +1,10 @@
-Officer
-Wilson
 Foreman
+Chase
 Cameron
-House
-FOREMAN
 Lawyer
 Will
+House
 STEINERMAN
-Chase
+Officer
+FOREMAN
+Wilson

@@ -1,6 +1,6 @@
 Esposito
-Beckett
-GATES
 FOWLER
-Ryan
+Beckett
 RYAN
+GATES
+Ryan

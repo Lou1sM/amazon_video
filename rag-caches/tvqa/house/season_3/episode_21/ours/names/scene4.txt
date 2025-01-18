@@ -1,8 +1,8 @@
-Wilson
 Foreman
-NICK
-Cameron
-House
 Nick
-Scott
 Chase
+Cameron
+NICK
+House
+Scott
+Wilson

@@ -1,9 +1,9 @@
-Lily
-Robin
-Woman
-Ted
-Waiter
-Man
 Girl
+Man
+Lily
 Barney
 Marshall
+Ted
+Woman
+Waiter
+Robin

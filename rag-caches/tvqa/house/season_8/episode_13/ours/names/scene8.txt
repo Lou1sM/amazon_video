@@ -1,9 +1,9 @@
-Adams
 Taub
-Marlene
-Joe
-Wilson
-House
-Ayres
-Weinmann
 Chase
+Weinmann
+Marlene
+House
+Joe
+Adams
+Wilson
+Ayres

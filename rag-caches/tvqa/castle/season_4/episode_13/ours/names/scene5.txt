@@ -1,9 +1,9 @@
-Beckett
-Castle
-ESPOSITO
-Epsosito
-Patterson
 Esposito
+Reporter
+ESPOSITO
+Beckett
+Patterson
 Barker
 BECKETT
-Reporter
+Epsosito
+Castle

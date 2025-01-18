@@ -1,63 +1,103 @@
-Kutner : Guess we've figured out why you're seeing me,
-Kutner : your suicidal friend.
-Wilson : He'll call you twice a day. Then his wife will call you twice a day
-Wilson : to make sure she understands what he told her you told him.
-Wilson : Which she won't, because he didn't.
-Frankel : Maybe you want to give this one to Connors.
-Foreman : Where's House?
-Wilson : Don't know, don't care, working.
-Wilson : Excuse me.
-Foreman : No one has seen or heard from him since two nights ago.
-Wilson : I'm sure he's enjoying himself.
-Wilson : Last time he went to prison
-Wilson : he maxed out his credit cards.
-Wilson : Last time he went to prison, he thought he had you waiting for him.
-UNK: You think he could have done something stupid?
-Foreman : I think stupid is our best-case scenario.
-Kutner : Why do you want to kill yourself?
-House : Here's a reason. I can't even get stoned without some annoying jerk
-House : deciding I need to be deeply analyzed.
-House : Isn't this just an incredibly simple calculation?
-House : I'm going to jail, losing my job, losing my best friend.
-House : Do I need more?
-Kutner : You think that's the sum total of who you are?
-Kutner : A doctor, a friend to Wilson?
-House : I'm also a tremendous baritone.
-House : Now go away.
-Kutner : Even with your subconscious, you're evasive.
-Kutner : Death's not interesting.
-Kutner : You exist for what's interesting.
-Kutner : Puzzles' ideas, analysis.
-Kutner : Death is the opposite of a cool puzzle.
-Kutner : It's eternal nothingness.
-Kutner : But you don't find life interesting anymore.
-Amber : Stop being an idiot.
-House : Can I have Kutner back, please?
-Amber : How much pathetic wallowing do I have to sit through?
-House : How are things in hell?
-House : Is the humidity the big issue?
-Amber : What happened next with the guy's medical case?
-UNK: Why? Exactly.
-Amber : Why am I, meaning you,
-Amber : still obsessing about this case?
-UNK: Obviously, we think it's relevant
-Amber : to why we're still sitting on the Ã¯Â¬Âoor of a burning building.
-House : There was a code.
-Adams : Gotta be a clot in his lungs. We need to get him to an OR.
-Park : No time, his O2 sats are falling.
-Park : We have to suck it out here,
-Park : - bedside embolectomy. - Float a catheter through his heart
-Adams : and his oxygenation'll get even worse.
-Adams : He'll die before we can finish the procedure.
-Taub : House, we need a call here.
-Adams : What are you doing?
-Adams : What did you give him?
-UNK: Five,
-UNK: four,
-House : three, two...
-UNK: Naloxone.
-UNK: We should have got suspicious
-House : when his visiting cousin signed in as Mr. Tar H. Horse.
-UNK: The heroin caused the respiratory distress,
-House : the naloxone turned off the receptors, causing your distress.
-UNK: I'm not going to stop doing drugs!
+Oliver : It's reality that sucks!
+House : You're saying I'm lying? To my subconscious?
+Amber : People do it all the time. And like it or not, you are a person.
+House : He said every one of those...
+Amber : But not then. And not like that.
+Amber : This guy was going nuts from the naloxone.
+Amber : He couldn't be rational if you wanted him to be.
+Amber : Which you did. Why?
+House : I compressed the story a little to...
+Amber : Context matters.
+Amber : You never talk to patients for non-diagnostic reasons.
+Amber : But this guy...
+House : Feeling better?
+UNK: I'm not going to stop doing drugs.
+House : You were a stockbroker, son of a stockbroker,
+House : married, children...
+UNK: And I was miserable.
+House : You say you were miserable
+House : because you need to rationalize screwing it up.
+Oliver : Except I didn't.
+UNK: I mean, I did,
+Oliver : but I'm not miserable.
+Oliver : Not anymore.
+Oliver : I had a ski injury
+Oliver : and painkillers weren't enough
+Oliver : and a friend of mine gave me some heroin.
+Oliver : The second it entered my veins, it was like
+Oliver : God had taken over my body.
+Oliver : It was like there was no more pain
+Oliver : or unhappiness in my life or anybody else's.
+House : But then you lost everything.
+Oliver : Everything wasn't enough.
+Oliver : Because it's reality that sucks.
+Amber : Are you arguing that he's a good role model?
+House : He's happy.
+Kutner : He's dead.
+Amber : You heard what you wanted to hear.
+Kutner : The more interesting question,
+Amber : always, is why you wanted to hear it.
+Foreman : You're stealing this guy's oxygen?
+House : There's oxygen everywhere.
+Foreman : You passed on all your cases,
+Foreman : reassigned them to other doctors.
+House : They weren't interesting.
+Foreman : They were my reason for getting your sentence delayed.
+UNK: Yeah, I guess you'll have to tell
+Foreman : the parole board something else.
+House : Maybe that I was in the OR the entire day the ceiling collapsed,
+House : so I couldn't have caused the plumbing problem.
+Foreman : You set me up. Not really.
+UNK: You were going lo basically perjure yourself
+House : so that I could delay jail time.
+House : Doesn't it make more sense to actually perjure yourself
+UNK: so I can actually avoid jail time?
+Foreman : Why are you doing this?
+Foreman : Why are you risking destroying yourself?
+UNK: There is no risk. I know you.
+House : You'll do the honest thing.
+House : You'll lie.
+UNK: No.
+House : He's happy.
+Kutner : He's dead.
+Amber : You weren't worried.
+House : Of course I was worried. My plan fell through.
+Amber : The plan didn't matter. Your plan to replace that plan didn't matter.
+Amber : Wilson didn't matter, jail didn't matter,
+Amber : the only thing that mattered,
+Amber : the only thing that ever mattered was the puzzle.
+House : I noticed a slight twitch in his thenar eminence.
+House : You're dying.
+Oliver : Because my thumb is a little shaky?
+House : Plus the thinning of the muscle.
+House : Plus that speech you gave at Yankee Stadium
+House : saying you were the luckiest man on the face of the earth.
+House : Add them up, it means ALS.
+Oliver : Lou Gehrig's disease?
+Oliver : You're trapped in your body. You can't move or speak
+Oliver : while you just die?
+House : If it makes you feel any better,
+House : at this rate, it'll be fast.
+House : You're not symmetrical.
+UNK: Wait.
+Amber : Now you're standing at the door.
+Amber : What happened in the meantime?
+House : And lo, there was a miraculous wonder. I walked across the room...
+Amber : No, you just skipped over a chunk of conversation.
+House : He swore that he'd live a better, more selfless life
+UNK: in his remaining lime, blah, blah, blah.
+House : After two blahs, I'd heard enough and I moved to the door.
+Amber : No. You're avoiding it.
+House : Do you smell smoke?
+Amber : Fair enough.
+House : You're not symmetrical.
+House : The veins on your right side are distended.
+Oliver : What does that mean?
+House : There's a bulge in your supraclavicular notch.
+House : There's something in there.
+UNK: What?
+UNK: I'm not that good a doctor.
+UNK: Good news.
+UNK: Your case is fascinating.
+UNK: And good news for you,
+UNK: you're gonna live.

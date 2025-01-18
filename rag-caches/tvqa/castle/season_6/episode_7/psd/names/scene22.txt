@@ -1,6 +1,6 @@
-John
-Beckett
-Alexis
-Lanie
-Frank
 Castle
+Alexis
+Frank
+Beckett
+John
+Lanie

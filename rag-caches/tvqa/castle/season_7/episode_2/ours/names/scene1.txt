@@ -1,8 +1,8 @@
-Beckett
-Castle
-Brooke
-Samantha
-Gates
 Esposito
-Lanie
+Brooke
 Ryan
+Beckett
+Gates
+Samantha
+Lanie
+Castle

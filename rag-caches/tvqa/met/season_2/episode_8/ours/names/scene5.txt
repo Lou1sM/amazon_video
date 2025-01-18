@@ -1,8 +1,8 @@
-Captain
-Woman
-Robin
-Lily
 Judge
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Captain
+Both
+Robin

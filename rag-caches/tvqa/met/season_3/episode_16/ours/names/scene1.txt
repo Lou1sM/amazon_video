@@ -1,7 +1,7 @@
-Robin
 Lily
-Narrator
-Ted
-Marshall
 Barney
+Marshall
+Ted
 Simon
+Narrator
+Robin

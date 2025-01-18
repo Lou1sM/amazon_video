@@ -1,8 +1,8 @@
 Phoebe
+Joey
+Monica
+Rachel
 Sarah
 Gunther
-Monica
-Joey
-Chandler
-Rachel
 Ross
+Chandler

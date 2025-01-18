@@ -1,6 +1,6 @@
-Wilson
 Foreman
-Audrey
-House
 Nick
 Kutner
+House
+Audrey
+Wilson

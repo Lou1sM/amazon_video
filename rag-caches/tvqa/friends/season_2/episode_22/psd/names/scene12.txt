@@ -1,5 +1,5 @@
-Chandler
-Ross
-Joey
-Rachel
 Monica
+Rachel
+Ross
+Chandler
+Joey

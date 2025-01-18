@@ -1,38 +1,63 @@
-House : I need a meeting.
-House : Thanks for fitting me in.
-House : My team has eight urgent, life-or-death cases
-House : that they've been waiting for me to accept or reject.
-Foreman : When is that not true?
-House : Well, right now for one.
-House : But tell my parole board that I'm taking all eight.
-House : That no one else can crack them,
-House : that you need me here for the next five months
-House : or eight people will die.
-Foreman : You're asking me to perjure myself.
-UNK: Just a tiny white lie. No of fence.
-House : Especially since from what I hear nothing black is tiny.
-House : Except your penis, I guess.
-House : You really think I wanted to cave in that ceiling?
-House : It was a prank that went wrong.
-House : Dock my pay, sue me...
-Foreman : Felony vandalism should've added
-Foreman : another year or two to your sentence.
-Foreman : It's a miracle the parole board agreed to six months.
-House : I will go to jail. Eventually.
-UNK: I will pay the price. I'd just rather that Wilson didn't.
-House : Come on. Be a friend.
-UNK: Okay.
-Foreman : But whatever cases you have, you have to take them all.
-Kutner : "Be a friend"?
-House : How many fingers am I holding up?
-House : Of course, you know it's three
-House : because you know everything I know,
-House : everything my smack-addled brain can remember.
-House : Including that I actually said, "Be a friend."
-Kutner : My point wasn't that you said it.
-Kutner : My point was, once again, why?
-Kutner : I think it's because part of you knew
-House : you were going to need a friend.
-Kutner : Part of you knew the plan, even when it was working, wouldn't work.
-Kutner : And right now, I'm curious about why you're sitting on the ground
-Kutner : instead of heading for the door.
+Kutner : Guess we've figured out why you're seeing me,
+Kutner : your suicidal friend.
+Wilson : He'll call you twice a day. Then his wife will call you twice a day
+Wilson : to make sure she understands what he told her you told him.
+Wilson : Which she won't, because he didn't.
+Frankel : Maybe you want to give this one to Connors.
+Foreman : Where's House?
+Wilson : Don't know, don't care, working.
+Wilson : Excuse me.
+Foreman : No one has seen or heard from him since two nights ago.
+Wilson : I'm sure he's enjoying himself.
+Wilson : Last time he went to prison
+Wilson : he maxed out his credit cards.
+Wilson : Last time he went to prison, he thought he had you waiting for him.
+UNK: You think he could have done something stupid?
+Foreman : I think stupid is our best-case scenario.
+Kutner : Why do you want to kill yourself?
+House : Here's a reason. I can't even get stoned without some annoying jerk
+House : deciding I need to be deeply analyzed.
+House : Isn't this just an incredibly simple calculation?
+House : I'm going to jail, losing my job, losing my best friend.
+House : Do I need more?
+Kutner : You think that's the sum total of who you are?
+Kutner : A doctor, a friend to Wilson?
+House : I'm also a tremendous baritone.
+House : Now go away.
+Kutner : Even with your subconscious, you're evasive.
+Kutner : Death's not interesting.
+Kutner : You exist for what's interesting.
+Kutner : Puzzles' ideas, analysis.
+Kutner : Death is the opposite of a cool puzzle.
+Kutner : It's eternal nothingness.
+Kutner : But you don't find life interesting anymore.
+Amber : Stop being an idiot.
+House : Can I have Kutner back, please?
+Amber : How much pathetic wallowing do I have to sit through?
+House : How are things in hell?
+House : Is the humidity the big issue?
+Amber : What happened next with the guy's medical case?
+UNK: Why? Exactly.
+Amber : Why am I, meaning you,
+Amber : still obsessing about this case?
+UNK: Obviously, we think it's relevant
+Amber : to why we're still sitting on the Ã¯Â¬Âoor of a burning building.
+House : There was a code.
+Adams : Gotta be a clot in his lungs. We need to get him to an OR.
+Park : No time, his O2 sats are falling.
+Park : We have to suck it out here,
+Park : - bedside embolectomy. - Float a catheter through his heart
+Adams : and his oxygenation'll get even worse.
+Adams : He'll die before we can finish the procedure.
+Taub : House, we need a call here.
+Adams : What are you doing?
+Adams : What did you give him?
+UNK: Five,
+UNK: four,
+House : three, two...
+UNK: Naloxone.
+UNK: We should have got suspicious
+House : when his visiting cousin signed in as Mr. Tar H. Horse.
+UNK: The heroin caused the respiratory distress,
+House : the naloxone turned off the receptors, causing your distress.
+UNK: I'm not going to stop doing drugs!

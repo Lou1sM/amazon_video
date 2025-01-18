@@ -1,6 +1,6 @@
-Beckett
-Castle
-Detective
 Esposito
-Tory
 Ryan
+Beckett
+Detective
+Castle
+Tory

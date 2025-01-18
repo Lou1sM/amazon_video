@@ -1,6 +1,6 @@
-Beckett
-Castle
-Decker
 Esposito
-Ryan
 Flanagan
+Ryan
+Beckett
+Decker
+Castle

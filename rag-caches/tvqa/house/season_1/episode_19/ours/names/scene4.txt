@@ -1,7 +1,7 @@
-Wilson
-Foreman
 Cuddy
-House
+Foreman
 Brenda
-Mary
 Chase
+Mary
+House
+Wilson

@@ -1,7 +1,7 @@
-Patient
-Sarah
 Foreman
-Rowan
-House
-Cameron
 Chase
+Cameron
+House
+Sarah
+Patient
+Rowan

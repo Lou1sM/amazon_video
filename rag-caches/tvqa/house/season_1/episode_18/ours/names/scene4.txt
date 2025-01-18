@@ -1,8 +1,8 @@
-Wilson
-Foreman
-Vogler
-House
 Cuddy
+Foreman
+Chase
+House
 Joel
 Rachel
-Chase
+Vogler
+Wilson

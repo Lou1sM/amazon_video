@@ -1,10 +1,9 @@
-Marshall : Stop the truck.
-Marshall : I need a package on your truck.
-Marshall : Can I please take a look in back?
-UNK: Truck driver : Sure. But I gotta keep driving my route.
-UNK: Truck driver : I'm running behind.
-UNK: Whoa.
-UNK: Wpd driver : My bad.
-Marshall : I'm okay.
-Marshall : Hey, man,
-Marshall : Thanks for helping me make my fiancÃ©e's christmas.
+UNK: Truck driver : No problem.
+UNK: Truck driver : Too bad I can't deliver all these packages
+UNK: Truck driver : By the end of the day.
+Marshall : Wait, so some people aren't going to get their gifts
+Marshall : In time for christmas?
+UNK: Truck driver : Sadly, no.
+UNK: âª They call me back door santa
+UNK: âª I make my runs about the break of day âª
+UNK: âª They call me back door santa

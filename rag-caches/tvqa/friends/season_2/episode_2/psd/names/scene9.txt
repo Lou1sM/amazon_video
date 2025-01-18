@@ -1,8 +1,8 @@
 Susan
-Joey
-Carol
-Phoebe
-Monica
 Rachel
-Chandler
+Monica
 Ross
+Chandler
+Joey
+Phoebe
+Carol

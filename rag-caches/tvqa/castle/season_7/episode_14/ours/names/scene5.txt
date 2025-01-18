@@ -1,6 +1,6 @@
-Beckett
-Castle
-Gates
-Nieman
 Esposito
+Nieman
+Beckett
+Gates
+Castle
 Tory

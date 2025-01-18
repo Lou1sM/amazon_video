@@ -1,6 +1,6 @@
 Surgeon
-Apple
-House
-Lucas
 Chase
 Kutner
+House
+Apple
+Lucas

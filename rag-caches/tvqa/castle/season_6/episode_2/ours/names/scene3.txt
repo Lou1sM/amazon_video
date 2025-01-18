@@ -1,9 +1,9 @@
-Beckett
-Mccord
-Castle
-Rasheed
-CASTLE
-RICHMOND
-BOTH
 Vilante
+BOTH
+RICHMOND
+Beckett
 Richmond
+CASTLE
+Mccord
+Rasheed
+Castle

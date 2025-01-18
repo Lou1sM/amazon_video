@@ -1,9 +1,9 @@
-Phoebe
-Gunther
 Host
-Joey
+Phoebe
 Lauren
-Chandler
-Mike
+Joey
 Rachel
+Mike
+Gunther
 Ross
+Chandler

@@ -1,9 +1,9 @@
-Taub
-Wilson
-Foreman
-Thirteen
 Cuddy
-House
-Joseph
-Melanie
+Thirteen
+Foreman
+Taub
 Kutner
+House
+Melanie
+Joseph
+Wilson

@@ -1,10 +1,10 @@
-Salesman
 Marie
+Cuddy
 Taub
 Foreman
-Amber
-Evan
-House
-Cuddy
 Brock
 Kutner
+House
+Amber
+Evan
+Salesman

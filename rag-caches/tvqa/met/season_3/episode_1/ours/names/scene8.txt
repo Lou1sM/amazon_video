@@ -1,7 +1,3 @@
-Lily
-Amy
-Gael
-Narrator
 Ted
-Marshall
 Barney
+Amy

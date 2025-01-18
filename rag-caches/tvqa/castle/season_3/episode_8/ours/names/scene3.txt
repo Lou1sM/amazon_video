@@ -1,8 +1,8 @@
-Beckett
-Castle
-Espostio
-Bryon
 Arthur
-Mario
 Ryan
+Beckett
+Bryon
+Mario
+Espostio
 Byron
+Castle

@@ -1,5 +1,5 @@
-Patient
 Foreman
-House
 Cameron
 Kutner
+House
+Patient

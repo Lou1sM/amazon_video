@@ -1,10 +1,10 @@
-Taub
-Wilson
-Foreman
 Emmy
-Thirteen
 Cuddy
+Taub
+Thirteen
+Foreman
+Kutner
 House
 Deedee
 Nurse
-Kutner
+Wilson

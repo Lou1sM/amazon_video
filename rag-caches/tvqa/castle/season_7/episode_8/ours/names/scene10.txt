@@ -1,9 +1,9 @@
-Beckett
-Castle
-Gates
-Brent
 Esposito
-Jared
-Dustin
-Ryan
 Aragon
+Ryan
+Beckett
+Brent
+Gates
+Dustin
+Jared
+Castle

@@ -1,6 +1,6 @@
-Wilson
 Foreman
-House
-Cameron
-Mary
 Chase
+Mary
+Cameron
+House
+Wilson

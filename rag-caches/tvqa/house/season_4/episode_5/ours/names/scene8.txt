@@ -1,8 +1,8 @@
-Taub
-Patient
 Foreman
-Amber
-Cole
-House
+Taub
 Brennan
 Kutner
+House
+Amber
+Cole
+Patient

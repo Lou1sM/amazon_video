@@ -1,9 +1,9 @@
-Esposito
-Winters
-Audrey
-Beckett
-Alexis
-Ryan
-Stephanie
 Castle
+Stephanie
+Esposito
+Audrey
+Alexis
+Beckett
+Winters
 Oracle
+Ryan

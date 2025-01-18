@@ -1,8 +1,8 @@
-Taub
-Foreman
-Phyllis
-House
-Cameron
 Cuddy
-Lucas
+Foreman
+Taub
 Chase
+Cameron
+House
+Phyllis
+Lucas

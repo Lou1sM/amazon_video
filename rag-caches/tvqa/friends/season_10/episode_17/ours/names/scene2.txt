@@ -1,5 +1,5 @@
-Monica
 Doctor
-Chandler
-Nurse
 Erica
+Monica
+Nurse
+Chandler

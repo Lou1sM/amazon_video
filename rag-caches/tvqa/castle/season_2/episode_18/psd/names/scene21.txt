@@ -1,6 +1,6 @@
-Beckett
-Shaw
-Montgomery
-Man
-Avery
 Castle
+Avery
+Beckett
+Montgomery
+Shaw
+Man

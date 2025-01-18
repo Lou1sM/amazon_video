@@ -1,7 +1,7 @@
-Wilson
 Foreman
-House
-Cameron
-Rebecca
-Guy
 Chase
+Cameron
+House
+Guy
+Rebecca
+Wilson

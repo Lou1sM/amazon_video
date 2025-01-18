@@ -1,4 +1,4 @@
-Park
-Taub
-Chase
 Foreman
+Chase
+Taub
+Park

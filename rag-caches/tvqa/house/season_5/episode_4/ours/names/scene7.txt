@@ -1,10 +1,10 @@
-Taub
-Wilson
-Foreman
-Nicole
 Thirteen
+Foreman
+Taub
+Chase
 Cameron
+Kutner
 House
 Costello
-Chase
-Kutner
+Nicole
+Wilson

@@ -1,8 +1,8 @@
 Phoebe
 Joey
 Monica
-Chandler
-Mike
-Manny
 Rachel
+Manny
+Mike
 Ross
+Chandler

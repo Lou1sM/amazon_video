@@ -1,6 +1,8 @@
-Robin
+Girl
 Lily
-Guy
-Ted
-Marshall
 Barney
+Guy
+Marshall
+Ted
+Woman
+Robin

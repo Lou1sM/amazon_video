@@ -1,6 +1,5 @@
 Lily
-Student
-Ted
-Marshall
 Barney
-Professor
+Marshall
+Ted
+Robin

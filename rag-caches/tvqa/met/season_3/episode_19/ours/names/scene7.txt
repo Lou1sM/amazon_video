@@ -1,5 +1,7 @@
-Lily
 Man
-Abby
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Abby
+Robin

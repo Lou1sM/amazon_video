@@ -1,9 +1,9 @@
-Adams
-Ron
 Taub
-Wilson
-House
-Mitchell
-Park
-Janey
 Chase
+House
+Park
+Mitchell
+Ron
+Adams
+Janey
+Wilson

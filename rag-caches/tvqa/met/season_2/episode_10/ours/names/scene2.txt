@@ -1,7 +1,8 @@
-Robin
-James
-Both
 Man
+James
+Lily
 Barney
 Tous
-Women
+Marshall
+Ted
+Robin

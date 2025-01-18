@@ -1,6 +1,6 @@
-Hugo
-George
-House
 Cuddy
-Houses
+House
 Claire
+Houses
+George
+Hugo

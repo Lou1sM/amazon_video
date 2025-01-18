@@ -1,8 +1,8 @@
-Taub
-Foreman
-Kutner
 Cuddy
-House
+Taub
+Thirteen
+Foreman
 Cameron
 Stewart
-Thirteen
+Kutner
+House

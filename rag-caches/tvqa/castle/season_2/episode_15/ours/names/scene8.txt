@@ -1,7 +1,7 @@
-Beckett
-Castle
 Man
-Sanchez
-Ana
-Quintana
 Esposito
+Sanchez
+Beckett
+Quintana
+Ana
+Castle

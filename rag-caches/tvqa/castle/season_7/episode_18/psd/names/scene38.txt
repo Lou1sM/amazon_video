@@ -1,8 +1,8 @@
-Megan
-Gwen
-Beckett
-Ryan
-Boyce
-Frank
-Lopez
 Castle
+Lopez
+Frank
+Beckett
+Gwen
+Megan
+Boyce
+Ryan

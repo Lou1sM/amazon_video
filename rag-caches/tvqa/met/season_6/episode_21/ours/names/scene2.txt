@@ -1,8 +1,11 @@
-Robin
+Man
 Lily
-BARNEY
-Jerry
-Ted
-Marshall
 Barney
-NARRATOR
+ROBIN
+OTHERS
+Marshall
+Ted
+TED
+Jerry
+BARNEY
+Robin

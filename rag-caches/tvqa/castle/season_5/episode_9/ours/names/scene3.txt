@@ -1,7 +1,7 @@
-Beckett
-Castle
-Dunne
-Gates
 Esposito
-Ryan
 Gwenn
+Dunne
+Ryan
+Beckett
+Gates
+Castle

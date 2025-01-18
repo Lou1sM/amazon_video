@@ -1,6 +1,6 @@
-Izzie
-Sophie
-George
-Richard
-Debbie
 Bailey
+Sophie
+Debbie
+Richard
+George
+Izzie

@@ -1,10 +1,10 @@
-Beckett
-Castle
-Frankie
-Epsosito
-JERRY
 Esposito
-Wally
-Tom
 Manager
+Frankie
+Beckett
+JERRY
+Tom
+Wally
+Epsosito
+Castle
 Jerry

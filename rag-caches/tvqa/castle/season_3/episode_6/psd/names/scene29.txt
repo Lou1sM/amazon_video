@@ -1,6 +1,6 @@
-Beckett
-Alexis
-Ryan
-Gates
 Castle
+Alexis
+Beckett
+Gates
 Doctor
+Ryan

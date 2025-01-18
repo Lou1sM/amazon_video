@@ -1,9 +1,9 @@
-Foreman
-Doctor
-Paramedic
-House
 Cuddy
-Nurse
+Foreman
 Brenda
-Doug
 Chase
+Doctor
+House
+Paramedic
+Doug
+Nurse

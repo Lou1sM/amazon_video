@@ -1,7 +1,7 @@
-Wilson
 Foreman
+Chase
 Cameron
 House
-Nurse
 Stacy
-Chase
+Nurse
+Wilson

@@ -1,7 +1,7 @@
-Beckett
-Castle
-Lark
 Esposito
 Lawyer
-Jack
 Ryan
+Beckett
+Lark
+Jack
+Castle

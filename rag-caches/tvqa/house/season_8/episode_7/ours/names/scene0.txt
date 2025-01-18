@@ -1,8 +1,8 @@
-Adams
-Faye
 Taub
-Wilson
+Chase
+Iris
+Faye
 House
 Park
-Iris
-Chase
+Adams
+Wilson

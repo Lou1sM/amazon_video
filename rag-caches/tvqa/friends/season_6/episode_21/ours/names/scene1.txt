@@ -1,7 +1,7 @@
 Phoebe
-Joey
-Elizabeth
-Wayne
 Paul
-Chandler
+Joey
+Wayne
 Ross
+Chandler
+Elizabeth

@@ -1,11 +1,11 @@
-Alice
-Foreman
 Cuddy
+Foreman
+Chase
 Cameron
 House
-FOREMAN
-Nurse
-CUDDY
 Tritter
+Alice
 Edie
-Chase
+Nurse
+FOREMAN
+CUDDY

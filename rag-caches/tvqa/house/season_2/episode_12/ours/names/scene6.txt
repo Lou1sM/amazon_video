@@ -1,6 +1,6 @@
-Wilson
 Foreman
-House
-Cameron
-Doug
 Chase
+Cameron
+House
+Doug
+Wilson

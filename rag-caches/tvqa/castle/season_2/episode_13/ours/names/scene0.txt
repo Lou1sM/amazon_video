@@ -1,6 +1,6 @@
-Beckett
-Castle
-Coonan
 Esposito
-Lanie
 Ryan
+Beckett
+Coonan
+Lanie
+Castle

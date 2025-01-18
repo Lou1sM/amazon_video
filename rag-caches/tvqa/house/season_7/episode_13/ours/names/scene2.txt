@@ -1,8 +1,8 @@
-Receptionist
+Gabe
+Cuddy
+Zack
 Corwin
 House
-Cuddy
-Gabe
-Colleen
 Alex
-Zack
+Colleen
+Receptionist

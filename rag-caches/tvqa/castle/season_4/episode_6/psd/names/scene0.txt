@@ -1,9 +1,9 @@
-Jack
-ESPOSITO
-Beckett
-Alexis
-CASTLE
-Lanie
-Lulu
 Castle
+Alexis
+Lulu
 Steve
+CASTLE
+Beckett
+ESPOSITO
+Lanie
+Jack

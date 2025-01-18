@@ -1,9 +1,9 @@
-Beckett
-Castle
-Officer
-Smith
-Doctor
-Becket
 Esposito
-Nurse
+Doctor
 Ryan
+Beckett
+Smith
+Officer
+Becket
+Nurse
+Castle

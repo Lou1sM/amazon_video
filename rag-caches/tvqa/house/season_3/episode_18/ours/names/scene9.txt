@@ -1,7 +1,7 @@
-Wilson
-Robin
 Cuddy
-House
-Cameron
-Fran
 Chase
+Cameron
+House
+Fran
+Robin
+Wilson

@@ -1,6 +1,6 @@
-Derek
 Man
 Doctor
-George
-Jorge
+Derek
 Alex
+Jorge
+George

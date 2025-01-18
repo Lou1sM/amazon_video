@@ -1,8 +1,8 @@
-Wilson
-Foreman
-House
-Cuddy
-Cameron
 Gabe
-Tritter
+Cuddy
+Foreman
 Chase
+Cameron
+House
+Tritter
+Wilson

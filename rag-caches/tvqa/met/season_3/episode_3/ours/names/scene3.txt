@@ -1,7 +1,9 @@
-Robin
-Lily
-Rachel
 Trudy
-Marshall
+One
+Lily
 Barney
+Marshall
 Ted
+Rachel
+Two
+Robin

@@ -1,9 +1,9 @@
 Receptionist
-Phoebe
 Janice
-Charlie
+Phoebe
 Joey
 Monica
-Chandler
 Rachel
+Charlie
 Ross
+Chandler

@@ -1,8 +1,8 @@
-Wilson
-HOUSE
 Foreman
-CAMERON
-House
-Cameron
-CHASE
 Chase
+Cameron
+House
+HOUSE
+CHASE
+CAMERON
+Wilson

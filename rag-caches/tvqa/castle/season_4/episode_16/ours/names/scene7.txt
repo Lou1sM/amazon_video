@@ -1,8 +1,8 @@
-Beckett
-Castle
-SOPHIA
-Danberg
-CASTLE
-BECKETT
-Ryan
 Sophia
+SOPHIA
+Ryan
+CASTLE
+Beckett
+BECKETT
+Castle
+Danberg

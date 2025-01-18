@@ -1,8 +1,7 @@
-Fyi
-Robin
-Lily
-Rachel
 Trudy
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Rachel
+Robin

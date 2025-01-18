@@ -1,9 +1,9 @@
-Masters
-Taub
-Wilson
-Foreman
-House
 Cuddy
-Dugan
+Foreman
+Taub
 Chase
+House
+Masters
 Anderson
+Dugan
+Wilson

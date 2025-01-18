@@ -1,9 +1,9 @@
-Foreman
-Elizabeth
-House
-Cameron
-Greta
 Cuddy
-Stacy
-Fletcher
+Foreman
 Chase
+Cameron
+House
+Stacy
+Greta
+Fletcher
+Elizabeth

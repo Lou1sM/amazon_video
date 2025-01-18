@@ -1,9 +1,9 @@
-Adams
 Taub
-Wilson
 Foreman
-Elizabeth
+Chase
 House
 Park
 Simon
-Chase
+Adams
+Wilson
+Elizabeth

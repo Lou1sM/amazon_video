@@ -1,7 +1,7 @@
-Beckett
-Castle
-JOE
 Esposito
-CASTLE
-Ryan
 Manager
+Ryan
+CASTLE
+Beckett
+JOE
+Castle

@@ -1,6 +1,6 @@
 Beckett
-Castle
-Seeger
-Montgomery
 Reggie
+Seeger
 Maurice
+Montgomery
+Castle

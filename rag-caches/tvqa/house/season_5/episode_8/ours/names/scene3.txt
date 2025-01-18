@@ -1,9 +1,9 @@
-Taub
-Foreman
-Evan
 Cuddy
-House
-Nurse
 Sophia
-Melinda
+Foreman
+Taub
 Kutner
+House
+Evan
+Nurse
+Melinda

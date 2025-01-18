@@ -1,103 +1,13 @@
-UNK: In this very bar.
-Barney : What...?!
-UNK: Ted from 2030 : No...
-Barney : What?!
-UNK: Ted from 2030 : No...
-Barney : What?!
-Robin : Um...
-Robin : thank you for, um, not using a first name in that story.
-Ted : Barney, this is about the building.
-Barney : Come on. This is so about the girl.
-Ted : Okay, fine. It's about the girl!
-Ted : I am doing this for Zoey!
-Ted : I'm in love with her.
-Ted : Look, I know it's early, but there's a very good chance
-Ted : Zoey might be the mother of my children.
-Ted : So, in addition to doing this for John Clifford Larrabee,
-Ted : I'm also doing this for Luke and Leia.
-Lily : Wait. She's gonna let you name your kids Luke and Leia?
-Ted : Not if I knock down her favorite building, she isn't.
-Ted : Barney, I'm sorry.
-Barney : Oh, you're not sorry now, Ted Mosby.
-Barney : But you will be.
-Barney : You... will... be.
-Barney : That's how you do an evil laugh.
-UNK: Ciao for now.
-UNK: Now, kids, you remember Arthur Hobbs,
-UNK: Barney and Marshall's old boss at GNB?
-UNK: Ted from 2030 : Well, Arthur was going through a divorce and taking it
-UNK: kind of hard. Hi, Arthur.
-Barney : Everything okay?
-Arthur : No, everything's not okay.
-Arthur : My stupid wife got custody of Tugboat.
-Arthur : God, I should have kept her hidden
-Arthur : in a cage in the basement.
-Barney : Isn't that animal cruelty?
-Arthur : I'm talking about my wife.
-Barney : Oh. That's fine, then.
-Barney : So listen, you know Ted, the architect?
-Arthur : Yeah, I know your friend Ted. So,
-Barney : if Ted stood up at that big meeting tomorrow
-Barney : and said that he thought The Arcadian should be a landmark...
-Barney : you wouldn't just fire him, would you?
-Barney : Right?
-Barney : You wouldn't just...
-Barney : You wouldn't just... yeah...
-Arthur : No, Barney. I wouldn't just fire him.
-Arthur : I'd also fire you.
-Barney : Come again for Big Fudge?
-Barney : Can you believe that?! I can't be unemployed, Robin!
-Barney : My job is my identity; It's who I am.
-Barney : It gives me the confidence I need
-Barney : to convince girls I'm a fighter pilot.
-Robin : I-I don't understand.
-UNK: Why would he fire you?
-Robin : I don't understand.
-Barney : Why would you fire me?
-Arthur : Have you already forgotten how Mosby got that job?
-Barney : By being the best architect available?
-UNK: Ted from 2030 : No.
-Barney : By... being Latino?
-Arthur : No. Let me refresh your memory.
-Arthur : We were in this very room.
-Barney : Guys, I'm telling you,
-Barney : if Ted Mosby isn't fantastic, fire me.
-Barney : Damn it!
-Barney : I was kidding?
-Barney : I'm not kidding!
-Barney : Oh, by the way, Arthur,
-Barney : uh, how are things with you and your wife?
-Arthur : Really good.
-Arthur : In fact, I just put all my assets in her name.
-Arthur : Smartest thing I've ever done.
-Barney : Damn it! No,
-Arthur : you'd better make sure Mosby doesn't screw up tomorrow.
-Arthur : Because either that building is going down,
-UNK: or you're going down.
-UNK: They're going
-Ted : to fire him? That sucks. He loves that job.
-Marshall : And he's been doing it for years.
-Lily : Okay, what does Barney do at GNB?
-Ted : No idea. He has a lot of keys.
-Robin : Okay, Ted, can you just please think about this before you...
-Ted : There's nothing to think about.
-Ted : I-I can't lose Zoey.
-Ted : That's the only thing that matters to me right now.
-Robin : Okay, Ted...
-Robin : you know I love Zoey.
-Robin : But, look, sometimes...
-Robin : I go play chess in the park.
-Robin : And the key to chess...
-Robin : Okay, I play online.
-Robin : But the key to chess... Okay, it's Angry Birds!
-Robin : But the key to Angry Birds
-Robin : is to always try to see every possible outcome.
-Robin : And to... hit some pigs with rocks or something.
-Robin : I don't know; I don't play. I can't get it to download.
-Robin : The point is, this thing with you and Zoey?
-Robin : I can see it going three possible ways.
-Robin : There's the first scenario.
+Zoey : We're done here.
+Robin : There's the second scenario.
 UNK: The chairman asks you...
 Chairman : Do you think The Arcadian should be a landmark?
-UNK: You say... No.
-Robin : And Zoey dumps you on the spot.
+UNK: You say... Yes
+UNK: And you're happy for, like, a second,
+Robin : until you realize the building you helped save
+UNK: has just become a monument
+UNK: to everything this woman made you give up,
+UNK: and you resent her for it,
+UNK: <i>so much so, in fact, </i>that you dump her.
+Zoey : We're done here.
+Ted : You said there was a third scenario.

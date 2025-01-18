@@ -1,7 +1,7 @@
-Tommy
-Wilson
 Foreman
-Mickey
-House
 Nora
 Chase
+Tommy
+House
+Mickey
+Wilson

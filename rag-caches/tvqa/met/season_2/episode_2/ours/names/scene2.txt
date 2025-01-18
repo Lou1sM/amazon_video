@@ -1,8 +1,8 @@
-Lily
-Robin
-Woman
-Ted
-Both
 Girl
+Lily
 Barney
 Marshall
+Ted
+Both
+Woman
+Robin

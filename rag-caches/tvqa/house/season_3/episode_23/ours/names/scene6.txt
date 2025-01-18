@@ -1,8 +1,8 @@
-Enid
 Foreman
-House
-Cameron
-Nurse
-Nate
-Doug
 Chase
+Cameron
+Enid
+House
+Doug
+Nate
+Nurse

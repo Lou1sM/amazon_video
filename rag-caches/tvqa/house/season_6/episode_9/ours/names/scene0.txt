@@ -1,7 +1,7 @@
-Wilson
-Juan
-House
-Tucker
-Ashley
-Chase
 Thirteen
+Chase
+House
+Ashley
+Juan
+Tucker
+Wilson

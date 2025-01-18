@@ -1,7 +1,7 @@
-Wilson
-Foreman
 Cuddy
-Pharmacist
-House
-Cameron
+Foreman
 Chase
+Cameron
+House
+Pharmacist
+Wilson

@@ -1,8 +1,8 @@
-Beckett
-Castle
-Mccord
-McCORD
 Hendricks
-Bronson
-Villante
+Beckett
 Richmond
+McCORD
+Bronson
+Mccord
+Villante
+Castle

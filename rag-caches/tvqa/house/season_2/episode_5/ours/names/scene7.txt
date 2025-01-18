@@ -1,8 +1,8 @@
 Foreman
-Paramedic
-House
+Chase
 Cameron
 Carnell
+House
 Taddy
+Paramedic
 Ken
-Chase

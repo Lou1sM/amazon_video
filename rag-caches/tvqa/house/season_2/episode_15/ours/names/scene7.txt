@@ -1,7 +1,7 @@
 Man
-Wilson
+Cuddy
 Foreman
 House
-Cuddy
-Maria
 Bob
+Maria
+Wilson

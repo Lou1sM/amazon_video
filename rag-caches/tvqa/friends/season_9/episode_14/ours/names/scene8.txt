@@ -1,8 +1,8 @@
 Phoebe
-Monica
-Joey
-Chandler
-Steve
 Waiter
+Joey
+Steve
+Monica
 Rachel
 Ross
+Chandler

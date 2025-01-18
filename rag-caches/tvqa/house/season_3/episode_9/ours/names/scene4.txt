@@ -1,9 +1,9 @@
-Alice
-Wilson
 Foreman
-CAMERON
-House
-Cameron
-Rob
-Edie
 Chase
+Cameron
+House
+Rob
+Alice
+Edie
+CAMERON
+Wilson

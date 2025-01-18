@@ -1,8 +1,9 @@
-Robin
-Lily
 Randy
-Student
-Ted
-Marshall
-Barney
 Zoey
+Arthur
+Lily
+Barney
+Marshall
+Ted
+Student
+Robin

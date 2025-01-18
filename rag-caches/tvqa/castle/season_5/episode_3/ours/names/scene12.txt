@@ -1,8 +1,8 @@
-Beckett
-Castle
-Kirby
-Martha
-Gates
-Esposito
 Pratt
+Esposito
+Martha
+Kirby
+Beckett
+Gates
+Castle
 Angelica

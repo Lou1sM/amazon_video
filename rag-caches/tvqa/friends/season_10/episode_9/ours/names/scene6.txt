@@ -1,8 +1,8 @@
-Ross
-Monica
-Joey
 Girl
-Chandler
-Waiter
+Ross
+Joey
+Monica
 Rachel
 Sarah
+Waiter
+Chandler

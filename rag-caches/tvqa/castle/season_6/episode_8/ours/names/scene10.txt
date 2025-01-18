@@ -1,10 +1,10 @@
-Beckett
-Castle
-ESPOSITO
-Kyle
 Esposito
-Janet
-Steve
-BECKETT
 JANET
+ESPOSITO
+Beckett
+Steve
+Janet
+BECKETT
+Castle
+Kyle
 Hawke

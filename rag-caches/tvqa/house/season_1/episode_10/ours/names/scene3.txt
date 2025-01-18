@@ -1,7 +1,7 @@
-Wilson
-Foreman
-Bouncer
-House
 Cuddy
-Cameron
+Foreman
 Chase
+Cameron
+House
+Bouncer
+Wilson

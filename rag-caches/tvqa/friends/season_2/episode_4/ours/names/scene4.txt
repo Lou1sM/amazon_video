@@ -2,7 +2,7 @@ Phoebe
 Joey
 Duncan
 Monica
-Chandler
 Rachel
-Ross
 Julie
+Ross
+Chandler

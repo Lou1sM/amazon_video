@@ -1,10 +1,10 @@
-Ross
-Phoebe
-Sandy
 Janice
+Phoebe
 Joey
-Monica
-Max
-Chandler
-Rachel
 David
+Monica
+Rachel
+Max
+Ross
+Chandler
+Sandy

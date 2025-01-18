@@ -1,7 +1,7 @@
-Beckett
-Castle
-Tyson
-Gates
-Nieman
 Esposito
+Tyson
 Ryan
+Nieman
+Beckett
+Gates
+Castle

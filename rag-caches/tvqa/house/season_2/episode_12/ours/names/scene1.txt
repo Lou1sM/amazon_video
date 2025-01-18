@@ -1,9 +1,9 @@
-Foreman
-Doctor
-Cameron
 Cuddy
-House
-Emily
 Brenda
-Doug
+Emily
+Foreman
+Cameron
 Chase
+Doctor
+House
+Doug

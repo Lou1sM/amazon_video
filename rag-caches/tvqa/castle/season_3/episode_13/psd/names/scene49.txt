@@ -1,6 +1,6 @@
-Beckett
-Raglan
-Esp
-Ryan
-Lockwood
 Castle
+Lockwood
+Beckett
+Esp
+Raglan
+Ryan

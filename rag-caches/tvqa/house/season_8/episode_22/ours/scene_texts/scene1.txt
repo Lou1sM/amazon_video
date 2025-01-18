@@ -1,67 +1,38 @@
-Kutner : You might want to get up and start heading for the exit signs.
-House : For all I know,
-House : I already am up.
-House : More interesting question is,
-House : why would I hallucinate an ex-employee
-House : who I last saw with a self-inÃ¯Â¬Âicted gunshot wound,
-House : as opposed to someone more busty?
-House : Care to explain why you're here?
-Kutner : The dead guy.
-Kutner : Who is he?
-Kutner : How'd you meet him?
-Oliver : I was in a car accident last month.
-House : I won a swimming trophy in high school. Your turn.
-Oliver : I ran out of pain medication.
-Oliver : I got an orbital fracture. It's just taking ages to heal.
-House : Take off your shirt.
-Oliver : My eye's up here.
-House : Orbital fracture means your face went into the windshield.
-House : Which means your chest went into the steering wheel.
-House : Painkillers can suppress heart rate,
-House : so unless you want me to kill you,
-House : take off your shirt, let me do a heart exam.
-House : I also wanted to see the ring of burns around your collarbone.
-UNK: How did you know? The "codeine allergy"
-House : you told the nurse about, that's shorthand for "give me the strong stuff,"
-House : which matches your seen-better-days
-UNK: - because-my-life-fell-apart suit.
-UNK: The two old burns on your fingers
-UNK: mean you tend to nod off with a cigarette
-UNK: in your hand. No reason you shouldn't do that with one in your mouth.
-UNK: May all your doctors be stupid.
-UNK: Hold on a second.
-UNK: That bruising around your belly button.
-UNK: You might get some fun drugs out of this after all.
-House : but the ultrasound showed air as well as blood. Now,
-House : I know what you're thinking. Hemorrhagic pancreatitis.
-House : But I also know what I'm thinking.
-House : Doesn't explain the pneumoperitoneum.
-Adams : You took a new case?
-Park : You ran tests yourself?
-House : I saw the chance to help someone in need, and I instinctively...
-House : No, wait, that was someone else's instincts.
-UNK: Wilson's dying, your parole officer
-Taub : is probably on his way here right now.
-Taub : How are you possibly in a good mood?
-Adams : Air in his abdomen could mean blah, blah, blah.
-Taub : But blah, blah, blah, blah, blah.
-Adams : Blah, blah, blah.
-House : Nobody cares about the medicine.
-House : Perforated ulcer.
-House : Laparotomy to find the hole in his tummy and close it up.
-Kutner : You didn't answer the team's question.
-UNK: Which is weird 'cause normally when I talk to my own employees,
-House : I'm under oath and hooked up to a lie detector.
-Kutner : You were looking at six months of prison
-Kutner : instead of five months of Wilson.
-Kutner : Why happy?
-House : Obviously I had a plan.
-UNK: Obviously, obviously you had a plan.
-Kutner : The more interesting question is,
-Kutner : why you didn't tell the team.
-Kutner : I think it's because part of you knew from the start
-Kutner : that the plan wouldn't work.
 House : I need a meeting.
-Foreman : I'm busy. Call my office.
-UNK: Yes.
-House : Because wobbly tables don't just un-wobble themselves.
+House : Thanks for fitting me in.
+House : My team has eight urgent, life-or-death cases
+House : that they've been waiting for me to accept or reject.
+Foreman : When is that not true?
+House : Well, right now for one.
+House : But tell my parole board that I'm taking all eight.
+House : That no one else can crack them,
+House : that you need me here for the next five months
+House : or eight people will die.
+Foreman : You're asking me to perjure myself.
+UNK: Just a tiny white lie. No of fence.
+House : Especially since from what I hear nothing black is tiny.
+House : Except your penis, I guess.
+House : You really think I wanted to cave in that ceiling?
+House : It was a prank that went wrong.
+House : Dock my pay, sue me...
+Foreman : Felony vandalism should've added
+Foreman : another year or two to your sentence.
+Foreman : It's a miracle the parole board agreed to six months.
+House : I will go to jail. Eventually.
+UNK: I will pay the price. I'd just rather that Wilson didn't.
+House : Come on. Be a friend.
+UNK: Okay.
+Foreman : But whatever cases you have, you have to take them all.
+Kutner : "Be a friend"?
+House : How many fingers am I holding up?
+House : Of course, you know it's three
+House : because you know everything I know,
+House : everything my smack-addled brain can remember.
+House : Including that I actually said, "Be a friend."
+Kutner : My point wasn't that you said it.
+Kutner : My point was, once again, why?
+Kutner : I think it's because part of you knew
+House : you were going to need a friend.
+Kutner : Part of you knew the plan, even when it was working, wouldn't work.
+Kutner : And right now, I'm curious about why you're sitting on the ground
+Kutner : instead of heading for the door.

@@ -1,9 +1,9 @@
-Beckett
-Doorman
-Castle
-Mandy
 Alexis
 Esposito
-CASTLE
-BECKETT
 Ryan
+Beckett
+CASTLE
+Mandy
+Doorman
+BECKETT
+Castle

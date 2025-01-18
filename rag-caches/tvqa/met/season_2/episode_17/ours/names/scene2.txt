@@ -1,6 +1,6 @@
-Robin
-Lily
 Man
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Both
+Robin

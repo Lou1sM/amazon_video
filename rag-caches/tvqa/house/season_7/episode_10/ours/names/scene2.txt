@@ -1,9 +1,9 @@
-Wells
-Masters
-Wilson
-Foreman
-Driscoll
-House
-Landon
-Chase
 Macdonald
+Foreman
+Chase
+Wells
+House
+Masters
+Landon
+Driscoll
+Wilson

@@ -1,8 +1,8 @@
-Taub
-Wilson
-Foreman
 Thirteen
+Foreman
+Taub
+Kutner
+Daniel
 House
 Ryan
-Daniel
-Kutner
+Wilson

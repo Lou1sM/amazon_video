@@ -1,8 +1,8 @@
-Beckett
-Castle
-Amber
-Alexis
-Gates
 Esposito
+Alexis
 Jules
 Ryan
+Beckett
+Amber
+Gates
+Castle

@@ -1,6 +1,6 @@
-Rachel
-Chandler
-Monica
-Joey
-Ross
 Steve
+Monica
+Rachel
+Ross
+Chandler
+Joey

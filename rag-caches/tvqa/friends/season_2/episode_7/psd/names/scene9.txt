@@ -1,4 +1,4 @@
 Chandler
-Ross
-Joey
 Rachel
+Joey
+Ross

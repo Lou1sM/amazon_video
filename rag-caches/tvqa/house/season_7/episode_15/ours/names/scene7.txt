@@ -1,8 +1,8 @@
-Masters
-Taub
-Wilson
-Foreman
-House
 Cuddy
-Rachel
+Foreman
+Taub
 Chase
+House
+Masters
+Rachel
+Wilson

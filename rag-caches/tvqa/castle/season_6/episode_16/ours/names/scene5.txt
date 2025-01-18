@@ -1,8 +1,8 @@
-Beckett
-Castle
-Holloway
-Gates
 Esposito
-BECKETT
+Holloway
 Ryan
+Beckett
+Gates
+BECKETT
 Sam
+Castle

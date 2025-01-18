@@ -1,6 +1,6 @@
-HOUSE
-Foreman
 Cuddy
+Foreman
 House
+HOUSE
 FOREMAN
 Jack

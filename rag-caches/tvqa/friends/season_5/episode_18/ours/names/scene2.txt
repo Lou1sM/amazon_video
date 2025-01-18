@@ -1,8 +1,8 @@
-Phoebe
-Monica
-Joey
-Chandler
-Nancy
 Kim
+Phoebe
+Joey
+Nancy
+Monica
 Rachel
 Ross
+Chandler

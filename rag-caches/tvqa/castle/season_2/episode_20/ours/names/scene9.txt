@@ -1,8 +1,8 @@
-Beckett
-Castle
-Esposito
-Zach
-Lawyer
-Hank
-Ryan
 Weisberg
+Esposito
+Lawyer
+Ryan
+Beckett
+Zach
+Hank
+Castle

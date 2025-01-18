@@ -1,8 +1,8 @@
-Roger
-Wilson
-House
 Cuddy
 Niles
-Sam
 Lulu
 Father
+House
+Sam
+Roger
+Wilson

@@ -1,7 +1,7 @@
-Beckett
-Castle
-Darren
-Lucy
 Esposito
-Lanie
+Lucy
+Beckett
 Ryan
+Lanie
+Darren
+Castle

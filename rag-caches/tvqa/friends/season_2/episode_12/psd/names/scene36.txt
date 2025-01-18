@@ -1,6 +1,6 @@
 Susie
-Ross
-Trainer
-Kid
 Rachel
+Ross
 Joey
+Kid
+Trainer

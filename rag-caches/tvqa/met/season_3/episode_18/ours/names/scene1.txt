@@ -1,10 +1,7 @@
-Robin
-Lily
-Willie
 Stella
-Randy
-Narrator
-Ted
-Marshall
+Lily
 Barney
-Pitt
+Marshall
+Ted
+Narrator
+Robin

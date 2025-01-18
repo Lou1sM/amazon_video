@@ -1,5 +1,5 @@
 Lily
-Robin
-Ted
 Barney
 Marshall
+Ted
+Robin

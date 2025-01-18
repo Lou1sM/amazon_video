@@ -1,8 +1,8 @@
-Castle
-Woman
-Tyson
-Katrina
-Gates
-Nieman
 Esposito
+Tyson
 Ryan
+Nieman
+Gates
+Woman
+Castle
+Katrina

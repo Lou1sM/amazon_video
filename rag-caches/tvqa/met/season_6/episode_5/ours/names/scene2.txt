@@ -1,8 +1,7 @@
-Robin
-Woman
-Lily
-Wendy
-Ted
-Marshall
-Barney
 Zoey
+Lily
+Barney
+Marshall
+Ted
+Max
+Robin

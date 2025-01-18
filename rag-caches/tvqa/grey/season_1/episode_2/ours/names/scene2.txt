@@ -1,9 +1,9 @@
-Derek
-Cristina
-Woman
-Izzie
-George
-Meredith
-Alex
-Bailey
 Webber
+Bailey
+Cristina
+Derek
+Alex
+Meredith
+Woman
+George
+Izzie

@@ -1,9 +1,9 @@
-Beckett
-Castle
-Vance
-Gates
 Esposito
-Stokes
-MAN
-CASTLE
 Ryan
+CASTLE
+Beckett
+MAN
+Gates
+Vance
+Stokes
+Castle

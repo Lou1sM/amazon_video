@@ -1,7 +1,7 @@
-Henry
-Wilson
 Foreman
-Patient
+Chase
 Cameron
 House
-Chase
+Henry
+Patient
+Wilson

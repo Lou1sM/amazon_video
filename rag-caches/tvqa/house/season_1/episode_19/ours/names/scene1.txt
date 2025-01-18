@@ -1,7 +1,7 @@
-Foreman
 Cuddy
-House
+Foreman
 Brenda
 Mary
-Coach
 Chase
+House
+Coach

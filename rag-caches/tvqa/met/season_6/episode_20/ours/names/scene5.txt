@@ -1,4 +1,6 @@
-Girl
-Barney
+Man
 Lily
+Barney
 Marshall
+Ted
+Robin

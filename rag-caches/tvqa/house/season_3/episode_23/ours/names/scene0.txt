@@ -1,7 +1,7 @@
-Enid
-Foreman
-House
-Cameron
-Nate
 Nick
+Foreman
 Chase
+Enid
+Cameron
+House
+Nate

@@ -1,7 +1,7 @@
 Taub
-Amber
 Foreman
-Cole
-House
 Finn
 Kutner
+Amber
+House
+Cole

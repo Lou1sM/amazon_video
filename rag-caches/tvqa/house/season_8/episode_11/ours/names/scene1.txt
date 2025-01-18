@@ -1,7 +1,7 @@
-Adams
-Taub
 Cofield
 Foreman
+Taub
+Chase
 House
 Park
-Chase
+Adams

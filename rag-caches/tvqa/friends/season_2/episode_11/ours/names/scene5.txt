@@ -1,9 +1,9 @@
-Carol
-Phoebe
-Monica
-Joey
 Minister
-Chandler
-Susan
+Phoebe
+Joey
+Carol
+Monica
 Rachel
+Susan
 Ross
+Chandler

@@ -1,8 +1,8 @@
-Esposito
-Richie
-Beckett
-Ryan
-Gates
-Sampson
 Castle
+Esposito
 Tory
+Beckett
+Gates
+Richie
+Sampson
+Ryan

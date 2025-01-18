@@ -1,6 +1,6 @@
 Foreman
-Vogler
-Cameron
-Boardmember
-House
 Chase
+Cameron
+House
+Boardmember
+Vogler

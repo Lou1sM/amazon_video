@@ -1,6 +1,6 @@
-Adams
-Taub
 Cofield
+Taub
+Chase
 House
 Park
-Chase
+Adams

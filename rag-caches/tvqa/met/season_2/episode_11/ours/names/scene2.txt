@@ -1,7 +1,6 @@
-Robin
-Woman
 Lily
-Both
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Clint
+Robin

@@ -1,9 +1,9 @@
-Beckett
-ESPOSITO
-Castle
-Mccord
-McCORD
-Hendricks
-Reed
-Esposito
 Vilante
+Esposito
+Hendricks
+ESPOSITO
+Beckett
+McCORD
+Mccord
+Reed
+Castle

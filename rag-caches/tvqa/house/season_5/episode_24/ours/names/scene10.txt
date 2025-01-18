@@ -1,8 +1,8 @@
-Stripper
-Wilson
-Foreman
-House
-Cameron
 Cuddy
-Scott
+Foreman
 Chase
+Cameron
+House
+Stripper
+Scott
+Wilson

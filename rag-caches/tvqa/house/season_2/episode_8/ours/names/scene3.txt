@@ -1,7 +1,7 @@
-Wilson
 Foreman
-Paramedic
-House
-Cameron
-Stacy
 Chase
+Cameron
+House
+Paramedic
+Stacy
+Wilson

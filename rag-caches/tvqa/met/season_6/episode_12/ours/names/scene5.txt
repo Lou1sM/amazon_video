@@ -1,6 +1,8 @@
-Doctor
-Robin
 Lily
-Ted
-Marshall
 Barney
+Marshall
+Ted
+Punchy
+Sam
+Woman
+Robin

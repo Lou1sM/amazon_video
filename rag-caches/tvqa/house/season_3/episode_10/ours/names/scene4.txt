@@ -1,8 +1,8 @@
-Abigail
-Wilson
-Foreman
-Doctor
 Cuddy
-House
-Cameron
+Foreman
 Chase
+Cameron
+Abigail
+Doctor
+House
+Wilson

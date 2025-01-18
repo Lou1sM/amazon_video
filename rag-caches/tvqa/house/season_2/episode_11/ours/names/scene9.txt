@@ -1,6 +1,6 @@
-Wilson
-Foreman
-Ted
-Margo
 Cuddy
+Foreman
 House
+Margo
+Ted
+Wilson

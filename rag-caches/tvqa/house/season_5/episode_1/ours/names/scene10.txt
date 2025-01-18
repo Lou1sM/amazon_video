@@ -1,8 +1,8 @@
-Taub
-Lou
-Wilson
-Foreman
 Thirteen
-House
+Taub
+Foreman
 Cuddy
 Kutner
+House
+Lou
+Wilson

@@ -1,7 +1,7 @@
-HOUSE
-Foreman
 Cuddy
-House
-Cameron
-CUDDY
+Foreman
 Chase
+Cameron
+House
+HOUSE
+CUDDY

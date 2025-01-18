@@ -1,7 +1,7 @@
-Beckett
-Castle
-Vikram
 Perlmutter
 Esposito
-Ryan
 Emerson
+Ryan
+Beckett
+Vikram
+Castle

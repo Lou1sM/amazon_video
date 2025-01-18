@@ -1,8 +1,6 @@
-Judy
-Robin
-Lily
-Ted
-Honey
-Marshall
-Barney
 Zoey
+Honey
+Barney
+Marshall
+Ted
+Marcus

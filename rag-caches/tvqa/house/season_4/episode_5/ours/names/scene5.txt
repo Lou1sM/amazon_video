@@ -1,8 +1,8 @@
-Taub
-Patient
-Wilson
-Amber
 Cuddy
-House
+Taub
 Brennan
 Kutner
+House
+Amber
+Patient
+Wilson

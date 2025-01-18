@@ -1,8 +1,8 @@
+Cuddy
 Foreman
+Chase
 Cameron
 House
-FOREMAN
-Cuddy
-Jack
 CHASE
-Chase
+FOREMAN
+Jack

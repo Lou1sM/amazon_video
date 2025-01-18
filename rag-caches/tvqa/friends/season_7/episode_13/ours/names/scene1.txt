@@ -1,6 +1,6 @@
-Ross
 Phoebe
-Monica
-Chandler
-Rachel
 Supervisor
+Monica
+Rachel
+Ross
+Chandler

@@ -1,9 +1,9 @@
-Phoebe
-Monica
-Joey
-Fireman
 Vince
-Chandler
+Phoebe
+Joey
 Pete
+Monica
 Rachel
+Fireman
 Ross
+Chandler

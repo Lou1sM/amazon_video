@@ -1,7 +1,7 @@
-Esposito
-Beckett
-Gomez
-Ryan
-Kat
 Castle
+Esposito
+Gomez
 Tory
+Beckett
+Kat
+Ryan

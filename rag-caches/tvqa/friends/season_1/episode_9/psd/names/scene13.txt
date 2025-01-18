@@ -1,4 +1,4 @@
-Phoebe
-Joey
 Monica
 Chandler
+Joey
+Phoebe

@@ -1,7 +1,7 @@
-Enid
 Foreman
-Cameron
-House
-Nurse
-Nate
 Chase
+Cameron
+Enid
+House
+Nate
+Nurse

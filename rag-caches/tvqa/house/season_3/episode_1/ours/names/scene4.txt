@@ -1,8 +1,8 @@
-Arlene
 Surgeon
-Wilson
 Foreman
-House
-Cameron
-Caren
 Chase
+Cameron
+House
+Caren
+Arlene
+Wilson

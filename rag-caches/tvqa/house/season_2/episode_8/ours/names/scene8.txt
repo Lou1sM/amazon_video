@@ -1,8 +1,8 @@
-Foreman
-House
 Cuddy
-Cameron
-Stacy
-Kayla
-Sam
+Foreman
 Chase
+Cameron
+Kayla
+House
+Stacy
+Sam

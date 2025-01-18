@@ -1,11 +1,11 @@
-Alice
-HOUSE
+Cuddy
 Foreman
 Chase
-Cuddy
 Cameron
 House
+HOUSE
 Rob
+Alice
 CHASE
 Edie
 Judge

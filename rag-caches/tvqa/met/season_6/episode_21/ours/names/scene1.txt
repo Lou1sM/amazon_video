@@ -1,3 +1,8 @@
-Jerry
+Lily
 Barney
+NARRATOR
+Marshall
+Ted
+Jerry
+BARNEY
 Robin

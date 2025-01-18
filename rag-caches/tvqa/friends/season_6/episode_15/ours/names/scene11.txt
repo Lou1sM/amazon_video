@@ -1,6 +1,6 @@
-Woman
 Phoebe
 Monica
-Chandler
-Jack
 Rachel
+Jack
+Woman
+Chandler

@@ -1,6 +1,6 @@
 Phoebe
-Lowell
 Monica
-Chandler
 Rachel
 Ross
+Chandler
+Lowell

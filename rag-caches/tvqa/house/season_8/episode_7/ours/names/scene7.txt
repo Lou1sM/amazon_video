@@ -1,9 +1,9 @@
-Adams
-Faye
-Taub
-Mickey
-House
-Iris
 Grandpa
-Father
+Taub
 Chase
+Iris
+Father
+Faye
+House
+Mickey
+Adams

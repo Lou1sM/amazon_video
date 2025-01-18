@@ -1,7 +1,7 @@
-Chandler
-Ross
 Richard
-Joey
-Rachel
 Monica
+Rachel
+Ross
+Chandler
+Joey
 Phoebe

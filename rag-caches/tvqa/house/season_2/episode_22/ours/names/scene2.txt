@@ -1,6 +1,6 @@
-Foreman
-Brent
 Cuddy
-House
-Cameron
+Foreman
 Chase
+Cameron
+House
+Brent

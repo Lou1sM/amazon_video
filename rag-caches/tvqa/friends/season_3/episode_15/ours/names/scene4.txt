@@ -1,10 +1,10 @@
 Phoebe
-Monica
-Joey
 Mischa
-Chandler
-Chloe
-Mark
-Issac
+Joey
+Monica
 Rachel
+Chloe
+Issac
+Mark
 Ross
+Chandler

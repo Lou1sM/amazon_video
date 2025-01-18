@@ -1,5 +1,5 @@
-Alice
 Taub
 Foreman
-House
 Chase
+House
+Alice

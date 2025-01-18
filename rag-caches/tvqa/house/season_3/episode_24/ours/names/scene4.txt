@@ -1,8 +1,8 @@
 Esteban
-Wilson
-Foreman
-House
-Cameron
 Cuddy
-Nurse
+Foreman
 Chase
+Cameron
+House
+Nurse
+Wilson

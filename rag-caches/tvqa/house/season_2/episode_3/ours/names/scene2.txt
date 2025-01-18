@@ -1,8 +1,8 @@
-Patient
-Wilson
-Foreman
 Cuddy
+Foreman
+Chase
 Cameron
 Stacy
 Alfredo
-Chase
+Patient
+Wilson

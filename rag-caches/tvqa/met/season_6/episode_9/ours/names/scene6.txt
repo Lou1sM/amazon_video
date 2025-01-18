@@ -1,6 +1,7 @@
-Punchy
-Robin
 Lily
+Barney
+Punchy
 Ted
 Marshall
-Barney
+Woman
+Robin

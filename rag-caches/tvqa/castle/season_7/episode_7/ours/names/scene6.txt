@@ -1,8 +1,8 @@
-Beckett
-Castle
-Grady
-Doctor
-Gates
-Becket
 Esposito
+Doctor
+Beckett
+Gates
 Lanie
+Becket
+Grady
+Castle

@@ -1,6 +1,6 @@
-Robin
 Lily
-Ted
-Marshall
 Barney
 Stella
+Marshall
+Ted
+Robin

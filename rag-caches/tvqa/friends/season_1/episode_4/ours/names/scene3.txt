@@ -1,7 +1,7 @@
-Receptionist
 Phoebe
+Chandler
 Joey
 Monica
-Chandler
 Rachel
 Ross
+Receptionist

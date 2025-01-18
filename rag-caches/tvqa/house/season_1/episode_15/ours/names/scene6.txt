@@ -1,10 +1,10 @@
-Wilson
 Foreman
-Joey
-Vogler
-House
-Cameron
-Brady
-Bill
 Chase
+Cameron
+House
 Everhardt
+Joey
+Bill
+Vogler
+Brady
+Wilson

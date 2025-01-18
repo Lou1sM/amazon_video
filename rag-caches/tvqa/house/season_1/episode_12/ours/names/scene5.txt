@@ -1,7 +1,7 @@
-Lola
-Foreman
-House
 Cuddy
-Cameron
-Hank
+Foreman
 Chase
+Cameron
+House
+Lola
+Hank

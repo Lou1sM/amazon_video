@@ -1,8 +1,8 @@
 Receptionist
 Phoebe
-Kid
 Joey
 Monica
-Chandler
 Rachel
+Kid
 Ross
+Chandler

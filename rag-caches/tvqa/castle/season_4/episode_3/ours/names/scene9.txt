@@ -1,8 +1,8 @@
-Beckett
-Castle
-Randolph
-Tech
-Body
-Boyd
-CASTLE
 Alexis
+Body
+Tech
+Randolph
+Beckett
+CASTLE
+Boyd
+Castle

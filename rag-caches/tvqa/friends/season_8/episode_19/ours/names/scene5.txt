@@ -1,4 +1,4 @@
 Joey
-Phoebe
-Chandler
 Ross
+Chandler
+Phoebe

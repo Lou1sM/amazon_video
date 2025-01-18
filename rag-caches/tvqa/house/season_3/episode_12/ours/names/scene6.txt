@@ -1,6 +1,6 @@
-Wilson
 Foreman
-House
+Chase
 Cameron
 Eve
-Chase
+House
+Wilson

@@ -1,8 +1,8 @@
 Beckett
-Castle
-Sue
-Gates
-Lanie
 CASTLE
-Emma
+Gates
+Sue
+Lanie
 Roman
+Castle
+Emma

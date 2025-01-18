@@ -1,114 +1,89 @@
-Oliver : And it grew?
-Amber : You're smiling.
-House : I was, and now I'm not.
-House : Because a moment's fun a few days ago
-House : does not trump a friend dying.
-Amber : Yeah, it does, you idiot.
-UNK: Because after he's dead you cry for a while
-Amber : and then you go back to doing what you love.
-UNK: Every patient I've had,
-UNK: in 70 years from now, they'll all be as dead as Wilson.
-House : Everybody dies. It's meaningless.
-Amber : When you solve a puzzle,
-Amber : the world makes sense and everything feels right.
-Amber : And you'll always have another one,
-Amber : because people will always get sick.
-Amber : It's shallow and it's insignificant,
-Amber : but if you don't give a damn if idiots live,
-UNK: why would you possibly give a damn about shallowness?
-UNK: It makes you happy.
-UNK: And why would you need more than that?
-UNK: Go home.
-UNK: Foreman.
-Wilson : House would never leave food out here rotting for days.
-Foreman : His suitcases are in his closet.
-Wilson : If we had handled this differently...
-Foreman : We did the right thing.
-UNK: Hello?
-Foreman : I'll let his accountant know.
-Foreman : House no-showed on a hooker two nights ago.
-Wilson : Outgoing calls.
-UNK: Hooker.
-Wilson : Me. I didn't pick up.
-UNK: The Chinese place...
-Foreman : Wait, wait, wait. Who's that?
-Foreman : He called four times.
-Wilson : I don't know.
-UNK: Male Patient : It's a total disaster. Do you have any idea how hard it is
-UNK: Male Patient : to schedule a cable appointment with the hours that I work?
-Foreman : House has been missing for two days, we know he talked to you.
-Wilson : Anything you can tell us about his mental state,
-Wilson : or where he was headed, anything at all...
-Nolan : Would be a breach of confidentiality and a violation of the law.
-Foreman : Not if he's a danger to himself or someone else.
-UNK: Male Patient : Is this coming out of our 50 minutes?
-UNK: Is this your douchebag group?
-Wilson : Excuse me.
-Nolan : What makes you think he's a danger to himself?
-Foreman : He hasn't been home, but he didn't take anything with him,
-Foreman : not even his cell.
-Wilson : You're not saying anything,
-Wilson : which means he didn't specifically mention suicide.
-Wilson : But you came out here to talk to us,
-UNK: so he must've said something that worries you.
-Nolan : There are other ways of reaching oblivion.
-UNK: Vicodin? He always has his Vicodin,
-Foreman : there's no reason to calla shrink...
-Foreman : His last patient was a heroin addict.
-Nolan : So I guess we're all done here.
-Wilson : The guy's address has gotta be in the file.
-Stacy : What about God?
-Stacy : You were leaving, and then you stopped.
-UNK: Why?
-House : Your theory is I'm not leaving because I believe in God?
-UNK: What? He's calling me home?
-Stacy : Maybe falling through that floor was a sign.
-Stacy : Maybe that the universe hates you. Something.
-Stacy : You really don't believe?
-Stacy : Really, not in some deep crack of some remote recess
-Stacy : of some dark corner of your mind?
-UNK: No.
-House : Except that some deep crack of some remote recess
-Stacy : of some dark corner is here telling me...
-Stacy : That's enough.
-Stacy : In a burning building, facing imminent death, that's more than enough.
-House : Pascal's wager is facile.
-Stacy : Saying it's facile is facile.
-Stacy : Why is it wrong?
-Stacy : Don't be logical. Be desperate.
-UNK: You've gotta have something to hold on to.
-UNK: But you can't live your life based on something you don't believe.
-UNK: But you could end your life based on something you don't believe?
-Stacy : What about love?
-Stacy : I lived with you for years. I know you believe in love.
-House : Foreman wouldn't help me.
-House : Which means I need you to take the fall.
-Wilson : You do remember I'm dying, right?
-UNK: Which is why you'll never spend a day in jail.
-UNK: Fresh-faced, cancer-ridden.
-House : It's tough to do both, but you pull it off.
-Wilson : Your fingerprints are all over those hockey tickets.
-House : I never admitted to flushing anything.
-UNK: My prints make sense if I gave those tickets to you,
-UNK: as an incentive to stay alive.
-Wilson : And I was so angry that you didn't respect my dying wishes,
-UNK: Hook thousands of dollars of season tickets
-UNK: and Ã¯Â¬Âushed them down toilets?
-House : All you have to do is create reasonable doubt.
-Wilson : Great. What if I do more than that?
-Wilson : What if I end up in jail?
-Wilson : Or spending my final months in endless hearings?
-UNK: That's a risk you're willing to take.
-Wilson : I have a reputation, I have a legacy that could...
-UNK: Wilson.
-House : I don't want to lose this time with you.
-UNK: Okay.
-UNK: Thanks.
-House : I knew I could count on you.
-Foreman : Wait! Wait!
-House : You want the fries back?
-Wilson : I'm not gonna take the fall.
-House : Don't do this to me, Wilson.
-UNK: It's our only option. Exactly.
-Wilson : Because you overplayed your hand with Foreman.
-Wilson : Because you knew you had me as a backstop.
+Wilson : Even with me dying, you just assumed
+Wilson : I'd be here to bail you out.
+House : Since you are here, and you are bailing me out
+House : seems like a pretty safe assumption.
+UNK: Hey!
+Wilson : I won't be here soon.
+Wilson : If I do this, I'm teaching you
+Wilson : that your bad behavior will always be rewarded.
+UNK: You need to learn.Ã¢ÂÂ
+House : How to act when you're gone?
+UNK: If that's the lesson, we've a really great opportunity coming up.
+Wilson : You'll just try to find someone else, and it won't work,
+Wilson : and it shouldn't work.
+House : So that's the great wisdom you're imparting?
+House : That I'll always be alone?
+Wilson : There's only one person you can count on.
+House : I thought there were two.
+Wilson : I need to do this.
+Wilson : For you.
+Stacy : Wilson's right.
+Stacy : He's always right. He's always been your good side.
+House : I always wondered why I photographed so poorly.
+Stacy : And because he's always played that role,
+Stacy : you've never had to develop a conscience of your own.
+House : People don't change. Consciences don't spontaneously develop.
+Stacy : You're wrong, Greg.
+Stacy : Which is why you'll be better off without him.
+Stacy : You've been looking to him to find what you've gotta find within yourself.
+Stacy : Something you can find.
+Stacy : Hold your child.
+House : This is a reason to die.
+House : This is what my life could have been, not what it can be.
+UNK: If it could have been,
+Stacy : you're capable of it now.
+House : You're married, Cuddy's gone.
+Stacy : We aren't the only two people who could love you.
+House : Why settle so easily?
+House : These are just idiotic fantasies.
+Stacy : Greg, don't.
+House : At odds with every logical bone in my body.
+Kutner : Get up.
+Stacy : You do not have to die in here!
+House : Is this hell?
+House : An eternity of people trying to convince me to live?
+UNK: Who says I'm hereto convince you to live?
+House : You're the last one I thought would hate me.
+Cameron : I don't hate you.
+Cameron : I love you.
+House : And yet you think I deserve to die.
+Cameron : But not as a punishment
+Cameron : As a reward.
+Kutner : I think
+Cameron : you've suffered enough.
+Cameron : You've given enough.
+Cameron : I think you deserve a chance to just
+Cameron : give up
+House : Like Wilson did?
+House : Like Wilson did.
+Cameron : You accepted his choice that ending the pain is better than the pain.
+Cameron : Why can't you give yourself that gift?
+Foreman : This is the address House's patient gave?
+Wilson : Everybody lies.
+House : Do you smell smoke?
+UNK: Just lei go.
+Cameron : Just go to sleep.
+House : I had a chance to avoid this.
+Cameron : You had many chances, and you blew them all up.
+House : No, this was different.
+Cameron : They're all different. But the reasons are all the same.
+Cameron : You're arrogant You're self-destructive.
+Cameron : You only care about yourself.
+House : That moment with the patient.
+UNK: That chunk of conversation I skipped over.
+House : I told him he was dying.
+House : If it makes you feel any better,
+House : at this rate, it'll be fast.
+Oliver : Let me take the fall.
+Wilson : For you. For that prank.
+House : You don't owe me anything.
+Oliver : You tried to save me.
+House : I failed. Motives don't matter. Only actions.
+Oliver : Trying is an action.
+Oliver : Why are you trying to talk me out of this?
+Oliver : You just fake the records, you say I came into the clinic last week.
+Oliver : I'll tell the cops you treated me like crap.
+Oliver : So I stole your tickets and Ã¯Â¬Âushed them.
+House : Thank you.
+House : And you're doing this because you're dying?
+Oliver : I'm doing this because I have nothing left to lose.

@@ -1,6 +1,6 @@
-Patient
 Foreman
+Chase
 House
 Stacy
 Chuck
-Chase
+Patient

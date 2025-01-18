@@ -1,6 +1,6 @@
-Beckett
-BECKETT
-Montgomery
-Smith
-SMITH
 MONTGOMERY
+SMITH
+Beckett
+Montgomery
+BECKETT
+Smith

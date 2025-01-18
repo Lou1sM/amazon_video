@@ -1,8 +1,8 @@
-Cam
-Stella
-Foreman
-Ted
-House
 Cuddy
-Stacy
+Foreman
 Chase
+House
+Stella
+Cam
+Stacy
+Ted

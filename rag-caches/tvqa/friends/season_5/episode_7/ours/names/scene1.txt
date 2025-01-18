@@ -1,6 +1,6 @@
 Phoebe
-Larry
 Monica
-Danny
 Rachel
 Ross
+Danny
+Larry

@@ -1,8 +1,7 @@
-Robin
-Lily
-Blauman
 Arthur
-Narrator
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Waiter
+Robin

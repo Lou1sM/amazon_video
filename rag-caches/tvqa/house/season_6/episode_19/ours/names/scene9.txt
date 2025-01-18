@@ -1,9 +1,9 @@
-Taub
-Wilson
-Foreman
-Ted
-Nicole
-House
-Cotter
-Chase
 Thirteen
+Foreman
+Taub
+Chase
+Cotter
+House
+Nicole
+Ted
+Wilson

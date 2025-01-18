@@ -1,6 +1,6 @@
-Beckett
-Castle
-Cole
 Esposito
-Taylor
 Neely
+Beckett
+Taylor
+Cole
+Castle

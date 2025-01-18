@@ -1,5 +1,5 @@
-Beckett
-Receptionist
-Bauer
-Ryan
 Castle
+Bauer
+Receptionist
+Beckett
+Ryan

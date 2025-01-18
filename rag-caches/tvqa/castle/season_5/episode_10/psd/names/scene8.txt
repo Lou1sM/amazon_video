@@ -1,6 +1,6 @@
-Beckett
-Schuester
-Ryan
-Samantha
 Castle
+Samantha
+Schuester
+Beckett
 Billy
+Ryan

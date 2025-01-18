@@ -1,10 +1,10 @@
-Beckett
-Castle
+Esposito
 Eric
 Alexis
 Martha
-Gates
-Esposito
-Server
-Tory
 Ryan
+Beckett
+Gates
+Castle
+Tory
+Server

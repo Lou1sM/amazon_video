@@ -1,7 +1,7 @@
-Beckett
-Castle
-Ryan
-Alexis
-Gates
 Esposito
+Alexis
+Ryan
+Beckett
 Sheriff
+Gates
+Castle

@@ -1,9 +1,9 @@
-Taub
-Wilson
-Foreman
-House
-Cameron
-Scott
-Eugene
-Chase
 Thirteen
+Taub
+Foreman
+Chase
+Cameron
+House
+Eugene
+Scott
+Wilson

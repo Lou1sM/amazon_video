@@ -1,8 +1,8 @@
-Taub
 Surgeon
+Taub
 Foreman
-Amber
-Cole
-House
 Finn
 Kutner
+House
+Amber
+Cole

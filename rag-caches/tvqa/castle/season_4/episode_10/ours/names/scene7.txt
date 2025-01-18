@@ -1,9 +1,9 @@
-Beckett
-Castle
-Gates
-Martinez
 Esposito
-CASTLE
-BECKETT
 Ryan
+CASTLE
+Beckett
+Gates
 GATES
+BECKETT
+Martinez
+Castle

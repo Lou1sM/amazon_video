@@ -1,9 +1,9 @@
-Phoebe
-Monica
-Joey
-Chandler
 Pa
+Phoebe
+Joey
+Teacher
+Monica
 Rachel
 Actor
-Teacher
 Ross
+Chandler

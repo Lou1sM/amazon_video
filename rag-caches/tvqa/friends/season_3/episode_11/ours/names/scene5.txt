@@ -1,8 +1,8 @@
 Phoebe
-Joey
-Monica
 Cookie
-Chandler
+Joey
 All
-Mark
+Monica
 Rachel
+Mark
+Chandler

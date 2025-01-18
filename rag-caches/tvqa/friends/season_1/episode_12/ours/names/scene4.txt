@@ -1,6 +1,6 @@
 Phoebe
-Monica
 Joey
-Customer
+Monica
 Rachel
+Customer
 Ross

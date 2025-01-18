@@ -1,7 +1,7 @@
-Tommy
-Beckett
-Castle
-Val
 Esposito
-Operator
+Tommy
 Ryan
+Beckett
+Operator
+Val
+Castle

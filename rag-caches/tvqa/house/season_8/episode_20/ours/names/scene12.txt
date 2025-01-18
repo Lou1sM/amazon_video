@@ -1,8 +1,8 @@
-Adams
-Taub
-Treiber
-Wilson
 Foreman
+Taub
+Chase
+Treiber
 House
 Park
-Chase
+Adams
+Wilson

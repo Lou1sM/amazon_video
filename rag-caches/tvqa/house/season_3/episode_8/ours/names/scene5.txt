@@ -1,9 +1,9 @@
-HOUSE
 Foreman
-House
+Chase
 Cameron
+House
+HOUSE
+CHASE
 FOREMAN
 Jack
-CHASE
 Kama
-Chase

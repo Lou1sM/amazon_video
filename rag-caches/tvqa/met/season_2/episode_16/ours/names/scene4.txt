@@ -1,7 +1,6 @@
-Robin
-Woman
-Lily
 Man
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Robin

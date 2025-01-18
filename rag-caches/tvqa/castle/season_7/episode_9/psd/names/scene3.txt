@@ -1,6 +1,6 @@
-Trey
-Beckett
-Brock
-Gates
-Naomi
 Castle
+Naomi
+Brock
+Beckett
+Trey
+Gates

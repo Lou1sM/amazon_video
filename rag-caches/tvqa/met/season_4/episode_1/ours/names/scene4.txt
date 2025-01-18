@@ -1,6 +1,6 @@
-Robin
-Lily
-Ted
-Marshall
-Barney
 Stella
+Barney
+Marshall
+Ted
+Barman
+Robin

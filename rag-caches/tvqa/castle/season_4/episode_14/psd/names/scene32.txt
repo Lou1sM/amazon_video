@@ -1,6 +1,6 @@
-Lenny
-VERA
-ANNOUNCER
-Tom
 MAN
+Tom
+VERA
+Lenny
+ANNOUNCER
 Viola

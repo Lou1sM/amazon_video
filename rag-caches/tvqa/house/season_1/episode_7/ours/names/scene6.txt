@@ -1,7 +1,7 @@
-Wilson
-Foreman
 Cuddy
-House
-Cameron
-Elise
+Foreman
 Chase
+Cameron
+House
+Elise
+Wilson

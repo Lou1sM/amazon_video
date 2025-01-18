@@ -1,7 +1,7 @@
-Phoebe
-Janice
 Host
+Janice
+Phoebe
 Joey
 Monica
-Chandler
 Mike
+Chandler

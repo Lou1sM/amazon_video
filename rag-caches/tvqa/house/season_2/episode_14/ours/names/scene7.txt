@@ -1,8 +1,8 @@
 Man
-Patient
-Foreman
 Cuddy
-Donald
-House
-Cameron
+Foreman
 Chase
+Cameron
+House
+Donald
+Patient

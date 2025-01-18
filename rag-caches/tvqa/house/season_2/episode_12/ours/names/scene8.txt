@@ -1,6 +1,6 @@
 Foreman
-Anesthesiologist
-House
-Cameron
-Weber
 Chase
+Cameron
+House
+Weber
+Anesthesiologist

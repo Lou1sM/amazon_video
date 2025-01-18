@@ -1,9 +1,6 @@
-Robin
-Lily
 Arthur
-Man
-Ferguson
-Narrator
-Ted
-Marshall
+Lily
 Barney
+Marshall
+Ted
+Robin

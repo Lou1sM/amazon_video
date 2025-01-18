@@ -1,8 +1,8 @@
-Ellie
-Taub
-Wilson
-Amber
-Foreman
-House
-Chase
 Thirteen
+Foreman
+Taub
+Chase
+Amber
+House
+Ellie
+Wilson

@@ -1,7 +1,7 @@
-Adams
 Taub
-Wilson
-House
-Lida
-Park
 Chase
+House
+Park
+Adams
+Lida
+Wilson

@@ -1,8 +1,8 @@
-Woman
-Phoebe
-Monica
-Joey
 Margha
-Chandler
+Phoebe
+Joey
+Monica
 Rachel
+Woman
 Ross
+Chandler

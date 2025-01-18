@@ -1,7 +1,7 @@
-Adams
-Taub
 Cofield
-House
-Park
-Bill
+Taub
 Chase
+House
+Bill
+Park
+Adams

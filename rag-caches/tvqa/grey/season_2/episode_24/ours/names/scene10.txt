@@ -1,8 +1,8 @@
-Millie
-Addison
-George
+Jim
+Bailey
+Alex
 Richard
 Meredith
-Alex
-Bailey
-Jim
+George
+Addison
+Millie

@@ -1,7 +1,7 @@
-Beckett
-Castle
-Mccord
-GOLDBERG
 Vilante
-Richmond
 Goldberg
+Beckett
+Richmond
+Mccord
+Castle
+GOLDBERG

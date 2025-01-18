@@ -1,8 +1,8 @@
-Woman
-Taub
-Amber
-Foreman
 Cuddy
+Taub
+Foreman
 Finn
-Nurse
 Kutner
+Amber
+Nurse
+Woman

@@ -1,8 +1,8 @@
 Phoebe
-Monica
-Charlie
 Joey
-Dirk
-Chandler
+Monica
 Rachel
+Charlie
 Ross
+Chandler
+Dirk

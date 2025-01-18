@@ -1,7 +1,7 @@
-Woman
 Phoebe
-Jill
 Joey
 Monica
-Chandler
 Rachel
+Jill
+Woman
+Chandler

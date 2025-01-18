@@ -1,8 +1,8 @@
-Beckett
-Castle
-Woman
-Shaw
 Esposito
 Avery
-Lanie
 Ryan
+Beckett
+Lanie
+Shaw
+Woman
+Castle

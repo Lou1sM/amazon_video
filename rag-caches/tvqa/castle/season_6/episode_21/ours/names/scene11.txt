@@ -1,6 +1,6 @@
-Beckett
-Castle
 Esposito
 Ryan
-Fulton
+Beckett
 Ross
+Castle
+Fulton

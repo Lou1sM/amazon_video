@@ -1,8 +1,8 @@
-Wilson
-Foreman
-Doctor
 Cuddy
-Cameron
-House
+Foreman
 Anica
 Chase
+Cameron
+Doctor
+House
+Wilson

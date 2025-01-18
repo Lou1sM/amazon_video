@@ -1,9 +1,6 @@
-Punchy
-Robin
-Lily
-Narrator
-Ted
-Michelle
-Marshall
 Barney
-Simon
+Marshall
+Ted
+Robot
+Narrator
+Robin

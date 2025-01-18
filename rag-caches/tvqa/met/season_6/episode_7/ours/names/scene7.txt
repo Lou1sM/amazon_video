@@ -1,9 +1,5 @@
-Robin
-Lily
-Arthur
 Randy
-Student
-Ted
-Marshall
+Arthur
 Barney
-Zoey
+Marshall
+Ted

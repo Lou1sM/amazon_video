@@ -1,7 +1,7 @@
-Receptionist
 Phoebe
-Monica
 Joey
-Lennart
+Monica
 Rachel
+Lennart
 Ross
+Receptionist

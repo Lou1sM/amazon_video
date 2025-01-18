@@ -1,7 +1,7 @@
-Lola
 Foreman
+Chase
 Cameron
 House
-Hank
+Lola
 Student
-Chase
+Hank

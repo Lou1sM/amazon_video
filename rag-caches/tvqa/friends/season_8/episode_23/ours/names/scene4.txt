@@ -1,8 +1,8 @@
-Woman
 Man
 Phoebe
 Joey
 Monica
-Chandler
 Rachel
+Woman
 Ross
+Chandler

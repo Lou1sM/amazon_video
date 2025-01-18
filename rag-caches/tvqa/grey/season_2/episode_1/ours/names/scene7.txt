@@ -1,10 +1,10 @@
-Derek
-Cristina
-Burke
-Izzie
 Doctor
-Addison
-George
+Burke
+Cristina
+Derek
+Alex
 Richard
 Meredith
-Alex
+George
+Addison
+Izzie

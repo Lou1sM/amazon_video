@@ -1,9 +1,9 @@
-Officer
-Castle
-Beckett
-Vikram
-Gwen
 Esposito
 Alan
-Lanie
 Ryan
+Beckett
+Vikram
+Officer
+Lanie
+Castle
+Gwen

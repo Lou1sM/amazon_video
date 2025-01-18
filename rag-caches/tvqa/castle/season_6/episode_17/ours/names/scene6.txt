@@ -1,11 +1,11 @@
-RYAN
-ESPOSITO
-Beckett
 Esposito
-JONES
 HARDEN
-BECKETT
 Jones
-Ryan
+ESPOSITO
 Fowler
+Ryan
 Harden
+Beckett
+JONES
+RYAN
+BECKETT

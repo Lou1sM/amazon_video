@@ -1,6 +1,6 @@
-Enid
 Foreman
-Proctor
+Chase
+Enid
 House
 Nate
-Chase
+Proctor

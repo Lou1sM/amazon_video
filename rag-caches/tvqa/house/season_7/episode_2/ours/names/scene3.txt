@@ -1,11 +1,11 @@
 Taub
-Hugo
-Della
 Foreman
-George
-Sidney
+Chase
 House
-Calire
 Claire
 Maurice
-Chase
+Calire
+Della
+George
+Sidney
+Hugo

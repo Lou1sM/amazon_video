@@ -1,10 +1,10 @@
 Phoebe
-Monica
-Joey
-Richard
-Chandler
 Writer
-Tilly
+Joey
 Eddie
+Monica
+Tilly
 Rachel
+Richard
 Ross
+Chandler

@@ -1,5 +1,5 @@
-Taub
 Foreman
-George
-Claire
+Taub
 Chase
+Claire
+George

@@ -1,9 +1,9 @@
+Castle
+Moss
+Norris
+Alexis
 Beckett
 BECKETT
-GATES
-Alexis
-Weldon
-Norris
 Gates
-Moss
-Castle
+Weldon
+GATES
