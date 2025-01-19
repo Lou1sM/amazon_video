@@ -43,12 +43,14 @@ def get_texts(split_name, vid_subpath):
         with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
             scenes.append(f.read().split('\n'))
 
-    if os.path.exists(lava_out_fp:=f'lava-outputs/{vid_subpath}/{split_name}/all.json'):
-        with open(lava_out_fp) as f:
-            viz_texts = json.load(f)
+    if os.path.exists(lava_out_dir:=f'lava-outputs/{vid_subpath}/{split_name}/'):
+        for fn in os.listdir(lava_out_dir):
+            with open(f'{lava_out_dir}/{fn}') as f:
+                viz_texts.append(f.read())
         if len(viz_texts)>len(scenes):
             #print(f'viz texts len {len(viz_texts)} but scenes len {len(scenes)} for {vid_subpath}, so cutting short')
-            viz_texts = {f'scene{i}':viz_texts[f'scene{i}'] for i in range(len(scenes))}
+            #viz_texts = {f'scene{i}':viz_texts[f'scene{i}'] for i in range(len(scenes))}
+            viz_texts = viz_texts[:len(scenes)]
         if len(viz_texts) != len(scenes):
             print(f'lava has {len(viz_texts)} scenes but texts have {len(scenes)}, omiiting laval')
             viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
@@ -122,7 +124,8 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             sims[~names_match.bool()] -= torch.inf
 
             scene_text = '\n'.join(scenes[sims.argmax()])
-            viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
+            #viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
+            viz_scene_text = drop_trailing_halfsent(viz_texts[sims.argmax()])
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
         question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
         if ARGS.splits == 'none':
