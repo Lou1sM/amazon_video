@@ -47,9 +47,11 @@ def get_texts(split_name, vid_subpath):
         with open(lava_out_fp) as f:
             viz_texts = json.load(f)
         if len(viz_texts)>len(scenes):
-            print(f'viz texts len {len(viz_texts)} but scenes len {len(scenes)} for {vid_subpath}, so cutting short')
+            #print(f'viz texts len {len(viz_texts)} but scenes len {len(scenes)} for {vid_subpath}, so cutting short')
             viz_texts = {f'scene{i}':viz_texts[f'scene{i}'] for i in range(len(scenes))}
-        assert len(viz_texts) == len(scenes)
+        if len(viz_texts) != len(scenes):
+            print(f'lava has {len(viz_texts)} scenes but texts have {len(scenes)}, omiiting laval')
+            viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
     else:
         print(f'no lava out file at {lava_out_fp}')
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
