@@ -46,8 +46,10 @@ def get_texts(split_name, vid_subpath):
     if os.path.exists(lava_out_fp:=f'lava-outputs/{vid_subpath}/{split_name}/all.json'):
         with open(lava_out_fp) as f:
             viz_texts = json.load(f)
-        if len(viz_texts)==0:
-            viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
+        if len(viz_texts)==len(scenes)+1:
+            print(f'viz texts len {len(viz_texts)} but scenes len {len(scenes)} for {vid_subpath}, so cutting short')
+            viz_texts = {f'scene{i}':viz_texts[f'scene{i}'] for i in range(len(scenes))}
+        assert len(viz_texts) == len(scenes)
     else:
         print(f'no lava out file at {lava_out_fp}')
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
@@ -210,5 +212,5 @@ if __name__ == '__main__':
         all_scores.append([show_name, seas, ep, new_correct, new_tot, new_correct/new_tot])
         pbar.set_description(f'{show_name}-s{seas}e{ep}, running avg: {tot_n_correct}/{tot}={tot_n_correct/tot}')
     df = pd.DataFrame(all_scores, columns = ['show', 'season', 'episode', 'n_correct', 'n', 'acc'])
-    print(df.mean(axis=0))
+    print(df.drop('show', axis=1).mean(axis=0))
     df.to_csv(f'{out_dir}/{ARGS.show_name}_{ARGS.season}-tvqa-results.csv')
