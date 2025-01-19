@@ -207,7 +207,7 @@ if __name__ == '__main__':
                 f.write(f'{new_correct} {new_tot}')
         tot_n_correct += new_correct
         tot += new_tot
-        all_scores.append([show_name, seas, ep, model, ep_qs, new_correct, new_tot, new_correct/new_tot])
+        all_scores.append([show_name, seas, ep, new_correct, new_tot, new_correct/new_tot])
         pbar.set_description(f'{show_name}-s{seas}e{ep}, running avg: {tot_n_correct}/{tot}={tot_n_correct/tot}')
     df = pd.DataFrame(all_scores, columns = ['show', 'season', 'episode', 'n_correct', 'n', 'acc'])
     print(df.mean(axis=0))
