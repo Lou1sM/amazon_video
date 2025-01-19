@@ -46,6 +46,8 @@ def get_texts(split_name, vid_subpath):
     if os.path.exists(lava_out_fp:=f'lava-outputs/{vid_subpath}/{split_name}/all.json'):
         with open(lava_out_fp) as f:
             viz_texts = json.load(f)
+        if len(viz_texts)==0:
+            viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
     else:
         print(f'no lava out file at {lava_out_fp}')
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
@@ -141,6 +143,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         if ARGS.verbose:
             print(prompt, qdict['answer_idx'])
             print(f'pred: {ans} gt: {qdict["answer_idx"]}')
+            print('scores:', [ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
         if ans==qdict['answer_idx']:
             n_correct += 1
     n = len(ep_qs["questions"])
