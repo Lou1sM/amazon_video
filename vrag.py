@@ -10,7 +10,7 @@ import torch
 import argparse
 import json
 from natsort import natsorted
-from transformers import AutoModelForCausalLM, AutoTokenizer, DynamicCache
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM,  BitsAndBytesConfig
 from nltk.corpus import names
 from nltk.tokenize import word_tokenize
 import nltk
@@ -87,7 +87,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     if ARGS.splits == 'none':
         _, scenes, viz_texts = get_texts('ours', vid_subpath)
         scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
-        viz_scene_text = '\n'.join(drop_trailing_halfsent(s) for s in viz_texts.values())
+        viz_scene_text = '\n'.join(drop_trailing_halfsent(s) for s in viz_texts)
     else:
         names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
 
@@ -186,7 +186,8 @@ if __name__ == '__main__':
         model = AutoModelForCausalLM.from_pretrained('meta-llama/Meta-Llama-3.1-8B-Instruct')
         device = 'cpu'
     else:
-        model = load_peft_model(model_name, None, ARGS.prec)
+        #model = load_peft_model(model_name, None, ARGS.prec)
+        model = AutoModelForCausalLM.from_pretrained(model_name, quantization_config=BitsAndBytesConfig(load_in_4bit=True), rope_scaling={"type": "linear","factor": 8.0})
         device = 'cuda'
     model.eval()
 
