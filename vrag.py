@@ -46,6 +46,9 @@ def get_texts(split_name, vid_subpath):
 
     if os.path.exists(lava_out_dir:=f'lava-outputs/{vid_subpath}/{split_name}/'):
         for fn in os.listdir(lava_out_dir):
+            if fn=='all.json':
+                continue
+            assert '.' not in fn # shouldn't have ext
             with open(f'{lava_out_dir}/{fn}') as f:
                 viz_texts.append(f.read())
         if len(viz_texts)>len(scenes):
@@ -108,7 +111,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
         return 0,0
     n_correct = 0
     if ARGS.splits == 'none':
-        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n'[:ARGS.prompt_prefix]
+        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{scene_text}\n{viz_scene_text}\n'[:ARGS.prompt_prefix]
         starttime = time()
         initial_inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
         with torch.no_grad():
