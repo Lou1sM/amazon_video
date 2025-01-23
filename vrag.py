@@ -56,7 +56,7 @@ def get_texts(split_name, vid_subpath):
             print(f'lava has {len(viz_texts)} scenes but texts have {len(scenes)}, omiiting laval')
             viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
     else:
-        print(f'no lava out file at {lava_out_fp}')
+        print(f'no lava out files in {lava_out_dir}')
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
     return names_in_scenes, scenes, viz_texts
 
