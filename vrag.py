@@ -214,6 +214,8 @@ if __name__ == '__main__':
         if f'episode_{ep}' not in season_qs.keys():
             print(f'Episode_{ep} not in season_{seas} keys')
             continue
+        if (show_name, seas, ep) == ('house', 4, 11): # no vid for some reason
+            continue
         ep_qs = season_qs[f'episode_{ep}']
         cache_fp = os.path.join(out_dir, f'{show_name}_s{seas:01}e{ep:01}.json')
         if os.path.exists(cache_fp) and not ARGS.recompute:
