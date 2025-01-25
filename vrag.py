@@ -42,7 +42,7 @@ def get_texts(split_name, vid_subpath):
             names_in_scenes.append(f.read().split('\n'))
     for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{split_name}/scene_texts')):
         with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
-            scenes.append(f.read().split('\n'))
+            scenes.append(f.read())
 
     if os.path.exists(lava_out_dir:=f'lava-outputs/{vid_subpath}/{split_name}/'):
         for fn in os.listdir(lava_out_dir):
@@ -56,12 +56,12 @@ def get_texts(split_name, vid_subpath):
             #viz_texts = {f'scene{i}':viz_texts[f'scene{i}'] for i in range(len(scenes))}
             viz_texts = viz_texts[:len(scenes)]
         if len(viz_texts) != len(scenes):
-            print(f'lava has {len(viz_texts)} scenes but texts have {len(scenes)}, omiiting laval')
-            viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
+            breakpoint()
     else:
         print(f'no lava out files in {lava_out_dir}')
         viz_texts = {f'scene{i}':'' for i in range(len(scenes))}
-    return names_in_scenes, scenes, viz_texts
+    vl_texts = [scenes[i] + viz_texts[i] for i in range(len(scenes))]
+    return vl_texts, names_in_scenes, scenes, viz_texts
 
 def get_showseaseps(show_name_, seas_num_, ep_num_):
     showseaseps = []
@@ -89,13 +89,13 @@ def answer_qs(show_name, season, episode, model, ep_qs):
     vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
 
     if ARGS.splits == 'none':
-        _, scenes, viz_texts = get_texts('ours', vid_subpath)
+        vl_texts, _, scenes, viz_texts = get_texts('ours', vid_subpath)
         scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
         viz_scene_text = '\n'.join(viz_texts)
     else:
-        names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
+        vl_texts, names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
 
-        scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')][:5000]
+        scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]#[:5000]
         if len(scene_text_feats)==0:
             print(f'{show_name} {season} {episode}: empty scene texts')
             return 0, 0
@@ -129,9 +129,10 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
             sims[~names_match.bool()] -= torch.inf
 
-            scene_text = '\n'.join(scenes[sims.argmax()])
+            retrieve_idx = sims.topk(ARGS.n_to_retrieve).indices
+            scene_text = '\n'.join(vl_texts[i] for i in retrieve_idx)
             #viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
-            viz_scene_text = viz_texts[sims.argmax()]
+            #viz_scene_text = viz_texts[sims.argmax()]
         options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
         question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
         if ARGS.splits == 'none':
@@ -149,7 +150,7 @@ def answer_qs(show_name, season, episode, model, ep_qs):
             ans_logits = output.logits
             prompt = recurring_prompt_prefix + question_part
         else:
-            prompt = f'Answer the given question based on the following text:\n{viz_scene_text}\n{scene_text}\n{question_part}'
+            prompt = f'Answer the given question based on the following text:\n{scene_text}\n{question_part}'[:ARGS.prompt_prefix]
             tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
             with torch.inference_mode():
                output = model(tok_ids)
@@ -177,6 +178,7 @@ if __name__ == '__main__':
     parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif', 'none'])
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--prec', type=int, default=4, choices=[32,8,4,2])
+    parser.add_argument('--n-to-retrieve', type=int, default=1)
     parser.add_argument('--prompt-prefix', type=int, default=5000)
     parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--dud', action='store_true')
