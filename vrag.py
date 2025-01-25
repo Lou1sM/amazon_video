@@ -84,88 +84,94 @@ def get_showseaseps(show_name_, seas_num_, ep_num_):
                 showseaseps.append((show_name, seas_num, ep_num_))
     return showseaseps
 
-def answer_qs(show_name, season, episode, model, ep_qs):
-    dset_name = 'tvqa'
-    vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
+class VQA():
+    def __init__(self):
+        self.ema_logits = np.array([-1, 0.25, 0.25, 0.25, 0.25])
 
-    if ARGS.splits == 'none':
-        vl_texts, _, scenes, viz_texts = get_texts('ours', vid_subpath)
-        scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
-        viz_scene_text = '\n'.join(viz_texts)
-    else:
-        vl_texts, names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
+    def answer_qs(self, show_name, season, episode, model, ep_qs):
+        dset_name = 'tvqa'
+        vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
 
-        scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]#[:5000]
-        if len(scene_text_feats)==0:
-            print(f'{show_name} {season} {episode}: empty scene texts')
-            return 0, 0
-        scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
-        scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
-        if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
-            scene_feats = (scene_vision_feats + scene_text_feats) / 2
-        else:
-            print(f'{show_name} {season} {episode}: vision feats have {len(scene_vision_feats)} scenes while text feats have {len(scene_text_feats)}, names is {len(names_in_scenes)}, scenes is {len(scenes)}')
-            scene_feats = scene_text_feats
-
-    if ARGS.test_loading:
-        return 0,0
-    n_correct = 0
-    if ARGS.splits == 'none':
-        recurring_prompt_prefix = f'Answer the given question based on the following text:\n{scene_text}\n{viz_scene_text}\n'[:ARGS.prompt_prefix]
-        starttime = time()
-        initial_inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
-        with torch.no_grad():
-            outputs = model(**initial_inputs, use_cache=True)
-        orig_past_key_values = outputs.past_key_values
-        print(f'time for initial inputs: {time()-starttime:.3f}')
-
-
-    for i, qdict in enumerate(ep_qs['questions']):
-        qsent = qdict['q']
-        if ARGS.splits != 'none':
-            qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt').to(device)
-            sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
-            names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
-            names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
-            sims[~names_match.bool()] -= torch.inf
-
-            retrieve_idx = sims.topk(ARGS.n_to_retrieve).indices
-            scene_text = '\n'.join(vl_texts[i] for i in retrieve_idx)
-            #viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
-            #viz_scene_text = viz_texts[sims.argmax()]
-        options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
-        question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
         if ARGS.splits == 'none':
-            new_tokens = tokenizer(question_part, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
-            dynamic_pkv = tuple((k.clone().detach(), v.clone().detach()) for k, v in orig_past_key_values)
-            print('now looping through question tokens')
-            #for token_id in tqdm(new_tokens[0]):
-            #    token_input = token_id.unsqueeze(0).unsqueeze(0)
-            #    with torch.inference_mode():
-            #        output = model(input_ids=token_input, past_key_values=dynamic_pkv, use_cache=True)
-            #        dynamic_pkv = output.past_key_values
-            #        cur_logits = outputs.logits
-            output = model(input_ids=new_tokens, past_key_values=dynamic_pkv, use_cache=True)
-            #ans_logits = cur_logits
-            ans_logits = output.logits
-            prompt = recurring_prompt_prefix + question_part
+            vl_texts, _, scenes, viz_texts = get_texts('ours', vid_subpath)
+            scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
+            viz_scene_text = '\n'.join(viz_texts)
         else:
-            prompt = f'Answer the given question based on the following text:\n{scene_text}\n{question_part}'[:ARGS.prompt_prefix]
-            tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
-            with torch.inference_mode():
-               output = model(tok_ids)
-               ans_logits = output.logits
+            vl_texts, names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
 
-        ans = max(range(5), key=lambda i: ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item())
-        if ARGS.verbose:
-            print(prompt, qdict['answer_idx'])
-            print(f'pred: {ans} gt: {qdict["answer_idx"]}')
-            print('scores:', [ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
-        if ans==qdict['answer_idx']:
-            n_correct += 1
-    n = len(ep_qs["questions"])
-    print(f'vqa acc: {n_correct}/{n} = {n_correct/n:.5f}')
-    return n_correct, n
+            scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]#[:5000]
+            if len(scene_text_feats)==0:
+                print(f'{show_name} {season} {episode}: empty scene texts')
+                return 0, 0
+            scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
+            scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
+            if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
+                scene_feats = (scene_vision_feats + scene_text_feats) / 2
+            else:
+                print(f'{show_name} {season} {episode}: vision feats have {len(scene_vision_feats)} scenes while text feats have {len(scene_text_feats)}, names is {len(names_in_scenes)}, scenes is {len(scenes)}')
+                scene_feats = scene_text_feats
+
+        if ARGS.test_loading:
+            return 0,0
+        n_correct = 0
+        if ARGS.splits == 'none':
+            recurring_prompt_prefix = f'Answer the given question based on the following text:\n{scene_text}\n{viz_scene_text}\n'[:ARGS.prompt_prefix]
+            starttime = time()
+            initial_inputs = tokenizer(recurring_prompt_prefix, return_tensors="pt").to(device)
+            with torch.no_grad():
+                outputs = model(**initial_inputs, use_cache=True)
+            orig_past_key_values = outputs.past_key_values
+            print(f'time for initial inputs: {time()-starttime:.3f}')
+
+
+        for i, qdict in enumerate(ep_qs['questions']):
+            qsent = qdict['q']
+            if ARGS.splits != 'none':
+                qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt').to(device)
+                sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
+                names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
+                names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
+                sims[~names_match.bool()] -= torch.inf
+
+                retrieve_idx = sims.topk(ARGS.n_to_retrieve).indices
+                scene_text = '\n'.join(vl_texts[i] for i in retrieve_idx)
+                #viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
+                #viz_scene_text = viz_texts[sims.argmax()]
+            options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
+            question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
+            if ARGS.splits == 'none':
+                new_tokens = tokenizer(question_part, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
+                dynamic_pkv = tuple((k.clone().detach(), v.clone().detach()) for k, v in orig_past_key_values)
+                print('now looping through question tokens')
+                #for token_id in tqdm(new_tokens[0]):
+                #    token_input = token_id.unsqueeze(0).unsqueeze(0)
+                #    with torch.inference_mode():
+                #        output = model(input_ids=token_input, past_key_values=dynamic_pkv, use_cache=True)
+                #        dynamic_pkv = output.past_key_values
+                #        cur_logits = outputs.logits
+                output = model(input_ids=new_tokens, past_key_values=dynamic_pkv, use_cache=True)
+                #ans_logits = cur_logits
+                ans_logits = output.logits
+                prompt = recurring_prompt_prefix + question_part
+            else:
+                prompt = f'Answer the given question based on the following text:\n{scene_text}\n{question_part}'[:ARGS.prompt_prefix]
+                tok_ids = torch.tensor([tokenizer(prompt).input_ids]).to(device)
+                with torch.inference_mode():
+                   output = model(tok_ids)
+                   ans_logits = output.logits
+
+            scores_by_answer = np.array([ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
+            self.ema_logits = (9*self.ema_logits + scores_by_answer) / 10
+            ans = (scores_by_answer + self.ema_logits).argmax()
+            if ARGS.verbose:
+                print(prompt, qdict['answer_idx'])
+                print(f'pred: {ans} gt: {qdict["answer_idx"]}')
+                print('scores:', [ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
+            if ans==qdict['answer_idx']:
+                n_correct += 1
+        n = len(ep_qs["questions"])
+        print(f'vqa acc: {n_correct}/{n} = {n_correct/n:.5f}')
+        return n_correct, n
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -185,7 +191,7 @@ if __name__ == '__main__':
     ARGS = parser.parse_args()
 
 
-    from hierarchical_summarizer import load_peft_model
+    #from hierarchical_summarizer import load_peft_model
     llm_dict = {'llama3-tiny': 'llamafactory/tiny-random-Llama-3',
                 'llama3-8b': 'meta-llama/Meta-Llama-3.1-8B-Instruct',
                 'llama3-70b': 'meta-llama/Meta-Llama-3.1-70B-Instruct',
@@ -193,6 +199,7 @@ if __name__ == '__main__':
     model_name = llm_dict[ARGS.model]
     tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side='left')
     tokenizer.pad_token_id = tokenizer.eos_token_id
+    vqa = VQA()
     if ARGS.cpu:
         model = AutoModelForCausalLM.from_pretrained('meta-llama/Meta-Llama-3.1-8B-Instruct')
         device = 'cpu'
@@ -223,7 +230,7 @@ if __name__ == '__main__':
                 x = f.read().split()
             new_correct, new_tot = int(x[0]), int(x[1])
         else:
-            new_correct, new_tot = answer_qs(show_name, seas, ep, model, ep_qs)
+            new_correct, new_tot = vqa.answer_qs(show_name, seas, ep, model, ep_qs)
             with open(cache_fp, 'w') as f:
                 f.write(f'{new_correct} {new_tot}')
         tot_n_correct += new_correct
