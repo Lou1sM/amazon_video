@@ -205,7 +205,7 @@ if __name__ == '__main__':
     tot_n_correct, tot = 0, 0
     all_scores = []
 
-    os.makedirs(out_dir:=f'tvqa-results/{ARGS.splits}/{ARGS.model}', exist_ok=True)
+    os.makedirs(out_dir:=f'tvqa-results/{ARGS.splits}/{ARGS.model}-r{ARGS.n_to_retrieve}', exist_ok=True)
     showseaseps = get_showseaseps(ARGS.show_name, ARGS.season, ARGS.ep)
     print(showseaseps)
     all_scores = []
