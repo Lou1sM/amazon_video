@@ -162,13 +162,14 @@ class VQA():
 
             scores_by_answer = np.array([ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
             self.ema_logits = (9*self.ema_logits + scores_by_answer) / 10
-            ans = (scores_by_answer + self.ema_logits).argmax()
+            ans = (scores_by_answer - self.ema_logits).argmax()
             if ARGS.verbose:
                 print(prompt, qdict['answer_idx'])
                 print(f'pred: {ans} gt: {qdict["answer_idx"]}')
                 print('scores:', [ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
             if ans==qdict['answer_idx']:
                 n_correct += 1
+            print(ans, scores_by_answer, self.ema_logits)
         n = len(ep_qs["questions"])
         print(f'vqa acc: {n_correct}/{n} = {n_correct/n:.5f}')
         return n_correct, n
