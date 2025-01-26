@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--thresh', type=float, default=27)
 parser.add_argument('--ndps', type=int, default=9999)
 parser.add_argument('--method', type=str, default='psd')
+parser.add_argument('--dset', '-d', type=str, default='moviesumm')
 ARGS = parser.parse_args()
 
 test_vidnames, clean2cl = get_moviesumm_testnames()
@@ -33,6 +34,9 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
         feats_ar, ts = get_feats_and_times(vn)
         pred_labels = get_maybe_cached_yeo_labels(vn, feats_ar, delta=20, T=300)
         pred_labels = pred_labels[~betweens]
+    elif ARGS.method == 'berhe21':
+        feats_ar, ts = get_feats_and_times(vn)
+        pred_labels = berhe21_preds(feats_ar, n_clusters=len(gt_split_points))
     gt_labels = split_points_to_labels(gt_split_points, kf_timepoints)
     scores = segmentation_metrics(pred_labels, gt_labels, k=30)
     scores['rev-acc'] = cluster_acc(gt_labels, pred_labels)
@@ -47,6 +51,7 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
 results_df = pd.DataFrame(all_scores)
 results_df.loc['mean'] = results_df.mean(axis=0)
 method_name_to_save = 'yeo96' if ARGS.method=='yeo96' else f'psd{ARGS.thresh}'
+breakpoint()
 results_df.to_csv(f'{method_name_to_save}-results.csv')
 print(results_df)
 breakpoint()

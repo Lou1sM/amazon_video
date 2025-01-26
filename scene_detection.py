@@ -1,4 +1,5 @@
 import os
+import cv2
 import math
 from time import time
 from natsort import natsorted
@@ -32,7 +33,7 @@ class SceneSegmenter():
             for fn in os.listdir(self.framesdir):
                 os.remove(join(self.framesdir, fn))
             print('extracting ffmpeg frames to', self.framesdir)
-            vid_fpath = f"data/{self.dset_name}-videos/{vidname}.mp4"
+            vid_fpath = f"data/full-videos/{self.dset_name}/{vidname}.mp4"
             assert os.path.exists(vid_fpath), f'{vid_fpath} does not exist'
             duration = float(ffmpeg.probe(vid_fpath)["format"]["duration"])
             desired_nkfs = int(duration/avg_kf_every)
@@ -143,7 +144,7 @@ class SceneSegmenter():
                 self.model, self.preprocess = open_clip.create_model_from_pretrained('hf-hub:laion/CLIP-ViT-g-14-laion2B-s12B-b42K')
                 self.model = self.model.cuda()
 
-        self.model.eval()
+            self.model.eval()
         feat_paths = [f'{framefeatsdir}/{x.split(".")[0]}.npy' for x in sorted_fns]
         if recompute_feats or any(not os.path.exists(x) for x in feat_paths):
             print('extracting visual features')
@@ -210,11 +211,18 @@ if __name__ == '__main__':
     if ARGS.dset=='osvd':
         avg_gt_scenes_dset = 22
         all_results = {m:{} for m in method_names}
+        nframes = np.load('data/osvd-nframes.npy')
         for vn, fps in osvd_vn2fps.items():
+            #video = cv2.VideoCapture(vid_fp:=f'data/full-videos/{ARGS.dset}/{vn}.mp4')
+            #nframes = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            #video.release()
+            vid_fp = f'data/full-videos/{ARGS.dset}/{vn}.mp4'
             if isinstance(fps, str):
                 #print(f'Cant process video {vn} because {fps}')
                 continue
+            starttime = time()
             pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
+            runtime = time()-starttime
             x += len(pred_split_points)
             #ts = np.arange(0, all_timepoints[-1],0.1)
             ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
@@ -225,15 +233,22 @@ if __name__ == '__main__':
             gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
             for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
                 results = segmentation_metrics(gt_point_labs, preds, k=k)
+                results['runtime'] = runtime if pred_name=='ours' else 0
+                #results['per-frame-runtime'] = runtime/nframes if pred_name=='ours' else 0
                 all_results[pred_name][vn] = results
         print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
         combined = []
         for m in method_names:
-            combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
-        results_df = pd.DataFrame(combined, index=method_names)[metric_names]
+            df = pd.DataFrame(all_results[m])
+            df.loc['per-frame-runtime'] = df.loc['runtime']/nframes
+            combined.append(df.mean(axis=1))
+        results_df = pd.DataFrame(combined, index=method_names)
+        breakpoint()
+        results_df = results_df[metric_names]
         print(results_df)
-        check_dir('segmentation-results/osvd')
-        results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
+        if ARGS.recompute_all:
+            check_dir('segmentation-results/osvd')
+            results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
 
     elif ARGS.dset=='bbc':
         avg_gt_scenes_dset = 48
@@ -257,11 +272,11 @@ if __name__ == '__main__':
         df=pd.json_normalize(all_results_by_annot)
         df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
         max_avgs, mean_avgs = bbc_mean_maxs(df)
-        check_dir('segmentation-results/bbc')
-        max_avgs.to_csv('segmentation-results/bbc-max/ours-unifs.csv')
-        mean_avgs.to_csv('segmentation-results/bbc-mean/ours-unifs.csv')
+        if ARGS.recompute_all:
+            check_dir('segmentation-results/bbc')
+            max_avgs.to_csv('segmentation-results/bbc-max/ours-unifs.csv')
+            mean_avgs.to_csv('segmentation-results/bbc-mean/ours-unifs.csv')
         print('MAX')
         print(max_avgs)
         print('MEAN')
         print(mean_avgs)
-

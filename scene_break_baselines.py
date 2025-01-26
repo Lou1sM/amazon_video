@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 from natsort import natsorted
 from scene_detection import SceneSegmenter # ours
 from scenedetect import detect, ContentDetector #pyscenedetect
@@ -14,46 +15,57 @@ from sklearn.mixture import GaussianMixture
 from utils import segmentation_metrics, metric_names, bbc_mean_maxs
 import pandas as pd
 from dl_utils.misc import check_dir
+from time import time
+import cv2
 
 
-all_method_names = ['kmeans', 'GMM', 'berhe21', 'yeo96']
-def get_maybe_cached_psd_breaks(vn, thresh):
+all_method_names = ['psd-27', 'kmeans', 'GMM', 'berhe21', 'yeo96']#, 'psd-54']
+def get_maybe_cached_psd_breaks(vn, thresh, vid_fp, recompute):
     check_dir(cachedir:=f'cached_outputs/pyscenedetect-cache/thresh{thresh}')
-    if os.path.exists(cache_fp:=f'{cachedir}/{vn}.npy'):
+    if os.path.exists(cache_fp:=f'{cachedir}/{vn}.npy') and not recompute:
+        print(f'retrieving cache at {cache_fp}')
         return np.load(cache_fp)
-    scene_list = detect(f'data/moviesumm-videos/{vn}.mp4', ContentDetector(threshold=thresh))
+    #scene_list = detect(f'{vid_dir}/{vn}.mp4', ContentDetector(threshold=thresh))
+    scene_list = detect(vid_fp, ContentDetector(threshold=thresh))
+
     break_times = np.array([s[1].get_seconds() for s in scene_list[:-1]])
-    print(break_times)
     np.save(cache_fp, break_times)
     return break_times
 
-def get_maybe_cached_yeo_labels(vn, feats, delta, T):
+def get_maybe_cached_yeo_labels(vn, feats, delta, T, recompute):
     check_dir(cachedir:=f'cached_outputs/yeo96-cache/thresh{delta}-{T}')
-    if os.path.exists(cache_fp:=f'{cachedir}/{vn}.npy'):
+    if os.path.exists(cache_fp:=f'{cachedir}/{vn}.npy') and not recompute:
         return np.load(cache_fp)
     labels = yeo96_preds(feats, delta, T)
     np.save(cache_fp, labels)
     return labels
 
-def get_baseline_preds(pred_name, feats, n_clusters):
-    if pred_name=='kmeans':
+def get_baseline_preds(pred_name, feats, n_clusters, vid_fp, recompute):
+    starttime = time()
+    if pred_name.startswith('psd'):
+        thresh = float(pred_name.split('-')[1])
+        preds = get_maybe_cached_psd_breaks(vn, thresh, vid_fp=vid_fp, recompute=recompute)
+    elif pred_name=='kmeans':
         raw_clabels = KMeans(n_clusters=n_clusters, n_init="auto").fit_predict(feats)
     elif pred_name=='GMM':
         raw_clabels = GaussianMixture(n_components=n_clusters).fit_predict(feats)
     elif pred_name=='berhe21':
         raw_clabels = berhe21_preds(feats, n_clusters)
     elif pred_name=='yeo96':
-        raw_clabels = yeo96_preds(feats, ARGS.yeo_delta, T=ARGS.yeo_T)
+        raw_clabels = get_maybe_cached_yeo_labels(vn, feats, ARGS.yeo_delta, T=ARGS.yeo_T, recompute=recompute)
     else:
         breakpoint()
-    running = 0
-    uni_dim_seg_labels = []
-    for i, cl in enumerate(raw_clabels):
-        if i != 0 and raw_clabels[i-1] != raw_clabels[i]:
-            running += 1
-        uni_dim_seg_labels.append(running)
+    if not pred_name.startswith('psd'):
+        running = 0
+        uni_dim_seg_labels = []
+        for i, cl in enumerate(raw_clabels):
+            if i != 0 and raw_clabels[i-1] != raw_clabels[i]:
+                running += 1
+            uni_dim_seg_labels.append(running)
+        preds = np.array(uni_dim_seg_labels)
+    runtime = time()-starttime
 
-    return np.array(uni_dim_seg_labels)
+    return preds, runtime
 
 def berhe21_preds(feats, n_clusters):
     patience = 3; window_size = 3
@@ -146,6 +158,7 @@ if __name__=='__main__':
     parser.add_argument('--yeo-delta', type=float, default=5.0)
     parser.add_argument('--yeo-T', type=int, default=300)
     parser.add_argument('-d', '--dset', type=str, default='osvd')
+    parser.add_argument('--recompute', action='store_true')
     ARGS = parser.parse_args()
     if ARGS.methods == ['all']:
         method_names = all_method_names
@@ -157,6 +170,7 @@ if __name__=='__main__':
     if ARGS.dset=='osvd':
         avg_gt_scenes_dset = 22
         all_results = {m:{} for m in method_names}
+        nframes = np.load('data/osvd-nframes.npy')
         for vn, fps in osvd_vn2fps.items():
             if isinstance(fps, str):
                 continue
@@ -165,13 +179,34 @@ if __name__=='__main__':
             gt = [x[1] for x in ssts[:-1]]
             gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
             k = int(len(gt_point_labs)/(2*avg_gt_scenes_dset))
-            method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
-            for pred_name, preds in zip(method_names, method_preds):
-                results = segmentation_metrics(preds, gt_point_labs, k=k)
+            #method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
+            method_preds = []
+            vid_fp=f'data/full-videos/osvd/{vn}.mp4'
+            #video = cv2.VideoCapture(vid_fp:=f'data/full-videos/{ARGS.dset}/{vn}.mp4')
+            #nframes = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+            #video.release()
+            for mn in method_names:
+                preds, runtime_ = get_baseline_preds(mn, feats_ar, avg_gt_scenes_dset, vid_fp, recompute=ARGS.recompute)
+                method_preds.append((preds, runtime_))
+
+            for pred_name, (preds, runtime) in zip(method_names, method_preds):
+                if pred_name.startswith('psd'):
+                    n_points = max(1000, len(preds))
+                    gt_to_use = (np.expand_dims(np.arange(n_points),1)>gt).sum(axis=1)
+                    preds_to_use = (np.expand_dims(np.arange(n_points),1)>preds).sum(axis=1)
+                else:
+                    gt_to_use = gt_point_labs
+                    preds_to_use = preds
+                results = segmentation_metrics(preds_to_use, gt_to_use, k=k)
+                results['runtime'] = runtime
+                #results['per-frame-runtime'] = runtime/nframes
                 all_results[pred_name][vn] = results
         combined = []
         for m in method_names:
+            df = pd.DataFrame(all_results[m])
+            df.loc['per-frame-runtime'] = df.loc['runtime']/nframes
             combined.append(pd.DataFrame(all_results[m]).mean(axis=1))
+        breakpoint()
         results_df = pd.DataFrame(combined, index=method_names)[metric_names]
         if ARGS.methods==['all']:
             check_dir('segmentation-results/osvd')
@@ -185,16 +220,34 @@ if __name__=='__main__':
     if ARGS.dset=='bbc':
         avg_gt_scenes_dset = 48
         all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
+        nframes = np.load('data/bbc-nframes.npy')
         for vn in range(11):
+            basefn = f'bbc_{vn+1:02}'
+            vid_fp=f'data/full-videos/bbc/{basefn}.mp4'
+            assert os.path.exists(vid_fp)
             annotwise_ssts = bbc_scene_split_times(vn)
-            feats_ar, ts = get_feats_and_times(f'bbc_{vn+1:02}')
+            feats_ar, ts = get_feats_and_times(basefn)
             k = int(len(ts)/(2*avg_gt_scenes_dset))
-            method_preds = [get_baseline_preds(m, feats_ar, avg_gt_scenes_dset) for m in method_names]
+            method_preds = []
+            runtimes = []
+            for m in method_names:
+                preds, rt = get_baseline_preds(m, feats_ar, avg_gt_scenes_dset, vid_fp=vid_fp, recompute=ARGS.recompute)
+                method_preds.append(preds)
+                runtimes.append(rt)
+
             for annot_num, gt in enumerate(annotwise_ssts):
                 gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
-                for pred_name, preds in zip(method_names, method_preds):
-                    results = {}
-                    results = segmentation_metrics(gt_point_labs, preds, k=k)
+                for i, (pred_name, preds) in enumerate(zip(method_names, method_preds)):
+                    if pred_name.startswith('psd'):
+                        n_points = max(1000, len(preds))
+                        gt_to_use = (np.expand_dims(np.arange(n_points),1)>gt).sum(axis=1)
+                        preds_to_use = (np.expand_dims(np.arange(n_points),1)>preds).sum(axis=1)
+                    else:
+                        gt_to_use = gt_point_labs
+                        preds_to_use = preds
+                    results = segmentation_metrics(gt_to_use, preds_to_use, k=k)
+                    results['runtime'] = runtimes[i]
+                    results['per-frame-runtime'] = runtimes[i] / nframes[i]
                     all_results_by_annot[annot_num][pred_name][vn] = results
 
         df=pd.json_normalize(all_results_by_annot)
