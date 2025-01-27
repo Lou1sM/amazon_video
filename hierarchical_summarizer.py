@@ -109,7 +109,6 @@ class HierarchicalSummarizer():
             cur_caps = []
             cit = iter(caps)
             for line in ep.transcript:
-                #time = flt.get(line.split(': ')[1].strip(), -1)
                 if line=='[SCENE_BREAK]':
                     cur_caps = next(cit)
                 else:
@@ -119,21 +118,10 @@ class HierarchicalSummarizer():
                             time = uttime
                             break
                     scene_idx = (time<sp).argmax()
-                    #print(time, scene_idx)
                     psd_scenes[scene_idx].append(line)
                     combined_caps[scene_idx].append(cur_caps)
-                    #print(len(psd_scenes[scene_idx]))
                     cur_caps = ''
-                #breakpoint()
-                #if time > sp[len(combined_scenes)]:
-                #    combined_scenes.append('\n'.join(cur_scene))
-                #    combined_caps.append('\n'.join(cur_caps))
-                #    cur_scene = []; cur_caps = []
-                #else:
-                #    cur_scene.append(line)
             combined_scenes = ['\n'.join(s) for s in psd_scenes]
-            breakpoint()
-            #combined_transcript = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in combined_scenes)
 
         elif self.breaks == 'unif':
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
