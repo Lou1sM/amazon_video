@@ -19,7 +19,7 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training, Pe
 
 
 class HierarchicalSummarizer():
-    def __init__(self, device, bs, dbs, caps, scene_order, uniform_breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, model_name, model_prec, n_beams, n_dbeams, resumm_scenes=False, do_save_new_scenes=False, is_test=False, verbose=False):
+    def __init__(self, device, bs, dbs, caps, scene_order, breaks, startendscenes, centralscenes, max_chunk_size, expdir, data_dir, model_name, model_prec, n_beams, n_dbeams, resumm_scenes=False, do_save_new_scenes=False, is_test=False, verbose=False):
         assert not (centralscenes and startendscenes)
         assert isinstance(expdir,str)
         self.device = device
@@ -37,7 +37,7 @@ class HierarchicalSummarizer():
         self.data_dir = data_dir
         self.n_epochs = 0
         self.scene_order = scene_order
-        self.uniform_breaks = uniform_breaks
+        self.breaks = breaks
         self.startendscenes = startendscenes
         self.centralscenes = centralscenes
         self.resumm_scenes = resumm_scenes
@@ -45,7 +45,7 @@ class HierarchicalSummarizer():
         self.is_test = is_test
         self.bs = bs
         self.dbs = dbs
-        self.fn = get_fn(caps, self.scene_order, self.uniform_breaks, self.startendscenes, self.centralscenes, self.is_test)
+        self.fn = get_fn(caps, self.scene_order, self.breaks, self.startendscenes, self.centralscenes, self.is_test)
         self.desired_summ_len = 635 # mean in Moviesumm testset
 
         if model_name == 'barts':
@@ -99,7 +99,43 @@ class HierarchicalSummarizer():
             caps = [cdd.get(f'{vidname}s{i}','') for i in range(len(scenes))]
             assert len(caps)==len(scenes)
         assert all('talking' not in x for x in caps)
-        if self.uniform_breaks:
+        if self.breaks=='psd':
+            sp = np.load(f'cached_outputs/pyscenedetect-cache/thresh27/{vidname}.npy')
+            with open(f'data/whisper_outputs/{vidname}.json') as f:
+                whisper_out = json.load(f)
+            flt = [(z['text'].strip(), z['start']) for z in whisper_out]
+            psd_scenes = [[] for _ in range(len(sp)+1)]
+            combined_caps = [[] for _ in range(len(sp)+1)]
+            cur_caps = []
+            cit = iter(caps)
+            for line in ep.transcript:
+                #time = flt.get(line.split(': ')[1].strip(), -1)
+                if line=='[SCENE_BREAK]':
+                    cur_caps = next(cit)
+                else:
+                    time = -1
+                    for ut, uttime in flt:
+                        if ': ' in line and (ut.strip() == line.split(': ')[1].strip()):
+                            time = uttime
+                            break
+                    scene_idx = (time<sp).argmax()
+                    #print(time, scene_idx)
+                    psd_scenes[scene_idx].append(line)
+                    combined_caps[scene_idx].append(cur_caps)
+                    #print(len(psd_scenes[scene_idx]))
+                    cur_caps = ''
+                #breakpoint()
+                #if time > sp[len(combined_scenes)]:
+                #    combined_scenes.append('\n'.join(cur_scene))
+                #    combined_caps.append('\n'.join(cur_caps))
+                #    cur_scene = []; cur_caps = []
+                #else:
+                #    cur_scene.append(line)
+            combined_scenes = ['\n'.join(s) for s in psd_scenes]
+            breakpoint()
+            #combined_transcript = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in combined_scenes)
+
+        elif self.breaks == 'unif':
             transcript_wo_scene_marks = '\n'.join([x for x in ep.transcript if x!='[SCENE_BREAK]'])
             #combined_scenes = chunkify(transcript_wo_scene_marks, self.dmax_chunk_size)
             combined_scenes = chunkify(transcript_wo_scene_marks, 250)
@@ -123,7 +159,7 @@ class HierarchicalSummarizer():
         combined_scenes = [scene_summarize_prompt(i,c) for i,c in enumerate(combined_scenes)]
         chunk_list = [chunkify(s, self.dmax_chunk_size) for s in combined_scenes]
         chunks = sum(chunk_list,[])
-        assert (chunks==combined_scenes) or not self.uniform_breaks
+        assert (chunks==combined_scenes) or self.breaks != 'unif'
         tok_chunks = [self.dtokenizer(c)['input_ids'] for c in chunks]
         sort_idxs = np.argsort([len(x) for x in tok_chunks])
         reversed_sort_idxs = np.argsort(sort_idxs)
@@ -484,7 +520,7 @@ if __name__ == '__main__':
     parser.add_argument('--short-prompt', action='store_true')
     parser.add_argument('--start-from', type=int, default=-1)
     parser.add_argument('--summ-scenes-only', action='store_true')
-    parser.add_argument('--unif-breaks', action='store_true')
+    parser.add_argument('--breaks', type=str, default='ours')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--vidname', type=str, default='the-sixth-sense_1999')
     parser.add_argument('-t','--is-test', action='store_true')
@@ -518,8 +554,9 @@ if __name__ == '__main__':
     if ARGS.hierarchical_summ_abl:
         expname += '-hierarchical-summ-abl'
 
-    if ARGS.unif_breaks:
-        expname += '-unif-breaks'
+    #if ARGS.unif_breaks:
+        #expname += '-unif-breaks'
+    expname += f'-breaks{ARGS.breaks}'
 
     model_name = 'barts' if ARGS.prev_model_baseline else llm_dict[ARGS.model]
     summarizer_model = HierarchicalSummarizer(
@@ -532,7 +569,7 @@ if __name__ == '__main__':
                 dbs=ARGS.dbs,
                 caps='kosmos',
                 scene_order='identity',
-                uniform_breaks=ARGS.unif_breaks,
+                breaks=ARGS.breaks,
                 startendscenes=False,
                 centralscenes=False,
                 max_chunk_size=10000,
