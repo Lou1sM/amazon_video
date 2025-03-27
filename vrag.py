@@ -1,4 +1,5 @@
 import os
+from os.path import join
 from tqdm import tqdm
 import pandas as pd
 from time import time
@@ -37,14 +38,14 @@ def get_texts(split_name, vid_subpath):
     scenes = []
     names_in_scenes = []
     viz_texts = []
-    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{split_name}/names')):
-        with open(f'rag-caches/{vid_subpath}/{split_name}/names/{fn}') as f:
+    for fn in natsorted(os.listdir(rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'names'))):
+        with open(join(rag_caches_dir, fn)) as f:
             names_in_scenes.append(f.read().split('\n'))
-    for fn in natsorted(os.listdir(f'rag-caches/{vid_subpath}/{split_name}/scene_texts')):
+    for fn in natsorted(os.listdir(join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'scene_texts'))):
         with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
             scenes.append(f.read())
 
-    if os.path.exists(lava_out_dir:=f'lava-outputs/{vid_subpath}/{split_name}/'):
+    if os.path.exists(lava_out_dir:=join(ARGS.lava_outputs_prefix, 'lava-outputs', vid_subpath, split_name)):
         for fn in os.listdir(lava_out_dir):
             if fn=='all.json':
                 continue
@@ -85,8 +86,8 @@ def get_showseaseps(show_name_, seas_num_, ep_num_):
     return showseaseps
 
 class VQA():
-    def __init__(self):
-        self.ema_logits = np.array([-1, 0.25, 0.25, 0.25, 0.25])
+    #def __init__(self):
+        #self.ema_logits = np.array([1, -0.25, -0.25, -0.25, -0.25])
 
     def answer_qs(self, show_name, season, episode, model, ep_qs):
         dset_name = 'tvqa'
@@ -135,22 +136,13 @@ class VQA():
 
                 retrieve_idx = sims.topk(ARGS.n_to_retrieve).indices
                 scene_text = '\n'.join(vl_texts[i] for i in retrieve_idx)
-                #viz_scene_text = drop_trailing_halfsent(viz_texts[f'scene{sims.argmax()}'])
-                #viz_scene_text = viz_texts[sims.argmax()]
             options = '\n'.join(k[1] + ': ' + qdict[k] for k in ('a0', 'a1', 'a2', 'a3', 'a4'))
             question_part = f'Question: {qsent}\nSelect the answer from the following options:\n{options}\nJust give the number of the answer. Your answer should only be a number from 0-4, no punctuation or whitespace.'
             if ARGS.splits == 'none':
                 new_tokens = tokenizer(question_part, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
                 dynamic_pkv = tuple((k.clone().detach(), v.clone().detach()) for k, v in orig_past_key_values)
                 print('now looping through question tokens')
-                #for token_id in tqdm(new_tokens[0]):
-                #    token_input = token_id.unsqueeze(0).unsqueeze(0)
-                #    with torch.inference_mode():
-                #        output = model(input_ids=token_input, past_key_values=dynamic_pkv, use_cache=True)
-                #        dynamic_pkv = output.past_key_values
-                #        cur_logits = outputs.logits
                 output = model(input_ids=new_tokens, past_key_values=dynamic_pkv, use_cache=True)
-                #ans_logits = cur_logits
                 ans_logits = output.logits
                 prompt = recurring_prompt_prefix + question_part
             else:
@@ -161,15 +153,16 @@ class VQA():
                    ans_logits = output.logits
 
             scores_by_answer = np.array([ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
-            self.ema_logits = (9*self.ema_logits + scores_by_answer) / 10
-            ans = (scores_by_answer - self.ema_logits).argmax()
+            #self.ema_logits = (9*self.ema_logits + scores_by_answer) / 10
+            #ans = (scores_by_answer - self.ema_logits).argmax()
+            ans = scores_by_answer.argmax()
             if ARGS.verbose:
                 print(prompt, qdict['answer_idx'])
                 print(f'pred: {ans} gt: {qdict["answer_idx"]}')
                 print('scores:', [ans_logits[0, -1, tokenizer.encode(str(i), add_special_tokens=False)[0]].item() for i in range(5)])
             if ans==qdict['answer_idx']:
                 n_correct += 1
-            print(ans, scores_by_answer, self.ema_logits)
+            print(ans, scores_by_answer)
         n = len(ep_qs["questions"])
         print(f'vqa acc: {n_correct}/{n} = {n_correct/n:.5f}')
         return n_correct, n
@@ -182,13 +175,15 @@ if __name__ == '__main__':
     parser.add_argument('--recompute', action='store_true')
     parser.add_argument('--test-loading', action='store_true')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif', 'none'])
+    parser.add_argument("--splits", type=str, default='ours', choices=['ours', 'psd', 'unif', 'none', 'GMM', 'scrl', 'bassl'])
     parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
     parser.add_argument('--prec', type=int, default=4, choices=[32,8,4,2])
     parser.add_argument('--n-to-retrieve', type=int, default=1)
     parser.add_argument('--prompt-prefix', type=int, default=5000)
     parser.add_argument('--cpu', action='store_true')
     parser.add_argument('--dud', action='store_true')
+    parser.add_argument("--rag-caches-prefix", type=str, default='.')
+    parser.add_argument("--lava-outputs-prefix", type=str, default='.')
     ARGS = parser.parse_args()
 
 
