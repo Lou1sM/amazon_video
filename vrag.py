@@ -38,11 +38,12 @@ def get_texts(split_name, vid_subpath):
     scenes = []
     names_in_scenes = []
     viz_texts = []
-    for fn in natsorted(os.listdir(rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'names'))):
-        with open(join(rag_caches_dir, fn)) as f:
+    for fn in natsorted(os.listdir(names_rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'names'))):
+        with open(join(names_rag_caches_dir, fn)) as f:
             names_in_scenes.append(f.read().split('\n'))
-    for fn in natsorted(os.listdir(join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'scene_texts'))):
-        with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
+    for fn in natsorted(os.listdir(stexts_rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'scene_texts'))):
+        #with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
+        with open(join(stexts_rag_caches_dir, fn)) as f:
             scenes.append(f.read())
 
     if os.path.exists(lava_out_dir:=join(ARGS.lava_outputs_prefix, 'lava-outputs', split_name, vid_subpath)):
@@ -67,7 +68,7 @@ def get_texts(split_name, vid_subpath):
 def get_showseaseps(show_name_, seas_num_, ep_num_):
     showseaseps = []
     if show_name_=='all':
-        show_names_to_compute = natsorted(os.listdir(f'rag-caches/tvqa/'))
+        show_names_to_compute = natsorted(os.listdir(join(ARGS.rag_caches_prefix, 'rag-caches/tvqa/')))
         show_names_to_compute = [x for x in show_names_to_compute if x!='bbt']
     else:
         show_names_to_compute = [show_name_]
@@ -79,7 +80,7 @@ def get_showseaseps(show_name_, seas_num_, ep_num_):
 
         for seas_num in seass_to_compute:
             if ep_num_ == -1:
-                for fn in natsorted(os.listdir(f'rag-caches/tvqa/{show_name}/season_{seas_num}')):
+                for fn in natsorted(os.listdir(join(ARGS.rag_caches_prefix, f'rag-caches/tvqa/{show_name}/season_{seas_num}'))):
                     ep_num = int(fn[8:].removesuffix('.mp4'))
                     showseaseps.append((show_name, seas_num, ep_num))
             else:
