@@ -101,11 +101,19 @@ class VQA():
         else:
             vl_texts, names_in_scenes, scenes, viz_texts = get_texts(ARGS.splits, vid_subpath)
 
-            scene_text_feats = [torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')]#[:5000]
+            scene_text_feats = []
+            for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/'):
+                try:
+                    stf = torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/{fn}').to(device)
+                    stfm = torch.zeros(512, device=device) if len(stf)==0 else stf.mean(axis=0)
+                except (RuntimeError, FileNotFoundError):
+                    stfm = torch.zeros(512, device=device) if len(stf)==0 else stf.mean(axis=0)
+                scene_text_feats.append(stfm)
             if len(scene_text_feats)==0:
                 print(f'{show_name} {season} {episode}: empty scene texts')
                 return 0, 0
-            scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
+            scene_text_feats = torch.stack(scene_text_feats)
+            #scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
             scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
             if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
                 scene_feats = (scene_vision_feats + scene_text_feats) / 2
