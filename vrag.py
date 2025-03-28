@@ -38,10 +38,10 @@ def get_texts(split_name, vid_subpath):
     scenes = []
     names_in_scenes = []
     viz_texts = []
-    for fn in natsorted(os.listdir(names_rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'names'))):
+    for fn in natsorted(os.listdir(names_rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', split_name, vid_subpath, 'names'))):
         with open(join(names_rag_caches_dir, fn)) as f:
             names_in_scenes.append(f.read().split('\n'))
-    for fn in natsorted(os.listdir(stexts_rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', vid_subpath, split_name, 'scene_texts'))):
+    for fn in natsorted(os.listdir(stexts_rag_caches_dir:=join(ARGS.rag_caches_prefix, 'rag-caches', split_name, vid_subpath, 'scene_texts'))):
         #with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
         with open(join(stexts_rag_caches_dir, fn)) as f:
             scenes.append(f.read())
@@ -68,19 +68,19 @@ def get_texts(split_name, vid_subpath):
 def get_showseaseps(show_name_, seas_num_, ep_num_):
     showseaseps = []
     if show_name_=='all':
-        show_names_to_compute = natsorted(os.listdir(join(ARGS.rag_caches_prefix, 'rag-caches/tvqa/')))
+        show_names_to_compute = natsorted(os.listdir(join(ARGS.rag_caches_prefix, 'rag-caches', ARGS.splits, 'tvqa/')))
         show_names_to_compute = [x for x in show_names_to_compute if x!='bbt']
     else:
         show_names_to_compute = [show_name_]
     for show_name in show_names_to_compute:
         if seas_num_ == -1:
-            seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(f'rag-caches/tvqa/{show_name}')])
+            seass_to_compute = natsorted([int(fn[7:]) for fn in os.listdir(join(ARGS.rag_caches_prefix, f'rag-caches', ARGS.splits, 'tvqa', show_name))])
         else:
             seass_to_compute = [seas_num_]
 
         for seas_num in seass_to_compute:
             if ep_num_ == -1:
-                for fn in natsorted(os.listdir(join(ARGS.rag_caches_prefix, f'rag-caches/tvqa/{show_name}/season_{seas_num}'))):
+                for fn in natsorted(os.listdir(join(ARGS.rag_caches_prefix, f'rag-caches', ARGS.splits, 'tvqa', show_name, f'season_{seas_num}'))):
                     ep_num = int(fn[8:].removesuffix('.mp4'))
                     showseaseps.append((show_name, seas_num, ep_num))
             else:
@@ -93,6 +93,7 @@ class VQA():
 
     def answer_qs(self, show_name, season, episode, model, ep_qs):
         dset_name = 'tvqa'
+        #vid_subpath = join(ARGS.splits, dset_name, show_name, f'season_{season}', f'episode_{episode}')
         vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
 
         if ARGS.splits == 'none':
@@ -111,13 +112,14 @@ class VQA():
                         stf = torch.zeros(1, 512, device=device)
                     feats.append(stf)
                 return feats
-            scene_text_feats = try_load_all(f'rag-caches/{vid_subpath}/{ARGS.splits}/text_feats/')
+            scene_text_feats = try_load_all(join(ARGS.rag_caches_prefix, 'rag-caches', ARGS.splits, vid_subpath, 'text_feats'))
             scene_text_feats = torch.stack([torch.zeros(512, device=device) if len(x)==0 else x.mean(axis=0) for x in scene_text_feats])
             if len(scene_text_feats)==0:
                 print(f'{show_name} {season} {episode}: empty scene texts')
                 return 0, 0
             #scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
-            scene_vision_feats = try_load_all(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')
+            #scene_vision_feats = try_load_all(f'rag-caches/{ARGS.splits}/{vid_subpath}/vid_feats')
+            scene_vision_feats = try_load_all(join(ARGS.rag_caches_prefix, 'rag-caches', ARGS.splits, vid_subpath, 'vid_feats'))
             if len(scene_vision_feats) == scene_text_feats.shape[0]:
                 scene_vision_feats = torch.stack(scene_vision_feats)
                 scene_feats = (scene_vision_feats + scene_text_feats) / 2
@@ -141,7 +143,7 @@ class VQA():
         for i, qdict in enumerate(ep_qs['questions']):
             qsent = qdict['q']
             if ARGS.splits != 'none':
-                qvec = torch.load(f'rag-caches/{vid_subpath}/qfeats/{i}.pt').to(device)
+                qvec = torch.load(join(ARGS.rag_caches_prefix, 'rag-caches/qfeats', vid_subpath, f'{i}.pt')).to(device)
                 sims = torch.tensor([(ts @ qvec.T).max(axis=0).values for ts in scene_feats])
                 names_in_q = [w.replace('Anabelle', 'Annabelle') for w in word_tokenize(qdict['q']) if w in all_names]
                 names_match = torch.tensor([all(n in ns for n in names_in_q) for ns in names_in_scenes]).float()
