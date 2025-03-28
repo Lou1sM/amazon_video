@@ -45,7 +45,7 @@ def get_texts(split_name, vid_subpath):
         with open(f'rag-caches/{vid_subpath}/{split_name}/scene_texts/{fn}') as f:
             scenes.append(f.read())
 
-    if os.path.exists(lava_out_dir:=join(ARGS.lava_outputs_prefix, 'lava-outputs', vid_subpath, split_name)):
+    if os.path.exists(lava_out_dir:=join(ARGS.lava_outputs_prefix, 'lava-outputs', split_name, vid_subpath)):
         for fn in os.listdir(lava_out_dir):
             if fn=='all.json':
                 continue
