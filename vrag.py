@@ -117,8 +117,8 @@ class VQA():
                 return 0, 0
             #scene_vision_feats = torch.cat([torch.load(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats/{fn}').to(device) for fn in os.listdir(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')])
             scene_vision_feats = try_load_all(f'rag-caches/{vid_subpath}/{ARGS.splits}/vid_feats')
-            scene_vision_feats = torch.stack(scene_vision_feats)
-            if scene_vision_feats.shape[0] == scene_text_feats.shape[0]:
+            if len(scene_vision_feats) == scene_text_feats.shape[0]:
+                scene_vision_feats = torch.stack(scene_vision_feats)
                 scene_feats = (scene_vision_feats + scene_text_feats) / 2
             else:
                 print(f'{show_name} {season} {episode}: vision feats have {len(scene_vision_feats)} scenes while text feats have {len(scene_text_feats)}, names is {len(names_in_scenes)}, scenes is {len(scenes)}')
