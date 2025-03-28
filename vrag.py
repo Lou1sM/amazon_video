@@ -68,6 +68,7 @@ def get_showseaseps(show_name_, seas_num_, ep_num_):
     showseaseps = []
     if show_name_=='all':
         show_names_to_compute = natsorted(os.listdir(f'rag-caches/tvqa/'))
+        show_names_to_compute = [x for x in show_names_to_compute if x!='bbt']
     else:
         show_names_to_compute = [show_name_]
     for show_name in show_names_to_compute:
