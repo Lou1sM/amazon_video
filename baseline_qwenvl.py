@@ -69,7 +69,7 @@ def answer_qs(show_name, season, episode, model, processor, ep_qs):
     #vl_texts, _, scenes, viz_texts = get_texts('ours', vid_subpath)
     scenes = get_texts('ours', vid_subpath)
     scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
-    scene_text = scene_text[-5000:]
+    scene_text = scene_text[-5:]
     #viz_scene_text = '\n'.join(viz_texts)
 
     n_correct = 0
@@ -83,11 +83,12 @@ def answer_qs(show_name, season, episode, model, processor, ep_qs):
         options = '\n'.join(f"{idx}: {qdict[f'a{idx}']}" for idx in range(5))
 
         # Prepare the multimodal input with images
+        n_ims = 1
         messages = [
             {
                 "role": "user",
                 "content": [
-                    *[{"type": "image", "image": path} for path in image_paths[:1]],  # Use first 4 images
+                    *[{"type": "image", "image": path} for path in image_paths[:n_ims]],
                     {"type": "text", "text": f"Context: {scene_text}"},
                     {"type": "text", "text": f"Question: {qsent}\nOptions:\n{options}\nAnswer with just a number (0-4)."}
                 ]
@@ -98,7 +99,7 @@ def answer_qs(show_name, season, episode, model, processor, ep_qs):
         text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = processor(
             text=[text],
-            images=[Image.open(path) for path in image_paths[:4]],  # Load actual images
+            images=[Image.open(path) for path in image_paths[:n_ims]],  # Load actual images
             return_tensors="pt",
         ).to(ARGS.device)
 
@@ -114,7 +115,7 @@ def answer_qs(show_name, season, episode, model, processor, ep_qs):
 
         # Try to extract a number from the output
         try:
-            ans = int(output_text.strip()[0])  # Get first character and try to convert to int
+            ans = int(output_text[0].strip())  # Get first character and try to convert to int
             if 0 <= ans <= 4:
                 if ans == qdict['answer_idx']:
                     n_correct += 1
