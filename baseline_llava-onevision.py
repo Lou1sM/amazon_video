@@ -87,18 +87,33 @@ def answer_qs(show_name, season, episode, model, processor, tokenizer, ep_qs):
     vid_subpath = f'{dset_name}/{show_name}/season_{season}/episode_{episode}'
     scenes = get_texts('ours', vid_subpath)
     scene_text = '[SCENE_BREAK]'.join('\n'.join(l for l in s) for s in scenes)
+    scene_text = scene_text[-ARGS.prompt_prefix:]
 
-    video_path = join(ARGS.rag_caches_prefix, f'data/full-videos', vid_subpath + '.mp4')
-    max_frames_num = 8  # Reduced for memory efficiency
+    max_frames_num = 4  # Reduced for memory efficiency
+    #kf_dir = join(ARGS.rag_caches_prefix, f'data/full-videos', vid_subpath + '.mp4')
+    #video_path = join(ARGS.rag_caches_prefix, f'data/full-videos', vid_subpath + '.mp4')
+    #video_frames, video_time = load_video(video_path, max_frames_num, force_sample=True)
+    #video = processor.preprocess(video_frames, return_tensors="pt")["pixel_values"].to(ARGS.device)
 
-    try:
-        video_frames, video_time = load_video(video_path, max_frames_num, force_sample=True)
-        video = processor.preprocess(video_frames, return_tensors="pt")["pixel_values"].to(ARGS.device)
-        video = [video]
-    except Exception as e:
-        print(f"Error loading video: {e}")
-        return 0, len(ep_qs["questions"])
+    #try:
+    #    video_frames, video_time = load_video(video_path, max_frames_num, force_sample=True)
+    #    video = processor.preprocess(video_frames, return_tensors="pt")["pixel_values"].to(ARGS.device)
+    #    video = [video]
+    #except Exception as e:
+    #    print(f"Error loading video: {e}")
+    #    return 0, len(ep_qs["questions"])
 
+    from torchvision.transforms import ToTensor
+    transform = ToTensor()
+    image_dir = f"data/ffmpeg-keyframes/{vid_subpath}"
+    image_paths = [os.path.join(image_dir, f) for f in sorted(os.listdir(image_dir)) if f.endswith('.jpg')]
+    pick_every = len(image_paths) // max_frames_num
+    image_paths = image_paths[::pick_every][:max_frames_num]
+    assert len(image_paths) == max_frames_num
+
+    images = [Image.open(fp) for fp in image_paths]
+    images = [transform(np.array(x)).half() for x in images]
+    images = [x.to(model.device) for x in images]
     n_correct = 0
     conv_template = "qwen_1_5"
 
@@ -106,8 +121,8 @@ def answer_qs(show_name, season, episode, model, processor, tokenizer, ep_qs):
         qsent = qdict['q']
         options = '\n'.join(f"{idx}: {qdict[f'a{idx}']}" for idx in range(5))
 
-        time_instruction = f"The video lasts for {video_time:.2f} seconds. Context: {scene_text}"
-        question = DEFAULT_IMAGE_TOKEN + f"{time_instruction}\nQuestion: {qsent}\nOptions:\n{options}\nAnswer with just a number (0-4)."
+        #time_instruction = f"The video lasts for {video_time:.2f} seconds. Context: {scene_text}"
+        question = DEFAULT_IMAGE_TOKEN + f"{scene_text}Question: {qsent}\nOptions:\n{options}\nAnswer with just a number (0-4)."
 
         conv = copy.deepcopy(conv_templates[conv_template])
         conv.append_message(conv.roles[0], question)
@@ -117,7 +132,8 @@ def answer_qs(show_name, season, episode, model, processor, tokenizer, ep_qs):
         input_ids = tokenizer_image_token(prompt, tokenizer, IMAGE_TOKEN_INDEX, return_tensors="pt").unsqueeze(0).to(ARGS.device)
 
         with torch.no_grad():
-            output_ids = model.generate(input_ids,images=video.half(),modalities=["video"],do_sample=False,temperature=0,max_new_tokens=1,)
+            #output_ids = model.generate(input_ids,images=[x.half() for x in video] ,modalities=["video"],do_sample=False,temperature=0,max_new_tokens=1,)
+            output_ids = model.generate(input_ids,images=[x[:, :384, :384] for x in images] ,modalities=["video"],do_sample=False,temperature=0,max_new_tokens=1,)
 
         output = tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0].strip()
 
@@ -147,7 +163,9 @@ if __name__ == '__main__':
     parser.add_argument('--recompute', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--cpu', action='store_true')
+    parser.add_argument('--no-model', action='store_true')
     parser.add_argument("--rag-caches-prefix", type=str, default='.')
+    parser.add_argument('--prompt-prefix', type=int, default=5000)
     ARGS = parser.parse_args()
 
     ARGS.device = 'cpu' if ARGS.cpu else 'cuda'
@@ -167,15 +185,18 @@ if __name__ == '__main__':
     overwrite_config["mm_spatial_pool_mode"] = 'average'
     overwrite_config["mm_spatial_pool_stride"] = 4
     overwrite_config["mm_newline_position"] = 'no_token'
-    tokenizer, model, processor, _ = load_pretrained_model(
-        'lmms-lab/LLaVA-Video-7B-Qwen2',
-        None,
-        'LLaVA-Video-7B-Qwen2',
-        load_8bit=False, overwrite_config=overwrite_config, attn_implementation='sdpa')
-    model.eval()
-    #model = model.half()
-    if not ARGS.cpu:
-        model = model.cuda()
+    if ARGS.no_model:
+        tokenizer, model, processor = None, None, None
+    else:
+        tokenizer, model, processor, _ = load_pretrained_model(
+            'lmms-lab/LLaVA-Video-7B-Qwen2',
+            None,
+            'LLaVA-Video-7B-Qwen2',
+            load_8bit=False, overwrite_config=overwrite_config, attn_implementation='sdpa')
+        model.eval()
+        #model = model.half()
+        if not ARGS.cpu:
+            model = model.cuda()
 
     tot_n_correct, tot = 0, 0
     all_scores = []
