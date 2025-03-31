@@ -1,5 +1,4 @@
 import re
-from nltk.tokenize import sent_tokenize
 import json
 import os
 from dl_utils.tensor_funcs import numpyify
@@ -7,24 +6,17 @@ from sklearn.metrics import normalized_mutual_info_score as nmi
 from sklearn.metrics import adjusted_rand_score as ari
 from dl_utils.label_funcs import accuracy
 from dl_utils.misc import check_dir
-import rouge
+#import rouge
 import torch
 import numpy as np
 import pandas as pd
 from natsort import natsorted
 from functools import partial
-from datasets import load_dataset
+#from datasets import load_dataset
 #from nltk.metrics import windowdiff
 
 
-metric_names = ['acc','nmi','ari', 'pk', 'winddiff', 'ded']
-rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
-                                                 max_n=2,
-                                                 limit_length=False,
-                                                 apply_avg=True,
-                                                 apply_best=False,
-                                                 alpha=0.5, # Default F1_score
-                                                 stemming=False)
+metric_names = ['acc','nmi','ari', 'pk', 'winddiff', 'ded', 'runtime', 'per-frame-runtime']
 
 def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
@@ -85,14 +77,14 @@ def rouge_from_multiple_refs(pred, references, return_full, benchmark_rl):
             print('rouge is zero')
     return best_rouge if return_full else extract_main_rouges(best_rouge)
 
-def get_fn(caps, order, uniform_breaks, startendscenes, centralscenes, is_test):
-    fn = caps
+def get_fn(caps, order, breaks, startendscenes, centralscenes, is_test):
+    fn = f'{caps}-breaks{breaks}'
     if order=='optimal':
         fn += '_reordered'
     if order=='rand':
         fn += '_rand_ordered'
-    if uniform_breaks:
-        fn += '_uniform_breaks'
+    #if uniform_breaks:
+        #fn += '_uniform_breaks'
     if startendscenes:
         fn += '_startendscenes'
     if centralscenes:
@@ -217,14 +209,20 @@ def segmentation_metrics(preds, gt_point_labs, k):
     set_pk = partial(p_k, k=k)
     set_windowdiff = partial(windowdiff, k=k)
     for mname, mfunc in zip(metric_names, [acc, nmi, ari, set_pk, set_windowdiff, ded]):
-        score = mfunc(gt_point_labs, preds)
-        results[mname] = score
+        if 'runtime' not in mname:
+            score = mfunc(gt_point_labs, preds)
+            results[mname] = score
     return results
 
 def acc(preds, gts):
     acc1 = accuracy(preds, gts)
     acc2 = accuracy(gts, preds)
-    return (acc1+acc2)/2
+    score = (2*acc1*acc2) / (acc1+acc2)
+    #print('acc1', acc1, 'acc2:', acc2, 'hmean:', score)
+    #return (acc1+acc2)/2
+    #if acc2>0.9:
+        #breakpoint()
+    return score
 
 def p_k(preds, gts, k):
     scores_by_i = []
@@ -346,6 +344,7 @@ def split_points_to_labels(split_points, timepoints_to_label):
     return (np.expand_dims(timepoints_to_label,1)>split_points).sum(axis=1)
 
 def drop_trailing_halfsent(s):
+    from nltk.tokenize import sent_tokenize
     s = s.replace('Dr.','DRXXX')
     s = s.replace('Lt.','LtXXX')
     s = s.replace('Mr.','MrXXX')
@@ -371,7 +370,11 @@ def get_showseaseps(show_name_, seas_num_, ep_num_):
         for seas_num in seass_to_compute:
             if ep_num_ == -1:
                 for fn in natsorted(os.listdir(f'data/full-videos/tvqa/{show_name}/season_{seas_num}')):
-                    ep_num = int(fn[8:].removesuffix('.mp4'))
+                    #ep_num = int(fn[8:].removesuffix('.mp4'))
+                    x = fn[8:]
+                    if x.endswith('.mp4'):
+                        x = x[:-4]
+                    ep_num = int(x)
                     showseaseps.append((show_name, seas_num, ep_num))
             else:
                 showseaseps.append((show_name, seas_num, ep_num_))

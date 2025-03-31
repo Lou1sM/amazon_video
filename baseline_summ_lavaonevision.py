@@ -34,6 +34,7 @@ parser.add_argument('--mask-name', action='store_true')
 parser.add_argument('--no-model', action='store_true')
 parser.add_argument('--model', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
 parser.add_argument('--expdir-prefix', type=str, default='experiments')
+parser.add_argument('--kf-dir-prefix', type=str, default='experiments')
 parser.add_argument('--device', type=str, default='cuda', choices=['cuda', 'cpu'])
 ARGS = parser.parse_args()
 
@@ -85,7 +86,7 @@ for vn in tqdm(test_vidnames):
 
         from torchvision.transforms import ToTensor
         transform = ToTensor()
-        image_dir = f"data/ffmpeg-keyframes/{vid_subpath}"
+        image_dir = join(ARGS.kf_dir_prefix, 'ffmpeg-keyframes', vid_subpath)
         image_paths = [os.path.join(image_dir, f) for f in sorted(os.listdir(image_dir)) if f.endswith('.jpg')]
         max_frames_num = 4  # Reduced for memory efficiency
         pick_every = len(image_paths) // max_frames_num
