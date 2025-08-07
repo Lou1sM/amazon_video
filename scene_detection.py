@@ -1,4 +1,5 @@
 import os
+import json
 import cv2
 import math
 from time import time
@@ -16,11 +17,12 @@ import re
 import pandas as pd
 from dl_utils.misc import time_format
 from os.path import join
-from utils import segmentation_metrics, metric_names, bbc_mean_maxs
+from utils import segmentation_metrics, metric_names, bbc_mean_maxs, get_moviesumm_testnames, get_moviesumm_splitpoints
+from simplified_segment import SceneSegmenter
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
-class SceneSegmenter():
+class OldSceneSegmenter():
     def __init__(self, dset_name):
         self.dset_name = dset_name
         pass
@@ -155,6 +157,7 @@ class SceneSegmenter():
                 im_list = []
                 for inb in im_name_batch:
                     image = Image.open(join(self.framesdir, inb))
+                    breakpoint()
                     image = self.preprocess(image).unsqueeze(0).cuda()
                     im_list.append(image)
                 image_batch = torch.cat(im_list)
@@ -187,16 +190,28 @@ if __name__ == '__main__':
     parser.add_argument('--recompute-frame-features', action='store_true')
     parser.add_argument('--recompute-best-split', action='store_true')
     parser.add_argument('--recompute-all', action='store_true')
+    parser.add_argument('--save-results', action='store_true')
+    parser.add_argument('--no-save', action='store_true')
     parser.add_argument('--cut-first-n-secs', type=int, default=0)
     parser.add_argument('-d', '--dset', type=str, default='osvd')
+    parser.add_argument('--kf-every', type=int, default=2)
+    parser.add_argument('--feats-bs', type=int, default=4)
+    parser.add_argument('--max-scene-len', type=int, default=600, help='maximum number of seconds that can be in a scene, lower is faster')
+    parser.add_argument('--uniform-kfs', action='store_true')
+    parser.add_argument('--model-name', type=str, choices=['clip', 'dinov2', 'vit', 'blip'], default='clip')
+    parser.add_argument('--pow-incr', type=float, default=1.005, help='determines which points are skipped in search, higher is faster but less accurate')
+    parser.add_argument('--use-avg-sig', action='store_true')
+    parser.add_argument('--cpu', action='store_true')
     ARGS = parser.parse_args()
     if ARGS.recompute_all:
         ARGS.recompute_keyframes = True
         ARGS.recompute_frame_features = True
         ARGS.recompute_best_split = True
-    ss = SceneSegmenter(ARGS.dset)
+        if not ARGS.no_save:
+            ARGS.save_results = True
 
-    def get_preds(pred_split_points, gt_n_scenes, avg_gt_scenes):
+    device = 'cpu' if ARGS.cpu else 'cuda'
+    def get_preds(pred_split_points, gt_n_scenes, avg_gt_scenes, ts):
         pred_point_labs = (np.expand_dims(ts,1)>pred_split_points).sum(axis=1)
         n_to_repeat = int(math.ceil(len(pred_point_labs)/avg_gt_scenes))
         n_to_repeat_oracle = int(math.ceil(len(pred_point_labs)/gt_n_scenes))
@@ -208,71 +223,83 @@ if __name__ == '__main__':
 
     method_names = ['ours', 'uniform', 'uniform-oracle']
     x = 0
+    max_seg_size = int(ARGS.max_scene_len/ARGS.kf_every)
+    ss = SceneSegmenter(ARGS.dset, None, None, max_seg_size, ARGS.pow_incr, use_avg_sig=ARGS.use_avg_sig, kf_every=ARGS.kf_every, use_log_dist_cost=False, model_name=ARGS.model_name, device=device)
     if ARGS.dset=='osvd':
         avg_gt_scenes_dset = 22
         all_results = {m:{} for m in method_names}
         nframes = np.load('data/osvd-nframes.npy')
         for vn, fps in osvd_vn2fps.items():
-            #video = cv2.VideoCapture(vid_fp:=f'data/full-videos/{ARGS.dset}/{vn}.mp4')
-            #nframes = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-            #video.release()
-            vid_fp = f'data/full-videos/{ARGS.dset}/{vn}.mp4'
-            if isinstance(fps, str):
-                #print(f'Cant process video {vn} because {fps}')
-                continue
-            starttime = time()
-            pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-            runtime = time()-starttime
-            x += len(pred_split_points)
-            #ts = np.arange(0, all_timepoints[-1],0.1)
-            ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
-            k = int(len(ts)/(2*avg_gt_scenes_dset))
-            ssts = osvd_scene_split_times(vn)
-            gt = [x[1] for x in ssts[:-1]]
-            pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(ssts), avg_gt_scenes_dset)
-            gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
-            for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
-                results = segmentation_metrics(gt_point_labs, preds, k=k)
-                results['runtime'] = runtime if pred_name=='ours' else 0
-                #results['per-frame-runtime'] = runtime/nframes if pred_name=='ours' else 0
-                all_results[pred_name][vn] = results
+            try:
+                vid_fp = f'data/full-videos/{ARGS.dset}/{vn}.mp4'
+                if isinstance(fps, str):
+                    continue
+                starttime = time()
+                pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+                runtime = time()-starttime
+                x += len(pred_split_points)
+                ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
+                k = int(len(ts)/(2*avg_gt_scenes_dset))
+                ssts = osvd_scene_split_times(vn)
+                gt = [x[1] for x in ssts[:-1]]
+                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(ssts), avg_gt_scenes_dset, ts)
+                gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
+                for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
+                    results = segmentation_metrics(gt_point_labs, preds, k=k)
+                    results['runtime'] = runtime if pred_name=='ours' else 0
+                    results['pred_n'] = len(pred_split_points) + 1
+                    results['gt_n'] = len(gt) + 1
+                    all_results[pred_name][vn] = results
+            except torch.OutOfMemoryError:
+                print('OOM for', vn)
         print(f'Mean predicted scenes: {x/len(all_results["ours"]):.3f}')
         combined = []
         for m in method_names:
             df = pd.DataFrame(all_results[m])
             df.loc['per-frame-runtime'] = df.loc['runtime']/nframes
+            if m == 'ours':
+                ours_df = df
             combined.append(df.mean(axis=1))
         results_df = pd.DataFrame(combined, index=method_names)
-        breakpoint()
         results_df = results_df[metric_names]
         print(results_df)
-        if ARGS.recompute_all:
+        breakpoint()
+        if ARGS.save_results:
             check_dir('segmentation-results/osvd')
-            results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
+        results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
 
     elif ARGS.dset=='bbc':
         avg_gt_scenes_dset = 48
         all_results_by_annot = [{m:{} for m in method_names} for _ in range(5)]
+        nframes = np.load('data/bbc-nframes.npy')
         for vn in range(11):
             annotwise_ssts = bbc_scene_split_times(vn)
-            pred_split_points, all_timepoints = ss.scene_segment(f'bbc_{vn+1:02}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-            #ts = np.arange(0, all_timepoints[-1],0.1)
+            starttime = time()
+            pred_split_points, all_timepoints = ss.scene_segment(f'bbc_{vn+1:02}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+            runtime = time()-starttime
             ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
             k = int(len(ts)/(2*avg_gt_scenes_dset))
             for annot_num, gt in enumerate(annotwise_ssts):
-                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(gt)+1, avg_gt_scenes_dset)
+                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(gt)+1, avg_gt_scenes_dset, ts)
                 gt_point_labs = (np.expand_dims(ts,1)>gt).sum(axis=1)
                 x += len(gt)
-                for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
-                    results = {}
+                for i, (pred_name, preds) in enumerate(zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs])):
                     results = segmentation_metrics(gt_point_labs, preds, k=k)
+                    results['runtime'] = runtime if pred_name=='ours' else 0
+                    results['per-frame-runtime'] = runtime/nframes[i] if pred_name=='ours' else 0
+                    results['pred_n'] = len(pred_split_points) + 1
+                    results['gt_n'] = len(gt) + 1
+                    #resu
+                    #breakpoint()
                     all_results_by_annot[annot_num][pred_name][vn] = results
+            #breakpoint()
 
         print(x//55, 'avg scenes')
         df=pd.json_normalize(all_results_by_annot)
         df.columns = pd.MultiIndex.from_tuples([tuple(col.split('.')) for col in df.columns])
         max_avgs, mean_avgs = bbc_mean_maxs(df)
-        if ARGS.recompute_all:
+        breakpoint()
+        if ARGS.save_results:
             check_dir('segmentation-results/bbc')
             max_avgs.to_csv('segmentation-results/bbc-max/ours-unifs.csv')
             mean_avgs.to_csv('segmentation-results/bbc-mean/ours-unifs.csv')
@@ -280,3 +307,49 @@ if __name__ == '__main__':
         print(max_avgs)
         print('MEAN')
         print(mean_avgs)
+
+    elif ARGS.dset=='moviesumm':
+        ss = SceneSegmenter('moviesumm', None, None, max_seg_size, ARGS.pow_incr, use_avg_sig=False, kf_every=ARGS.kf_every, use_log_dist_cost=False, device=device)
+        nframes = np.load('data/moviesumm-nframes.npy')
+        test_vidnames, clean2cl = get_moviesumm_testnames()
+        running_dict = {}
+        avg_runtime = 0
+        avg_pfr = 0
+        all_results = {m:{} for m in method_names}
+        avg_gt_scenes_dset = 53
+        for i, vn in enumerate(pbar:=tqdm(test_vidnames)):
+            try:
+                starttime = time()
+                pred_split_points, points_of_keyframes = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+                runtime = time()-starttime
+                gt_split_points, betweens = get_moviesumm_splitpoints(vn)
+                ts = np.load(f'data/ffmpeg-keyframes/moviesumm/{vn}/frametimes.npy')
+                pred_point_labs, unif_point_labs, unif_oracle_point_labs = get_preds(pred_split_points, len(gt_split_points)+1, avg_gt_scenes_dset, ts)
+                gt_point_labs = (np.expand_dims(ts,1)>gt_split_points).sum(axis=1)
+                k = int(len(ts)/(2*avg_gt_scenes_dset))
+                for pred_name, preds in zip(method_names, [pred_point_labs, unif_point_labs, unif_oracle_point_labs]):
+                    results = segmentation_metrics(gt_point_labs, preds, k=k)
+                    results['runtime'] = runtime if pred_name=='ours' else 0
+                    all_results[pred_name][vn] = results
+                per_frame_runtime = runtime/nframes[i]
+                running_dict[vn] = {'runtime': runtime, 'per-frame-runtime': per_frame_runtime}
+                avg_runtime = (runtime + (i*avg_runtime)) / (i+1)
+                avg_pfr = (per_frame_runtime + (i*avg_pfr)) / (i+1)
+                pbar.set_description(f'Avg runtime: {avg_runtime:.4f}, Per frame: {avg_pfr:.6f}')
+                with open('running-dict.json', 'w') as f:
+                    json.dump(running_dict, f)
+            except torch.OutOfMemoryError:
+                print('OOM for', vn)
+        combined = []
+        for m in method_names:
+            df = pd.DataFrame(all_results[m])
+            df.loc['per-frame-runtime'] = df.loc['runtime']/nframes[:df.shape[1]]
+            combined.append(df)
+        breakpoint()
+        results_df = pd.DataFrame(combined, index=method_names)
+        results_df = results_df[metric_names]
+        print(results_df)
+        if ARGS.save_results:
+            check_dir('segmentation-results/osvd')
+        results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
+
