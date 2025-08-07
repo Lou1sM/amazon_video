@@ -1,8 +1,0 @@
-Cuddy
-Foreman
-Taub
-Kutner
-House
-Amber
-Patient
-Wilson

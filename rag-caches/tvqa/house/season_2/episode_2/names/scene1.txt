@@ -1,7 +1,0 @@
-Patient
-Andie
-Chase
-House
-Nurse
-Foreman
-Cuddy

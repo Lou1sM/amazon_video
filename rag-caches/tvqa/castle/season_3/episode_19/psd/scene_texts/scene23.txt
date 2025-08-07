@@ -1,9 +1,0 @@
-Castle : You shop...
-Castle : You were shoplifting?
-UNK: No. I couldn't, but my friends did, and they said I was chicken.
-Castle : So you went back to finish the job to impress your friends.
-Alexis : No, I went back to pay for what they stole.
-Alexis : I couldn't just let someone get cheated like that.
-Alexis : I took money out of my savings and went back to the store.
-Alexis : When I got there, I put cash on the counter with a note
-Alexis : and ran out as fast as I could.

@@ -1,8 +1,0 @@
-UNK: Mysterious Man : Why did you contact me, Mr. Castle?
-UNK: Mysterious Man : The case is resolved.
-UNK: Resolved? How is it resolved?
-Castle : Someone tried to destroy this city's mayor and I want to know who.
-UNK: Mysterious Man : Trust me when I say it's not your concern.
-Castle : It is if it involves Becke or her mother's murder.
-UNK: Mysterious Man : You're a writer, finish this sentence :
-UNK: Mysterious Man : If Weldon had been run out of office...

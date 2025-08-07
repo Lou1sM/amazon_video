@@ -1,4 +1,0 @@
-Beckett : I have the file.
-Beckett : Smith had another copy.
-UNK: 0-8-6-7-2-2-4-1,
-Beckett : that's the number of the bank account where you deposited the money orders.

@@ -1,6 +1,0 @@
-UNK: Do you understand me?
-UNK: Tech 3 : Yes, ma'am.
-Castle : Where are we going?
-Gage : This way.
-CASTLE : What are we doing down here? Shouldn't we be headed for the lobby?
-UNK: Castle!
