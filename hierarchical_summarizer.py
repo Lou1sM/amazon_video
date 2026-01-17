@@ -484,7 +484,7 @@ if __name__ == '__main__':
     #openai.api_key = "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"
     parser = argparse.ArgumentParser()
     parser.add_argument('--bs', type=int, default=1)
-    parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions'],default='nocaptions')
+    parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions', 'lava'],default='nocaptions')
     parser.add_argument('--db-scene-summs', action='store_true')
     parser.add_argument('--db-summs', action='store_true')
     parser.add_argument('--dbs', type=int, default=8)

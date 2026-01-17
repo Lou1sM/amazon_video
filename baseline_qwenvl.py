@@ -84,24 +84,42 @@ def answer_qs(show_name, season, episode, model, processor, ep_qs):
 
         # Prepare the multimodal input with images
         n_ims = 1
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    *[{"type": "image", "image": path} for path in image_paths[:n_ims]],
-                    {"type": "text", "text": f"Context: {scene_text}"},
-                    {"type": "text", "text": f"Question: {qsent}\nOptions:\n{options}\nAnswer with just a number (0-4)."}
-                ]
-            }
-        ]
+        if n_ims == 0:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"Context: {scene_text}"},
+                        {"type": "text", "text": f"Question: {qsent}\nOptions:\n{options}\nAnswer with just a number (0-4)."}
+                    ]
+                }
+            ]
 
-        # Process without video inputs
-        text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        inputs = processor(
-            text=[text],
-            images=[Image.open(path) for path in image_paths[:n_ims]],  # Load actual images
-            return_tensors="pt",
-        ).to(ARGS.device)
+            # Process without video inputs
+            text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = processor(
+                text=[text],
+                return_tensors="pt",
+            ).to(ARGS.device)
+        else:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        *[{"type": "image", "image": path} for path in image_paths[:n_ims]],
+                        {"type": "text", "text": f"Context: {scene_text}"},
+                        {"type": "text", "text": f"Question: {qsent}\nOptions:\n{options}\nAnswer with just a number (0-4)."}
+                    ]
+                }
+            ]
+
+            # Process without video inputs
+            text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            inputs = processor(
+                text=[text],
+                images=[Image.open(path) for path in image_paths[:n_ims]],  # Load actual images
+                return_tensors="pt",
+            ).to(ARGS.device)
 
         # Inference
         with torch.no_grad():

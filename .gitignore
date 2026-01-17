@@ -1,4 +1,5 @@
 data/**
+rag-caches/**
 torrented-vids/**
 video_abstractive_summarization/**
 openai-apikey
@@ -19,6 +20,8 @@ SwinBERT/models
 **/__pycache__/**
 **/*.pyc
 **/*swp
+lava-outputs/**
+cached_outputs/**
 
 PRISMA/api.key
 PRISMA/ungitted-api.key
@@ -99,3 +102,4 @@ linjli
 .Trashes
 ehthumbs.db
 Thumbs.db
+cached_outputs/

@@ -90,18 +90,6 @@ def answer_qs(show_name, season, episode, model, processor, tokenizer, ep_qs):
     scene_text = scene_text[-ARGS.prompt_prefix:]
 
     max_frames_num = 4  # Reduced for memory efficiency
-    #kf_dir = join(ARGS.rag_caches_prefix, f'data/full-videos', vid_subpath + '.mp4')
-    #video_path = join(ARGS.rag_caches_prefix, f'data/full-videos', vid_subpath + '.mp4')
-    #video_frames, video_time = load_video(video_path, max_frames_num, force_sample=True)
-    #video = processor.preprocess(video_frames, return_tensors="pt")["pixel_values"].to(ARGS.device)
-
-    #try:
-    #    video_frames, video_time = load_video(video_path, max_frames_num, force_sample=True)
-    #    video = processor.preprocess(video_frames, return_tensors="pt")["pixel_values"].to(ARGS.device)
-    #    video = [video]
-    #except Exception as e:
-    #    print(f"Error loading video: {e}")
-    #    return 0, len(ep_qs["questions"])
 
     from torchvision.transforms import ToTensor
     transform = ToTensor()

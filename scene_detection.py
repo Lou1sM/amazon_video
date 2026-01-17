@@ -188,13 +188,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--recompute-keyframes', action='store_true')
     parser.add_argument('--recompute-frame-features', action='store_true')
+    parser.add_argument('--recompute-audio-features', action='store_true')
     parser.add_argument('--recompute-best-split', action='store_true')
     parser.add_argument('--recompute-all', action='store_true')
     parser.add_argument('--save-results', action='store_true')
+    parser.add_argument('--use-audio', action='store_true')
     parser.add_argument('--no-save', action='store_true')
     parser.add_argument('--cut-first-n-secs', type=int, default=0)
     parser.add_argument('-d', '--dset', type=str, default='osvd')
     parser.add_argument('--kf-every', type=int, default=2)
+    parser.add_argument('--subsample-frames', type=float, default=1)
     parser.add_argument('--feats-bs', type=int, default=4)
     parser.add_argument('--max-scene-len', type=int, default=600, help='maximum number of seconds that can be in a scene, lower is faster')
     parser.add_argument('--uniform-kfs', action='store_true')
@@ -224,7 +227,7 @@ if __name__ == '__main__':
     method_names = ['ours', 'uniform', 'uniform-oracle']
     x = 0
     max_seg_size = int(ARGS.max_scene_len/ARGS.kf_every)
-    ss = SceneSegmenter(ARGS.dset, None, None, max_seg_size, ARGS.pow_incr, use_avg_sig=ARGS.use_avg_sig, kf_every=ARGS.kf_every, use_log_dist_cost=False, model_name=ARGS.model_name, device=device)
+    ss = SceneSegmenter(ARGS.dset, None, None, max_seg_size, ARGS.pow_incr, use_avg_sig=ARGS.use_avg_sig, kf_every=ARGS.kf_every, use_log_dist_cost=False, model_name=ARGS.model_name, use_audio=ARGS.use_audio, subsample_frames=ARGS.subsample_frames, device=device)
     if ARGS.dset=='osvd':
         avg_gt_scenes_dset = 22
         all_results = {m:{} for m in method_names}
@@ -235,7 +238,7 @@ if __name__ == '__main__':
                 if isinstance(fps, str):
                     continue
                 starttime = time()
-                pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+                pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_frame_feats=ARGS.recompute_frame_features, recompute_audio_feats=ARGS.recompute_audio_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
                 runtime = time()-starttime
                 x += len(pred_split_points)
                 ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
@@ -275,7 +278,8 @@ if __name__ == '__main__':
         for vn in range(11):
             annotwise_ssts = bbc_scene_split_times(vn)
             starttime = time()
-            pred_split_points, all_timepoints = ss.scene_segment(f'bbc_{vn+1:02}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+            pred_split_points, all_timepoints = ss.scene_segment(f'bbc_{vn+1:02}', recompute_keyframes=ARGS.recompute_keyframes, recompute_frame_feats=ARGS.recompute_frame_features, recompute_audio_feats=ARGS.recompute_audio_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+                #pred_split_points, all_timepoints = ss.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_frame_feats=ARGS.recompute_frame_features, recompute_audio_feats=ARGS.recompute_audio_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
             runtime = time()-starttime
             ts = [t for t in all_timepoints if t > ARGS.cut_first_n_secs]
             k = int(len(ts)/(2*avg_gt_scenes_dset))
@@ -352,4 +356,3 @@ if __name__ == '__main__':
         if ARGS.save_results:
             check_dir('segmentation-results/osvd')
         results_df.to_csv('segmentation-results/osvd/ours-unifs.csv')
-

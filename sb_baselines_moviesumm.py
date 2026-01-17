@@ -13,9 +13,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--thresh', type=float, default=27)
 parser.add_argument('--ndps', type=int, default=9999)
 parser.add_argument('--method', type=str, default='psd')
+parser.add_argument('--recompute', action='store_true')
 parser.add_argument('--dset', '-d', type=str, default='moviesumm')
 ARGS = parser.parse_args()
 
+all_method_names = ['psd-27', 'kmeans', 'GMM', 'berhe21', 'yeo96']#, 'psd-54']
 test_vidnames, clean2cl = get_moviesumm_testnames()
 all_scores = []
 for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
@@ -28,7 +30,8 @@ for vn in (pbar:=tqdm(test_vidnames[:ARGS.ndps])):
         continue
     kf_timepoints = kf_timepoints[~betweens]
     if ARGS.method == 'psd':
-        pred_split_points = get_maybe_cached_psd_breaks(vn, ARGS.thresh)
+        vid_fp = f'data/full-videos/moviesumm/{vn}.mp4'
+        pred_split_points = get_maybe_cached_psd_breaks(vn, ARGS.thresh, vid_fp, ARGS.recompute)
         pred_labels = split_points_to_labels(pred_split_points, kf_timepoints)
     elif ARGS.method == 'yeo96':
         feats_ar, ts = get_feats_and_times(vn)

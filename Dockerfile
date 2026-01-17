@@ -1,22 +1,21 @@
-FROM python:latest
+FROM nvcr.io/nvidia/pytorch:24.01-py3
 WORKDIR /tmp
-#COPY utils.py ./
-#COPY summarize_dialogue.py ./
-#COPY episode.py ./
-#COPY hf_token ./
 RUN mkdir ./data
-COPY data/transcripts ./data/transcripts
-COPY data/postprocessed-video-captions ./data/postprocessed-video-captions
-#RUN pip install --no-cache-dir --upgrade pip && \
-    #pip install --no-cache-dir --upgrage transformers dl-utils385
-RUN pip install -U langdetect
-RUN pip install py-rouge
-RUN pip install transformers
-RUN pip install datasets
-RUN pip install dl-utils385
-RUN pip install nltk
-RUN pip install torch --index-url https://download.pytorch.org/whl/cu124
-RUN pip install natsort
-RUN pip install peft
-RUN pip install -U bitsandbytes
-#ENTRYPOINT ["python", "summarize_dialogue.py", "--device=cpu"]
+COPY data/internvid-feats ./data/internvid-feats
+COPY rag-caches ./rag-caches
+COPY vrag.py ./vrag.py
+COPY utils.py ./utils.py
+COPY tvqa-splits.json ./tvqa-splits.json
+#COPY data/postprocessed-video-captions ./data/postprocessed-video-captions
+#COPY  ./data/postprocessed-video-captions
+#RUN pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+pip install -U langdetect
+pip install py-rouge
+pip install transformers
+pip install datasets
+pip install dl-utils385
+pip install nltk
+pip install natsort
+pip install peft
+pip install -U bitsandbytes
+ENTRYPOINT ["python", "vrag.py", "--episode=2", "--cpu", "--model=llama3-8b "]

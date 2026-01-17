@@ -1,4 +1,8 @@
 import os
+import torchaudio
+from transformers import Wav2Vec2Model, Wav2Vec2Processor
+import os
+
 from time import time
 import io
 import sys
@@ -18,7 +22,7 @@ FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 LOG2PI = 1.837877
 
 class SceneSegmenter():
-    def __init__(self, dset_name, show_name, season, max_seg_size, pow_incr, use_avg_sig, kf_every, use_log_dist_cost, device, model_name):
+    def __init__(self, dset_name, show_name, season, max_seg_size, pow_incr, use_avg_sig, kf_every, use_log_dist_cost, use_audio, model_name, subsample_frames, device):
         self.dset_name = dset_name
         self.max_seg_size = max_seg_size
         self.pow_incr = pow_incr
@@ -28,6 +32,8 @@ class SceneSegmenter():
         self.use_log_dist_cost = use_log_dist_cost
         self.device = device
         self.model_name = model_name
+        self.use_audio = use_audio
+        self.subsample_frames = subsample_frames
         self.feats_device = 'cuda'
         assert (show_name is None) == (season is None)
         if show_name is None:
@@ -37,6 +43,7 @@ class SceneSegmenter():
         self.vid_dir = join('data/full-videos', self.name_path)
         self.base_framesdir = join('data/ffmpeg-keyframes', self.name_path)
         self.base_featsdir =  join('data/ffmpeg-frame-features', self.name_path, self.model_name)
+        self.base_audiofeatsdir =  join('data/audio-features', self.name_path, self.model_name)
         self.cached_splits_dir = join('data/cached-splits', self.name_path, self.model_name)
         os.makedirs(self.base_framesdir, exist_ok=True)
         os.makedirs(self.base_featsdir, exist_ok=True)
@@ -141,6 +148,83 @@ class SceneSegmenter():
             self.feat_fn = self.model
         else:
             sys.exit(f'unrecognised model name: {self.model_name}')
+
+    def get_audio_feats(self, vidname, timepoints, recompute):
+        os.makedirs(audio_feats_dir:=os.path.join(self.base_audiofeatsdir, vidname), exist_ok=True)
+        vid_fpath = f"{self.vid_dir}/{vidname}.mp4"
+        vid_duration = float(ffmpeg.probe(vid_fpath)['format']['duration'])
+        startends = [(0, timepoints[0])] + [(timepoints[i],timepoints[i+1]) for i in range(len(timepoints)-1)] + [(timepoints[-1], vid_duration)]
+        fns = [f'{s}:{e}.npy' for s,e in startends]
+        audio_fps = [os.path.join(audio_feats_dir, fn) for fn in fns]
+        if not recompute and all(os.path.exists(x) for x in audio_fps):
+            loaded = [np.load(fp) for fp in audio_fps]
+            if self.subsample_frames > 1:
+                idxs = np.arange(0, len(loaded)-1, self.subsample_frames).astype(int)
+                loaded = [loaded[i] for i in idxs]
+
+            return np.stack(loaded)
+
+        # Load Wav2Vec2 model and processor once
+        if not hasattr(self, 'wav2vec_model'):
+            #self.wav2vec_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+            #self.wav2vec_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base-960h").eval().to('cuda')
+            self.wav2vec_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-large-960h-lv60")
+            self.wav2vec_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-large-960h-lv60", trust_remote_code=True).eval().to('cuda')
+
+
+        # Ensure ffmpeg backend is used
+        torchaudio.set_audio_backend("ffmpeg")
+
+        waveform, sr = torchaudio.load(vid_fpath)
+        if sr != 16000:
+            print(f'sr={sr}, resampling to 16000')
+            resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)
+            waveform = resampler(waveform)
+            sr = 16000
+
+        feats = []
+
+        #bs = 4
+        #batch_list = []
+        #for i, (s, e) in enumerate(startends):
+        #    batch_list.append(waveform[:, int(s*sr):int(e*sr)])
+        #    if len(batch_list) == bs:
+        #        breakpoint()
+        #        batch_segment = torch.stack(batch_list)
+        #        if batch_segment.shape[1] > 1: # means stereo
+        #            batch_segment = batch_segment.mean(dim=0, keepdim=True)  # downmix stereo to mono
+        #            batch_segment = batch_segment.squeeze(0)
+
+        #        inputs = self.wav2vec_processor(batch_segment, sampling_rate=16000, return_tensors="pt", padding=True)
+        #        with torch.no_grad():
+        #            outputs = self.wav2vec_model(**{k: v.to('cuda') for k, v in inputs.items()})
+        #        batch_feats = outputs.last_hidden_state.mean(dim=1).squeeze(0).cpu()
+        #        feats += batch_feats
+        #        for j, f in enumerate(batch_feats):
+        #            fp = audio_fps[i*bs+j]
+        #            torch.save(f, fp)
+
+        #return torch.stack(feats)
+
+        for (s, e), fp in zip(startends, audio_fps):
+            start = min(waveform.shape[1] - 3000, int(s*sr))
+            end = min(int(e*sr), start+sr) # max 1s of audio
+            segment = waveform[:, start:end]
+            if segment.shape[0] > 1:
+                segment = segment.mean(dim=0, keepdim=True)  # downmix stereo to mono
+                segment = segment.squeeze(0)  # now shape: [T]
+
+            inputs = self.wav2vec_processor(segment, sampling_rate=16000, return_tensors="pt", padding=True)
+            with torch.no_grad():
+                try:
+                    outputs = self.wav2vec_model(**{k: v.to('cuda') for k, v in inputs.items()})
+                except:
+                    breakpoint()
+            ts_feat = outputs.last_hidden_state.mean(dim=1).squeeze(0).detach().cpu().numpy()
+            feats.append(ts_feat)
+            np.save(fp, ts_feat)
+
+        return np.stack(feats)
 
     def batched_cost_under_params(self, x, mu, sigs):
         N, n, nz = x.shape
@@ -279,24 +363,29 @@ class SceneSegmenter():
             np.save(splits_fp, self.kf_scene_split_points)
         return self.kf_scene_split_points
 
-    def scene_segment(self, vidname, recompute_keyframes, recompute_feats, recompute_best_split, bs, uniform_kfs):
+    def scene_segment(self, vidname, recompute_keyframes, recompute_frame_feats, recompute_audio_feats, recompute_best_split, bs, uniform_kfs):
         timepoints = self.get_ffmpeg_keyframe_times(vidname, recompute=recompute_keyframes, uniform=uniform_kfs)
         framesdir = f'{self.base_framesdir}/{vidname}'
         fns = [x for x in os.listdir(framesdir) if x.endswith('.jpg')]
+        if self.subsample_frames > 1:
+            idxs = np.arange(0, len(fns)-1, self.subsample_frames).astype(int)
+            fns = [fns[i] for i in idxs]
+            timepoints = [timepoints[i] for i in idxs]
+
         if not ( len(timepoints) == len(fns)):
             breakpoint()
         sorted_fns = natsorted(fns)
 
         os.makedirs(framefeatsdir:=os.path.join(self.base_featsdir, vidname), exist_ok=True)
 
-        if recompute_feats or any(not os.path.exists(f'{framefeatsdir}/{x.split(".")[0]}.npy') for x in fns):
+        if recompute_frame_feats or any(not os.path.exists(f'{framefeatsdir}/{x.split(".")[0]}.npy') for x in fns):
             if not hasattr(self, 'model'):
                 self.load_model()
 
         feat_paths = [f'{framefeatsdir}/{x.split(".")[0]}.npy' for x in sorted_fns]
         starttime = time()
         runtime_fp=f'ss-runtimes/feats-extraction/{vidname}'
-        if recompute_feats or any(not os.path.exists(x) for x in feat_paths) or (not os.path.exists(runtime_fp)):
+        if recompute_frame_feats or any(not os.path.exists(x) for x in feat_paths) or (not os.path.exists(runtime_fp)):
             feats_list = []
             batched = [(sorted_fns[i*bs:(i+1)*bs], feat_paths[i*bs:(i+1)*bs]) for i in range(int(math.ceil(len(sorted_fns)/bs)))]
             for i, (im_name_batch, featp_batch) in enumerate(pbar:=tqdm(batched)):
@@ -318,6 +407,12 @@ class SceneSegmenter():
         else:
             feats_list = [np.load(featp) for featp in feat_paths]
 
+        if self.use_audio:
+            audio_feats_list = self.get_audio_feats(vidname, timepoints, recompute=recompute_audio_feats)
+            #feats_list = [(v+a)/2 for v,a in zip(feats_list, audio_feats_list)]
+            #feats_list = [np.concatenate([v,a]) for v,a in zip(feats_list, audio_feats_list)]
+            feats_list = audio_feats_list
+            print(feats_list[0].shape)
         try:
             feats = np.stack(feats_list, axis=0)
         except:
@@ -386,7 +481,7 @@ if __name__ == '__main__':
                     #if vidname in ['episode_5', 'episode_18']:
                     #if vidname != 'episode_7':
                         #continue
-                    split_points, points_of_keyframes = ss.scene_segment(vidname, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+                    split_points, points_of_keyframes = ss.scene_segment(vidname, recompute_keyframes=ARGS.recompute_keyframes, recompute_frame_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
                     print(vidname, '  '.join(f'{int(sp//60)}m{sp%60:.1f}s' for sp in split_points))
             if ARGS.season == 'all':
                 seasons = sorted([x.removeprefix('season_') for x in os.listdir(f'data/full-videos/tvqa/{ARGS.show_name}')])
@@ -397,4 +492,4 @@ if __name__ == '__main__':
         else:
             assert ARGS.season != 'all'
             ss = SceneSegmenter(ARGS.dset, ARGS.show_name, ARGS.season, max_seg_size, ARGS.pow_incr, ARGS.use_avg_sig, ARGS.kf_every, use_log_dist_cost=ARGS.use_log_dist_cost, device=device, model_name=ARGS.model_name)
-            split_points, points_of_keyframes = ss.scene_segment(f'episode_{ARGS.episode}', recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)
+            split_points, points_of_keyframes = ss.scene_segment(f'episode_{ARGS.episode}', recompute_keyframes=ARGS.recompute_keyframes, recompute_frame_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=ARGS.feats_bs, uniform_kfs=ARGS.uniform_kfs)

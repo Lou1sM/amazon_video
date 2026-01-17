@@ -6,7 +6,6 @@ from sklearn.metrics import normalized_mutual_info_score as nmi
 from sklearn.metrics import adjusted_rand_score as ari
 from dl_utils.label_funcs import accuracy
 from dl_utils.misc import check_dir
-#import rouge
 import torch
 import numpy as np
 import pandas as pd
@@ -22,6 +21,7 @@ def display_rouges(r):
     return list(zip(['r1','r2','rL','rLsum'],r))
 
 def rouge_preprocess(text):
+    import rouge
     text = text.replace('...',' <eplipsis> ')
     text = rouge.Rouge.REMOVE_CHAR_PATTERN.sub(' ', text.lower()).strip()
     tokens = rouge.Rouge.tokenize_text(rouge.Rouge.KEEP_CANNOT_IN_ONE_WORD.sub('_cannot_', text))
@@ -30,6 +30,15 @@ def rouge_preprocess(text):
     return preprocessed_text
 
 def nelly_rouge(pred_,gt_):
+    import rouge
+    rouge_eval = rouge.Rouge(metrics=['rouge-n', 'rouge-l'],
+                                                 max_n=2,
+                                                 limit_length=False,
+                                                 apply_avg=True,
+                                                 apply_best=False,
+                                                 alpha=0.5, # Default F1_score
+                                                 stemming=False)
+
     pred_sum_sents = [rouge_preprocess(p) for p in split_summ(pred_)]
     gt_sum_sents = [rouge_preprocess(g) for g in split_summ(gt_)]
     pred = '\n'.join(pred_sum_sents)
@@ -115,19 +124,6 @@ def split_text_by_sth(text):
             return split_text_by_sep(text.strip(),sep)
     return text[:len(text)//2], text[len(text)//2:]
 
-def summ_short_scene(text):
-    return ' '.join(convert_script_to_prose(line) for line in text.split('\n') if line!='')
-
-def convert_script_to_prose(script_line):
-    if maybe_speaker_name:=re.match(r'\w+: ', script_line):
-        speaker_name = script_line[:maybe_speaker_name.span()[1]-2]
-        speech = script_line[maybe_speaker_name.span()[1]:]
-        return f'{speaker_name} said "{speech}"'
-    elif stage_direction := re.match(r'(?<=\[ )[A-Z -]+(?= \])', script_line):
-        return stage_direction
-    else:
-        return script_line
-
 def split_text_by_sep(text,sep):
     lines = text.split(sep)
     N = len(text.split())
@@ -144,6 +140,19 @@ def split_text_by_sep(text,sep):
     second_chunk = text[len(first_chunk):]
     assert first_chunk+second_chunk == text
     return first_chunk, second_chunk
+
+def summ_short_scene(text):
+    return ' '.join(convert_script_to_prose(line) for line in text.split('\n') if line!='')
+
+def convert_script_to_prose(script_line):
+    if maybe_speaker_name:=re.match(r'\w+: ', script_line):
+        speaker_name = script_line[:maybe_speaker_name.span()[1]-2]
+        speech = script_line[maybe_speaker_name.span()[1]:]
+        return f'{speaker_name} said "{speech}"'
+    elif stage_direction := re.match(r'(?<=\[ )[A-Z -]+(?= \])', script_line):
+        return stage_direction
+    else:
+        return script_line
 
 def prepare_for_pil(torch_im):
     assert isinstance(torch_im, torch.Tensor)

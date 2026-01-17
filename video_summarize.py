@@ -15,33 +15,27 @@ from dl_utils.misc import check_dir
 from deepface import DeepFace # stupidly, this needs to be imported before "from transformers import AutoProcessor"
 from caption_each_scene import Captioner
 from episode import get_char_names
-from scene_detection import SceneSegmenter
+from simplified_segment import SceneSegmenter
 from utils import get_all_testnames
 
 
 FFMPEG_PATH = imageio_ffmpeg.get_ffmpeg_exe()
 
 def segment_and_save(vidname_list):
-    scene_segmenter = SceneSegmenter()
-    for vn in vidname_list:
-        new_pt, new_timepoints = scene_segmenter.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split)
-        check_dir(kf_dir:=f'data/ffmpeg-keyframes-by-scene/{vn}')
-        np.save(f'{kf_dir}/keyframe-timepoints.npy', new_timepoints)
-        np.save(f'{kf_dir}/scene-split-timepoints.npy', new_pt)
-        check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene0')
-        for fn in os.listdir(cur_scene_dir):
-            os.remove(join(cur_scene_dir, fn))
-        next_scene_idx = 1
-        # move keyframes for each scene to their own dir
-        for i, kf in enumerate(natsorted(os.listdir(scene_segmenter.framesdir))):
-            if i in scene_segmenter.kf_scene_split_points:
-                check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene{next_scene_idx}')
-                for fn in os.listdir(cur_scene_dir):
-                    #print('removing',join(cur_scene_dir, fn))
-                    os.remove(join(cur_scene_dir, fn))
-                next_scene_idx += 1
-            if kf != 'frametimes.npy':
-                os.symlink(os.path.abspath(f'{scene_segmenter.framesdir}/{kf}'), os.path.abspath(f'{cur_scene_dir}/{kf}'))
+    check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene0')
+    for fn in os.listdir(cur_scene_dir):
+        os.remove(join(cur_scene_dir, fn))
+    next_scene_idx = 1
+    # move keyframes for each scene to their own dir
+    for i, kf in enumerate(natsorted(os.listdir(scene_segmenter.framesdir))):
+        if i in scene_segmenter.kf_scene_split_points:
+            check_dir(cur_scene_dir:=f'{kf_dir}/{vn}_scene{next_scene_idx}')
+            for fn in os.listdir(cur_scene_dir):
+                #print('removing',join(cur_scene_dir, fn))
+                os.remove(join(cur_scene_dir, fn))
+            next_scene_idx += 1
+        if kf != 'frametimes.npy':
+            os.symlink(os.path.abspath(f'{scene_segmenter.framesdir}/{kf}'), os.path.abspath(f'{cur_scene_dir}/{kf}'))
     torch.cuda.empty_cache()
 
 def segment_audio_transcript(vidname, recompute):
@@ -213,23 +207,25 @@ parser.add_argument('--recompute-face-extraction', action='store_true')
 parser.add_argument('--recompute-char-names', action='store_true')
 parser.add_argument('--recompute-segment-trans', action='store_true')
 parser.add_argument('--print-transcript', action='store_true')
-parser.add_argument('--vidname', type=str, default='oltl-10-18-10')
 parser.add_argument('--dbs', type=int, default=8)
 parser.add_argument('--n-dpoints', type=int, default=3)
 parser.add_argument('--bs', type=int, default=1)
 parser.add_argument('-t','--is_test', action='store_true')
-parser.add_argument('--vid-name', type=str, default='the-silence-of-the-lambs_1991')
+parser.add_argument('--vidname', type=str, default='the-silence-of-the-lambs_1991')
 parser.add_argument('--llm-name', type=str, default='llama3-tiny', choices=['llama3-tiny', 'llama3-8b', 'llama3-70b'])
 parser.add_argument('--summ-device', type=str, default='cuda', choices=['cuda', 'cpu'])
 ARGS = parser.parse_args()
 
-available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/full_videos/')]
-if ARGS.vid_name == 'all':
+available_with_vids = [x.removesuffix('.mp4') for x in os.listdir('data/full-videos/')]
+if ARGS.vidname == 'all':
     test_vidnames, _ = get_all_testnames()
 else:
-    test_vidnames = [ARGS.vid_name]
+    test_vidnames = [ARGS.vidname]
 
-segment_and_save(test_vidnames)
+#segment_and_save(test_vidnames)
+scene_segmenter = SceneSegmenter(dset_name='moviesumm', season_name=None, show_name=None, max_seg_size=300, pow_incr=1, use_avg_sig=False, kf_every=2, use_log_dist_cost=False)
+for vn in test_vidnames:
+    new_pt, new_timepoints = scene_segmenter.scene_segment(vn, recompute_keyframes=ARGS.recompute_keyframes, recompute_feats=ARGS.recompute_frame_features, recompute_best_split=ARGS.recompute_best_split, bs=4, uniform_kfs=False)
 torch.cuda.empty_cache()
 torch.cuda.empty_cache()
 for vn in test_vidnames:

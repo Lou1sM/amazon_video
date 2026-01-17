@@ -6,14 +6,14 @@ from UniEval.utils import convert_to_json
 from UniEval.metric.evaluator import get_evaluator
 import pandas as pd
 import json
-from PREFS.factscorer import FactScorer
+from PRISMA.factscorer import FactScorer
 from dl_utils.misc import check_dir
 from utils import rouge_from_multiple_refs, get_all_testnames, is_prisma_wellformed, postfilter
 from os.path import join
 import argparse
 from episode import episode_from_name
 import os
-from PREFS.atomic_facts import AtomicFactGenerator
+from PRISMA.atomic_facts import AtomicFactGenerator
 from tqdm import tqdm
 from summac.model_summac import SummaCConv
 
@@ -265,11 +265,11 @@ if __name__ == '__main__':
                 while True:
                     try:
                         gt_summ = gt_match['summary']
-                        data = convert_to_json(output_list=[unie_pred_summ], src_list=[gt_script], ref_list=[gt_summ])
+                        data = convert_to_json(output_list=['. '.join(set(unie_pred_summ.split('. ')))], src_list=[gt_script], ref_list=[gt_summ])
                         eval_scores = unievaluator.evaluate(data, print_result=ARGS.print_unieval)[0]
                         break
                     except torch.OutOfMemoryError:
-                        gt_script = gt_script[:int(len(gt_script)*9/20)] + gt_script[-int(len(gt_script)*9/20):]
+                        gt_script = gt_script[:int(len(gt_script)*7/20)] + gt_script[-int(len(gt_script)*7/20):]
                         breakpoint()
                         torch.cuda.empty_cache()
                         print(f'OOM for {vn} unieval, trying again with script len {len(gt_script)}')

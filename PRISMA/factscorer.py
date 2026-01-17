@@ -4,7 +4,7 @@ import json
 import numpy as np
 import os
 
-from PREFS.openai_lm import OpenAIModel
+from PRISMA.openai_lm import OpenAIModel
 from nltk.corpus import names
 
 english_names = names.words('male.txt') + names.words('female.txt')
@@ -14,7 +14,7 @@ class FactScorer(object):
     def __init__(self, model_name, cache_dir_prefix):
         self.model_name = model_name
 
-        self.openai_key = 'PREFS/api.key'
+        self.openai_key = 'PRISMA/api.key'
         self.cache_dir_prefix = cache_dir_prefix
         if not os.path.exists(cache_dir_prefix):
             os.makedirs(cache_dir_prefix)
@@ -44,7 +44,7 @@ class FactScorer(object):
             prompt = f'{definition}\n\nInput: {atom.strip()} True or False?\nOutput:'
 
             maybe_names = [w for w in atom.rstrip('.').split() if w in english_names]
-            bad_substrings = ['airs on', 'season finale', 'click', 'samaritans', '.com', 'has a character', 'is a character', 'was a character', 'the movie ends', 'the movie has an ending', 'there is an ending', 'the movie begins', 'the movie has an beginning', 'there is an beginning', 'the movie opens', 'the movie has an opening', 'there is an opening', 'the movie starts', 'the movie has an start', 'there is an start', 'involved', 'is referred to', 'summary']
+            bad_substrings = ['airs on', 'season finale', 'click', 'samaritans', '.com', 'has a character', 'is a character', 'was a character', 'the movie ends', 'the movie has an ending', 'there is an ending', 'the movie begins', 'the movie has an beginning', 'there is an beginning', 'the movie opens', 'the movie has an opening', 'there is an opening', 'the movie starts', 'the movie has an start', 'there is an start', 'involved', 'is referred to', 'summary', 'review']
             if atom == 'The problem is':
                 breakpoint()
             if not all(n in definition for n in maybe_names):

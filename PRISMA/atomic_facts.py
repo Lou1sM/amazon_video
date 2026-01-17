@@ -6,7 +6,7 @@ import string
 import spacy
 import nltk
 import openai
-from PREFS.openai_lm import OpenAIModel
+from PRISMA.openai_lm import OpenAIModel
 from rank_bm25 import BM25Okapi
 import os
 from nltk.tokenize import sent_tokenize
@@ -24,7 +24,7 @@ class AtomicFactGenerator(object):
             os.system(
                 "python -m spacy download en")
             self.nlp = spacy.load("en_core_web_sm")
-        self.demo_path = 'PREFS/demos/demos_complex.json'
+        self.demo_path = 'PRISMA/demos/demos_complex.json'
         self.oailm = OpenAIModel()
 
         with open(self.demo_path, 'r') as f:
@@ -33,7 +33,7 @@ class AtomicFactGenerator(object):
         tokenized_corpus = [doc.split(" ") for doc in self.demos.keys()]
         self.bm25 = BM25Okapi(tokenized_corpus)
 
-        self.sent_cache_fp = 'PREFS/sent2facts_cache.json'
+        self.sent_cache_fp = 'PRISMA/sent2facts_cache.json'
         if os.path.exists(self.sent_cache_fp):
             with open(self.sent_cache_fp) as f:
                 self.sent_cache = json.load(f)
