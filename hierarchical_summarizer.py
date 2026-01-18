@@ -249,7 +249,6 @@ class HierarchicalSummarizer():
             min_chunk_len = int((self.desired_summ_len-ARGS.min_minus)*4/3)
             #min_chunk_len = 80
             max_chunk_len = min_chunk_len + 60
-        #summarize_prompt = f'Here is a sequence of summaries of each scene of the movie {titleify(vidname)}. {concatted_scene_summs}\nCombine them into a plot synopsis of no more than {max_chunk_len} words. Do not write the summary in progressive aspect, i.e., don\'t use -ing verbs or "is being". Be sure to include information from all scenes, especially those at the end, don\'t focus too much on the early scene. Discuss only plot events, no analysis or discussion of themes and characters.'
         if ARGS.short_prompt or ARGS.hierarchical_summ_abl:
             summarize_prompt = f'Summarize these scenes: {concatted_scene_summs}\n'
         elif ARGS.mask_name:
@@ -484,7 +483,7 @@ if __name__ == '__main__':
     #openai.api_key = "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"
     parser = argparse.ArgumentParser()
     parser.add_argument('--bs', type=int, default=1)
-    parser.add_argument('--caps', type=str, choices=['swinbert','kosmos','nocaptions', 'lava'],default='nocaptions')
+    parser.add_argument('--caps', type=str, choices=['llava', 'swinbert','kosmos','nocaptions'],default='llava')
     parser.add_argument('--db-scene-summs', action='store_true')
     parser.add_argument('--db-summs', action='store_true')
     parser.add_argument('--dbs', type=int, default=8)
@@ -555,7 +554,7 @@ if __name__ == '__main__':
                 n_dbeams=ARGS.n_beams,
                 n_beams=ARGS.n_dbeams,
                 dbs=ARGS.dbs,
-                caps='kosmos',
+                caps=ARGS.caps,
                 scene_order='identity',
                 breaks=ARGS.breaks,
                 startendscenes=False,

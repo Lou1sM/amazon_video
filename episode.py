@@ -8,17 +8,17 @@ from dl_utils.label_funcs import accuracy
 
 
 def episode_from_name(epname, infer_splits=False):
-    with open(f'data/transcripts/{epname}.json') as f:
+    with open(f'/mnt/hrs/transcripts/{epname}.json') as f:
         transcript_data = json.load(f)
     tdata = transcript_data['Transcript']
     if tdata[0].count(':') > 1 and len(tdata)<150:
         print(f'Seems transcript stored as scene list instead of line list for {epname}, fixing')
         transcript_data['Transcript'] = '\n'.join(tdata).split('\n')
-        with open(f'data/transcripts/{epname}.json','w') as f:
+        with open(f'/mnt/hrs/transcripts/{epname}.json','w') as f:
             json.dump(transcript_data,f)
     # same ref summmary for auto version
     #summary_fpath = f'data/summaries/{epname.removesuffix("-auto")}.json'
-    summary_fpath = f'data/summaries/{epname}.json'
+    summary_fpath = f'/mnt/hrs/summaries/{epname}.json'
     if os.path.exists(summary_fpath):
         with open(summary_fpath) as f:
             summary_data = json.load(f)
@@ -42,7 +42,7 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
             self.summary_data_dict = summary_data
 
         if infer:
-            if os.path.exists(maybe_cached_infer_path:=f'data/transcripts/{epname}-inferred-scene-breaks.json'):
+            if os.path.exists(maybe_cached_infer_path:=f'/mnt/hrs/transcripts/{epname}-inferred-scene-breaks.json'):
                 print(f'loading cached inferred splits from {maybe_cached_infer_path}')
                 with open(maybe_cached_infer_path) as f:
                     self.scenes = f.readlines()
@@ -57,7 +57,7 @@ class Episode(): # Nelly stored transcripts and summaries as separate jsons
             if not had_markers:
                 with_explicit_breaks = '£££[SCENE_BREAK]£££'.join(self.scenes).split('£££')
                 assert split_by_marker(with_explicit_breaks,'\n[SCENE_BREAK]')[0]==self.scenes
-                with open(f'data/transcripts/{epname}.json','w') as f:
+                with open(f'/mnt/hrs/transcripts/{epname}.json','w') as f:
                     json.dump(dict(transcript_data, Transcript=with_explicit_breaks),f)
 
     def transcript_from_scenes(self):

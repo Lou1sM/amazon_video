@@ -3,7 +3,7 @@ import pandas as pd
 import warnings
 from natsort import natsorted
 warnings.filterwarnings('ignore')
-from dl_utils.misc import check_dir
+#from dl_utils.misc import check_dir
 import numpy as np
 from tqdm import tqdm
 from time import time
@@ -185,7 +185,7 @@ def filter_single_caption(scene_cap, scene_transcript):
     boring_list = ['a commercial','talking','is shown','sitting on a chair','sitting on a couch', 'sitting in a chair', 'walking around','announcer']
     if any(x in scene_cap for x in boring_list):
         return ''
-    appearing_chars = set([x.split(':')[0] for x in scene_transcript.split('\n') if not x.startswith('[') and len(x) > 0 and not x.startswith('Announcer')])
+    appearing_chars = set([x.split(':')[0] for x in scene_transcript if not x.startswith('[') and len(x) > 0 and not x.startswith('Announcer')])
 
     cap = scene_cap.lower()
     cap = cap.replace('is seen','is').replace('are seen','are')
